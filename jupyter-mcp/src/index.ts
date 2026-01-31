@@ -3,9 +3,20 @@
 /**
  * jupyter-mcp: MCP server for Jupyter notebook operations
  *
- * This is the entry point for the MCP server.
- * Full implementation will be added in subsequent tasks.
+ * Entry point for the MCP server.
  */
 
-console.error("jupyter-mcp server starting...");
-console.error("Server initialization placeholder - full implementation in task 1.2.2+");
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createServer } from "./server.js";
+
+async function main() {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("jupyter-mcp server running on stdio");
+}
+
+main().catch((error) => {
+  console.error("Fatal error:", error);
+  process.exit(1);
+});
