@@ -21,6 +21,15 @@
 - アクティブなセッション一覧を取得できる
 - 各セッションの状態（idle/busy）を確認できる
 
+#### F1.4: 既存セッションへの接続
+- 既存のノートブックに紐づくセッション一覧を取得できる
+- 指定したセッション/カーネルに接続できる
+- ブラウザのJupyterLabと同じカーネルを共有できる
+
+#### F1.5: ノートブック指定でのセッション作成
+- ノートブックパスを指定してセッションを作成できる
+- ユーザーが後からそのノートブックを開くと同じカーネルを使用する
+
 ### F2: コード実行
 
 #### F2.1: コード実行（同期）
@@ -113,6 +122,10 @@
       name: {
         type: "string",
         description: "セッション名（オプション）"
+      },
+      notebook_path: {
+        type: "string",
+        description: "関連付けるノートブックのパス。指定するとユーザーがそのノートブックを開いたときに同じカーネルを共有できる"
       }
     }
   }
@@ -141,6 +154,49 @@
     type: "object",
     properties: {}
   }
+}
+```
+
+### session_connect
+
+既存のセッションに接続する。ブラウザで開いているノートブックと同じカーネルを使用できる。
+
+```typescript
+{
+  name: "session_connect",
+  description: "既存のセッションに接続します。ブラウザで開いているノートブックと同じカーネルを使用できます。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "接続するノートブックのパス"
+      },
+      kernel_id: {
+        type: "string",
+        description: "接続するカーネルID（notebook_pathの代わりに指定可能）"
+      }
+    }
+  }
+}
+```
+
+**戻り値:**
+```json
+{
+  "session_id": "abc123",
+  "kernel_id": "kernel-xyz",
+  "notebook_path": "Untitled.ipynb",
+  "status": "idle",
+  "connected": true
+}
+```
+
+**エラー時（セッションが見つからない場合）:**
+```json
+{
+  "error": "session_not_found",
+  "message": "指定されたノートブックに関連するセッションが見つかりません"
 }
 ```
 
@@ -612,6 +668,11 @@ npm run build && npm start
 ### AC6: MCPプロトコル
 - [ ] MCP Inspector で全ツールが表示される
 - [ ] Claude Desktop から接続して操作できる
+
+### AC7: カーネル共有
+- [ ] ブラウザでノートブックを開き、session_connectで接続すると同じ変数空間を共有できる
+- [ ] session_create(notebook_path=...)で作成したセッションに、ブラウザから接続できる
+- [ ] 共有セッションでAIがコードを実行すると、ブラウザ側のノートブックに反映される
 
 ## 依存関係
 

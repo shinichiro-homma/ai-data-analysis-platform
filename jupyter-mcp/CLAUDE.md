@@ -77,6 +77,7 @@ npm run typecheck
 |--------|------|
 | `session_create` | セッション作成 |
 | `session_list` | セッション一覧 |
+| `session_connect` | 既存セッションに接続 |
 | `session_delete` | セッション終了 |
 | `execute_code` | コード実行 |
 | `get_variables` | 変数一覧 |
