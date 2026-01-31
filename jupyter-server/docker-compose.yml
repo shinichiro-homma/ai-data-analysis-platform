@@ -1,0 +1,18 @@
+services:
+  jupyter-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jupyter-server
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - KERNEL_TIMEOUT=1800
+      - EXECUTION_TIMEOUT=30
+      - MAX_OUTPUT_SIZE=1048576
+    volumes:
+      - ./data:/home/jovyan/data
+      - ./output:/home/jovyan/output
+      - ./work:/home/jovyan/work
+    restart: unless-stopped

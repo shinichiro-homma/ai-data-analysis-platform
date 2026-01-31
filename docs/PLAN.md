@@ -25,7 +25,7 @@
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
 | 1.1.1 | Dockerfile 作成 | [x] | - | ベースイメージ: jupyter/scipy-notebook |
-| 1.1.2 | docker-compose.yml 作成 | [ ] | - | |
+| 1.1.2 | docker-compose.yml 作成 | [x] | - | |
 | 1.1.3 | jupyter_server_config.py 作成 | [ ] | - | トークン認証、CORS設定 |
 | 1.1.4 | requirements.txt 作成 | [ ] | - | pandas, matplotlib等 |
 | 1.1.5 | ヘルスチェックスクリプト作成 | [ ] | - | |
