@@ -1,0 +1,93 @@
+タスク「$ARGUMENTS」の開発計画を作成します。
+
+以下の手順で作業してください：
+
+## 1. タスクの確認
+
+docs/PLAN.md を開き、タスク $ARGUMENTS を見つけてください。
+タスク番号と内容を確認してください。
+
+## 2. 関連ドキュメントの確認
+
+タスクに関連する以下のドキュメントを読んでください：
+
+| コンポーネント | 確認するドキュメント |
+|---------------|---------------------|
+| jupyter-server | `docs/requirements/jupyter-server.md`, `docs/design/api-contracts.md` |
+| jupyter-mcp | `docs/requirements/jupyter-mcp.md`, `docs/design/api-contracts.md` |
+| document-server | `docs/requirements/document-server.md`, `docs/design/api-contracts.md` |
+| document-mcp | `docs/requirements/document-mcp.md`, `docs/design/api-contracts.md` |
+
+要件定義の該当セクション、API仕様の該当エンドポイントを特定してください。
+
+## 3. 関連 Skill の確認
+
+タスクの内容に応じて、以下の Skill を読んでください：
+
+| タスク内容 | 参照する Skill |
+|-----------|---------------|
+| MCP サーバー実装（jupyter-mcp, document-mcp） | `.claude/skills/mcp-typescript-server/SKILL.md` |
+
+**Skill がある場合は必ず読んでから計画を作成してください。**
+
+## 3. タスク詳細ファイルの作成
+
+`docs/tasks/_template.md` をベースに、タスク詳細ファイルを作成してください。
+
+**ファイル名:** `docs/tasks/{タスク番号}-{タスク名}.md`
+
+例: `docs/tasks/1.1.1-dockerfile.md`
+
+**記載内容:**
+
+### 概要
+- このタスクで何を実現するか
+- なぜこのタスクが必要か
+
+### 関連ドキュメント
+- 参照した要件定義の具体的なセクション
+- 参照したAPI仕様の具体的なセクション
+
+### 実装計画
+- 作成するファイル一覧
+- 実装手順（ステップバイステップ）
+- 使用するライブラリ・ツール
+
+### 技術的な考慮事項
+- 設計判断とその理由
+- 注意すべき点
+- 代替案があれば比較
+
+### 完了条件
+- 具体的で検証可能な条件
+- チェックリスト形式
+
+### テスト計画
+- どのようにテストするか
+- テストケース
+
+## 4. レビュー依頼
+
+タスク詳細ファイルを作成したら、以下の形式で報告してください：
+
+```
+## タスク計画作成完了
+
+タスク: $ARGUMENTS
+
+詳細ファイル: docs/tasks/{ファイル名}.md
+
+### 概要
+（概要を簡潔に）
+
+### 実装計画
+（主要な実装内容）
+
+### 確認事項
+（レビューで確認してほしい点）
+
+---
+この計画でよろしければ、`/custom-start-task $ARGUMENTS` で実装を開始できます。
+```
+
+**注意:** 計画の承認を得るまで、実装は開始しないでください。
