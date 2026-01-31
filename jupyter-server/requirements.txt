@@ -1,3 +1,21 @@
 # Additional Python packages for AI Data Analysis Platform
-# Base packages (pandas, numpy, matplotlib, scipy) are included in jupyter/scipy-notebook
-# This file will be populated in task 1.1.4
+# Base packages (pandas, numpy, matplotlib, scipy, seaborn, scikit-learn, sqlalchemy)
+# are included in jupyter/scipy-notebook
+
+# 可視化（追加分）
+plotly==6.5.2
+japanize-matplotlib==1.1.3
+
+# データ処理（追加分）
+polars==1.37.1
+
+# 機械学習（追加分）
+lightgbm==4.6.0
+xgboost==3.1.3
+
+# データベース接続（追加分）
+psycopg2-binary==2.9.11
+pymysql==1.1.2
+
+# ユーティリティ
+python-dotenv==1.2.1
