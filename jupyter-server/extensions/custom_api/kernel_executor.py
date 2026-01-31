@@ -6,6 +6,7 @@ Jupyter カーネルとの通信を管理し、コード実行と変数取得を
 
 import asyncio
 import base64
+import json
 from typing import Any, Optional
 
 from jupyter_client import AsyncKernelClient
@@ -18,6 +19,16 @@ class KernelExecutor:
     def __init__(self, kernel_id: str, kernel_manager):
         self.kernel_id = kernel_id
         self.kernel_manager = kernel_manager
+
+    def _parse_json_output(self, outputs: list) -> Optional[Any]:
+        """標準出力からJSON結果をパースする共通処理"""
+        for output in outputs:
+            if output.get("type") == "stdout":
+                try:
+                    return json.loads(output["text"].strip())
+                except (json.JSONDecodeError, KeyError):
+                    pass
+        return None
 
     async def _get_client(self) -> AsyncKernelClient:
         """カーネルクライアントを取得"""
@@ -170,13 +181,9 @@ del _get_variable_info
 '''
         result = await self.execute(code, timeout=10)
         if result["success"] and result["outputs"]:
-            for output in result["outputs"]:
-                if output["type"] == "stdout":
-                    try:
-                        import json
-                        return json.loads(output["text"].strip())
-                    except (json.JSONDecodeError, KeyError):
-                        pass
+            parsed = self._parse_json_output(result["outputs"])
+            if parsed is not None:
+                return parsed
         return []
 
     async def get_variable(self, name: str) -> Optional[dict]:
@@ -242,12 +249,5 @@ del _get_variable_detail
 '''
         result = await self.execute(code, timeout=10)
         if result["success"] and result["outputs"]:
-            for output in result["outputs"]:
-                if output["type"] == "stdout":
-                    try:
-                        import json
-                        data = json.loads(output["text"].strip())
-                        return data
-                    except (json.JSONDecodeError, KeyError):
-                        pass
+            return self._parse_json_output(result["outputs"])
         return None

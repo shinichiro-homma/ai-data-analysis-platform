@@ -8,6 +8,7 @@ import json
 import time
 import traceback
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 from jupyter_server.base.handlers import APIHandler
@@ -24,6 +25,39 @@ def make_response(data: Any) -> dict:
 def make_error(code: str, message: str) -> dict:
     """エラーレスポンスを生成"""
     return {"error": {"code": code, "message": message}}
+
+
+def validate_path(user_input: str, base_dir: str = "/home/jovyan/work") -> str:
+    """
+    パストラバーサル攻撃を防ぐためのパス検証
+
+    Args:
+        user_input: ユーザーからの入力パス
+        base_dir: ベースディレクトリ
+
+    Returns:
+        検証済みの相対パス
+
+    Raises:
+        ValueError: 不正なパスの場合
+    """
+    if not user_input:
+        return ""
+
+    # 先頭の / を削除（相対パスとして扱う）
+    clean_path = user_input.lstrip("/")
+
+    # 絶対パス化して検証
+    base = Path(base_dir).resolve()
+    target = (base / clean_path).resolve()
+
+    # ベースディレクトリ配下にあることを確認
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise ValueError(f"不正なパスです: {user_input}")
+
+    return clean_path
 
 
 class BaseCustomHandler(APIHandler):
@@ -49,6 +83,13 @@ class BaseCustomHandler(APIHandler):
             return json.loads(self.request.body.decode("utf-8")) if self.request.body else {}
         except json.JSONDecodeError:
             return {}
+
+    def check_kernel_exists(self, kernel_id: str) -> bool:
+        """カーネルの存在確認"""
+        if kernel_id not in self.kernel_manager:
+            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+            return False
+        return True
 
     @property
     def kernel_manager(self):
@@ -127,8 +168,7 @@ class KernelHandler(BaseCustomHandler):
     @web.authenticated
     async def get(self, kernel_id: str):
         """カーネルの状態を取得"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         kernel = self.kernel_manager.get_kernel(kernel_id)
@@ -146,8 +186,7 @@ class KernelHandler(BaseCustomHandler):
     @web.authenticated
     async def delete(self, kernel_id: str):
         """カーネルを停止"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         await self.kernel_manager.shutdown_kernel(kernel_id)
@@ -163,8 +202,7 @@ class KernelInterruptHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, kernel_id: str):
         """実行中のコードを中断"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         await self.kernel_manager.interrupt_kernel(kernel_id)
@@ -181,8 +219,7 @@ class KernelRestartHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, kernel_id: str):
         """カーネルを再起動"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         await self.kernel_manager.restart_kernel(kernel_id)
@@ -203,8 +240,7 @@ class KernelExecuteHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, kernel_id: str):
         """コードを実行"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         body = self.get_json_body()
@@ -260,8 +296,7 @@ class KernelVariablesHandler(BaseCustomHandler):
     @web.authenticated
     async def get(self, kernel_id: str):
         """変数一覧を取得"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         executor = KernelExecutor(kernel_id, self.kernel_manager)
@@ -278,8 +313,7 @@ class KernelVariableHandler(BaseCustomHandler):
     @web.authenticated
     async def get(self, kernel_id: str, name: str):
         """変数の詳細を取得"""
-        if kernel_id not in self.kernel_manager:
-            self.write_error_response("KERNEL_NOT_FOUND", f"Kernel not found: {kernel_id}", 404)
+        if not self.check_kernel_exists(kernel_id):
             return
 
         executor = KernelExecutor(kernel_id, self.kernel_manager)
@@ -299,16 +333,16 @@ class KernelVariableHandler(BaseCustomHandler):
 
 
 class ContentsListHandler(BaseCustomHandler):
-    """GET /api/contents"""
+    """GET/POST /api/contents"""
 
     @web.authenticated
     def get(self):
         """ファイル一覧を取得"""
         path = self.get_argument("path", "/")
-        if path.startswith("/"):
-            path = path[1:]
 
         try:
+            # パストラバーサル対策
+            path = validate_path(path)
             model = self.contents_manager.get(path, content=True)
             contents = []
             if model["type"] == "directory":
@@ -326,6 +360,40 @@ class ContentsListHandler(BaseCustomHandler):
         except Exception as e:
             self.write_error_response("INTERNAL_ERROR", str(e), 500)
 
+    @web.authenticated
+    async def post(self):
+        """ノートブックまたはファイルを作成"""
+        body = self.get_json_body()
+        content_type = body.get("type", "notebook")
+        target_path = body.get("path", "")
+
+        try:
+            # パストラバーサル対策
+            target_path = validate_path(target_path)
+            if content_type == "notebook":
+                model = await self.contents_manager.new(
+                    path=target_path,
+                    model={
+                        "type": "notebook",
+                        "content": {
+                            "cells": [],
+                            "metadata": {},
+                            "nbformat": 4,
+                            "nbformat_minor": 5,
+                        }
+                    },
+                )
+            else:
+                model = await self.contents_manager.new(path=target_path)
+
+            self.write_success({
+                "path": "/" + model["path"],
+                "type": model["type"],
+                "created_at": model.get("created") or model.get("last_modified"),
+            })
+        except Exception as e:
+            self.write_error_response("INTERNAL_ERROR", str(e), 500)
+
 
 class ContentsHandler(BaseCustomHandler):
     """GET/POST/PUT /api/contents/{path}"""
@@ -334,6 +402,8 @@ class ContentsHandler(BaseCustomHandler):
     def get(self, path: str):
         """ファイルまたはノートブックの内容を取得"""
         try:
+            # パストラバーサル対策
+            path = validate_path(path)
             model = self.contents_manager.get(path, content=True)
             if model["type"] == "notebook":
                 self.write_success({
@@ -360,10 +430,10 @@ class ContentsHandler(BaseCustomHandler):
         body = self.get_json_body()
         content_type = body.get("type", "notebook")
         target_path = body.get("path", path)
-        if target_path.startswith("/"):
-            target_path = target_path[1:]
 
         try:
+            # パストラバーサル対策
+            target_path = validate_path(target_path)
             if content_type == "notebook":
                 model = self.contents_manager.new(
                     path=target_path,
@@ -387,6 +457,8 @@ class ContentsHandler(BaseCustomHandler):
         content = body.get("content")
 
         try:
+            # パストラバーサル対策
+            path = validate_path(path)
             model = self.contents_manager.get(path, content=False)
             model["content"] = content
             self.contents_manager.save(model, path)
@@ -409,6 +481,8 @@ class ContentsCellsHandler(BaseCustomHandler):
         index = body.get("index")
 
         try:
+            # パストラバーサル対策
+            path = validate_path(path)
             model = self.contents_manager.get(path, content=True)
             if model["type"] != "notebook":
                 self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)

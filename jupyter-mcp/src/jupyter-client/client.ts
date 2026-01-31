@@ -127,13 +127,14 @@ export class JupyterClient {
   // ===========================================================================
 
   async executeCode(kernelId: string, request: ExecuteRequest): Promise<ExecuteResult> {
-    const timeout = request.timeout ? request.timeout * 1000 + 5000 : undefined;
+    // タイムアウト: リクエストのタイムアウト + 通信余裕時間（5秒）
+    const requestTimeoutMs = request.timeout ? request.timeout * 1000 + 5000 : undefined;
     const response = await this.request<ApiResponse<ExecuteResult>>(
       'POST',
       `/api/kernels/${kernelId}/execute`,
       request,
       { kernelId },
-      timeout
+      requestTimeoutMs
     );
     return response.data;
   }
@@ -167,10 +168,10 @@ export class JupyterClient {
   // ===========================================================================
 
   async listContents(path = '/'): Promise<ContentsListResponse> {
-    const queryPath = path === '/' ? '' : `?path=${encodeURIComponent(path)}`;
+    const queryString = path === '/' ? '' : `?path=${encodeURIComponent(path)}`;
     const response = await this.request<ApiResponse<ContentsListResponse>>(
       'GET',
-      `/api/contents${queryPath}`
+      `/api/contents${queryString}`
     );
     return response.data;
   }
@@ -244,61 +245,65 @@ export class JupyterClient {
     error: unknown,
     context?: { kernelId?: string; path?: string; index?: number }
   ): JupyterClientError {
-    if (error instanceof AxiosError) {
-      // 接続エラー
-      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        return new ConnectionError(
-          `jupyter-server (${this.baseUrl}) への接続に失敗しました: ${error.message}`
-        );
-      }
-
-      // タイムアウト
-      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-        return new ConnectionError('リクエストがタイムアウトしました');
-      }
-
-      // HTTP エラーレスポンス
-      if (error.response) {
-        const statusCode = error.response.status;
-        const data = error.response.data as ApiError | undefined;
-
-        // 401 Unauthorized
-        if (statusCode === 401) {
-          return new UnauthorizedError();
-        }
-
-        // APIエラーレスポンス形式の場合
-        if (data?.error) {
-          return createErrorFromResponse(
-            statusCode,
-            data.error.code,
-            data.error.message,
-            context
-          );
-        }
-
-        // 404 でコンテキストがある場合
-        if (statusCode === 404) {
-          if (context?.kernelId) {
-            return new KernelNotFoundError(context.kernelId);
-          }
-          if (context?.path) {
-            return new NotebookNotFoundError(context.path);
-          }
-        }
-
-        // その他のHTTPエラー
-        return new JupyterClientError(
-          `HTTP エラー: ${statusCode}`,
-          'HTTP_ERROR',
-          statusCode
-        );
-      }
+    if (!(error instanceof AxiosError)) {
+      // 予期しないエラー
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return new JupyterClientError(errorMessage, 'INTERNAL_ERROR', 500);
     }
 
-    // 予期しないエラー
-    const message = error instanceof Error ? error.message : String(error);
-    return new JupyterClientError(message, 'INTERNAL_ERROR', 500);
+    // 接続エラー
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      return new ConnectionError(
+        `jupyter-server (${this.baseUrl}) への接続に失敗しました: ${error.message}`
+      );
+    }
+
+    // タイムアウト
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return new ConnectionError('リクエストがタイムアウトしました');
+    }
+
+    // HTTP エラーレスポンス
+    if (error.response) {
+      const statusCode = error.response.status;
+      const responseData = error.response.data as ApiError | undefined;
+
+      // 401 Unauthorized
+      if (statusCode === 401) {
+        return new UnauthorizedError();
+      }
+
+      // APIエラーレスポンス形式の場合
+      if (responseData?.error) {
+        return createErrorFromResponse(
+          statusCode,
+          responseData.error.code,
+          responseData.error.message,
+          context
+        );
+      }
+
+      // 404 でコンテキストがある場合
+      if (statusCode === 404) {
+        if (context?.kernelId) {
+          return new KernelNotFoundError(context.kernelId);
+        }
+        if (context?.path) {
+          return new NotebookNotFoundError(context.path);
+        }
+      }
+
+      // その他のHTTPエラー
+      return new JupyterClientError(
+        `HTTP エラー: ${statusCode}`,
+        'HTTP_ERROR',
+        statusCode
+      );
+    }
+
+    // レスポンスなしのエラー
+    const errorMessage = error.message || String(error);
+    return new JupyterClientError(errorMessage, 'INTERNAL_ERROR', 500);
   }
 }
 
