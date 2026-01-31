@@ -35,7 +35,7 @@
 
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
-| 1.2.1 | package.json, tsconfig.json 作成 | [ ] | - | |
+| 1.2.1 | package.json, tsconfig.json 作成 | [x] | - | |
 | 1.2.2 | jupyter-client 実装 | [ ] | jupyter-server APIと疎通確認 | REST APIクライアント基盤 |
 
 ---
