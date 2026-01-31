@@ -28,8 +28,8 @@
 | 1.1.2 | docker-compose.yml 作成 | [x] | - | |
 | 1.1.3 | jupyter_server_config.py 作成 | [x] | - | トークン認証、CORS設定 |
 | 1.1.4 | requirements.txt 作成 | [x] | - | pandas, matplotlib等 |
-| 1.1.5 | ヘルスチェックスクリプト作成 | [ ] | - | |
-| 1.1.6 | 動作確認 | [ ] | `docker-compose up` でJupyterLabにアクセス可能 | |
+| 1.1.5 | ヘルスチェックスクリプト作成 | [x] | - | |
+| 1.1.6 | 動作確認 | [x] | `docker-compose up` でJupyterLabにアクセス可能 | |
 
 ### 1.2 jupyter-mcp プロジェクト初期化
 

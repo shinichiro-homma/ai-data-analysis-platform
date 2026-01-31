@@ -17,9 +17,15 @@ USER jovyan
 # 設定ファイルの配置
 COPY jupyter_config/jupyter_server_config.py /home/jovyan/.jupyter/
 
-# ヘルスチェックスクリプトの配置（タスク1.1.5で作成後にコメント解除）
-# COPY scripts/healthcheck.sh /usr/local/bin/
-# RUN chmod +x /usr/local/bin/healthcheck.sh
+# ヘルスチェックスクリプトの配置
+USER root
+COPY scripts/healthcheck.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/healthcheck.sh
+USER jovyan
+
+# ヘルスチェック設定
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+  CMD ["/usr/local/bin/healthcheck.sh"]
 
 # ポート公開
 EXPOSE 8888
