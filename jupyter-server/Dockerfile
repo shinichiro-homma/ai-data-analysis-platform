@@ -14,6 +14,9 @@ RUN mkdir -p /home/jovyan/data /home/jovyan/output && \
     chown -R jovyan:users /home/jovyan/data /home/jovyan/output
 USER jovyan
 
+# カスタム拡張機能の配置
+COPY extensions/custom_api /home/jovyan/extensions/custom_api
+
 # 設定ファイルの配置
 COPY jupyter_config/jupyter_server_config.py /home/jovyan/.jupyter/
 
