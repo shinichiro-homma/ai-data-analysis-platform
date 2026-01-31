@@ -14,8 +14,8 @@ RUN mkdir -p /home/jovyan/data /home/jovyan/output && \
     chown -R jovyan:users /home/jovyan/data /home/jovyan/output
 USER jovyan
 
-# 設定ファイルの配置（タスク1.1.3で作成後にコメント解除）
-# COPY jupyter_config/jupyter_server_config.py /home/jovyan/.jupyter/
+# 設定ファイルの配置
+COPY jupyter_config/jupyter_server_config.py /home/jovyan/.jupyter/
 
 # ヘルスチェックスクリプトの配置（タスク1.1.5で作成後にコメント解除）
 # COPY scripts/healthcheck.sh /usr/local/bin/
