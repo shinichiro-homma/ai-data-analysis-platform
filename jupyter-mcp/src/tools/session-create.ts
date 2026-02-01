@@ -59,20 +59,29 @@ export async function executeSessionCreate(
       );
     }
 
-    // notebook_path パラメータの警告（タスク 3.6 で実装予定）
-    console.warn(
-      `[session_create] notebook_path パラメータは現在未実装です（タスク 3.6 で対応予定）: ${notebook_path}`
-    );
   }
 
   try {
-    // カーネルを作成
-    const kernel = await jupyterClient.createKernel(name);
+    if (notebook_path !== undefined && notebook_path !== '') {
+      // notebook_path が指定された場合: セッション（ノートブック+カーネル）を作成
+      const session = await jupyterClient.createSession(notebook_path, name);
 
-    // セッション形式に変換（kernel_name は不要なので false を指定）
-    const sessionInfo = kernelToSessionInfo(kernel, false);
+      return createSuccessResponse({
+        session_id: session.id,
+        kernel_id: session.kernel.id,
+        notebook_path: session.path,
+        status: session.kernel.execution_state,
+        created_at: session.kernel.last_activity,
+      });
+    } else {
+      // notebook_path が指定されない場合: カーネルのみ作成（既存動作）
+      const kernel = await jupyterClient.createKernel(name);
 
-    return createSuccessResponse({ ...sessionInfo });
+      // セッション形式に変換（kernel_name は不要なので false を指定）
+      const sessionInfo = kernelToSessionInfo(kernel, false);
+
+      return createSuccessResponse({ ...sessionInfo });
+    }
   } catch (error) {
     return createErrorResponse(
       extractErrorMessage(error),

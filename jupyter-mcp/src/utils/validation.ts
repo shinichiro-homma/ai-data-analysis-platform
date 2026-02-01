@@ -38,7 +38,8 @@ export function validateStringParameter(
   }
 
   // 値が存在しない場合（かつ必須でない場合）は OK
-  if (!value) {
+  // ただし、空文字列は次のチェックで検証する
+  if (value === null || value === undefined) {
     return { isValid: true };
   }
 

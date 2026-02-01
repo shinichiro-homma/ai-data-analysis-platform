@@ -44,6 +44,16 @@ export interface JupyterSession {
   };
 }
 
+// セッション作成リクエスト
+export interface CreateSessionRequest {
+  name: string;        // ノートブック名
+  path: string;        // ノートブックパス
+  type: 'notebook';
+  kernel: {
+    name: string;      // カーネル名（例: "python3"）
+  };
+}
+
 // =============================================================================
 // コード実行関連
 // =============================================================================

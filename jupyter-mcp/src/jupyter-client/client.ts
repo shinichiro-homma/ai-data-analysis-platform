@@ -8,6 +8,7 @@ import {
   CreateKernelRequest,
   DeleteKernelResponse,
   JupyterSession,
+  CreateSessionRequest,
   ExecuteRequest,
   ExecuteResult,
   Variable,
@@ -149,6 +150,27 @@ export class JupyterClient {
   async getSessionByKernelId(kernelId: string): Promise<JupyterSession | null> {
     const sessions = await this.listSessions();
     return sessions.find(s => s.kernel.id === kernelId) ?? null;
+  }
+
+  /**
+   * セッションを作成する（ノートブックとカーネルを関連付け）
+   * 注意: /api/sessions は標準APIなので ApiResponse ラッパーなし
+   */
+  async createSession(notebookPath: string, kernelName = 'python3'): Promise<JupyterSession> {
+    // パス正規化: 先頭の '/' を除去
+    const normalizedPath = notebookPath.replace(/^\//, '');
+    // ファイル名を抽出
+    const name = normalizedPath.split('/').pop() ?? normalizedPath;
+
+    const body: CreateSessionRequest = {
+      name,
+      path: normalizedPath,
+      type: 'notebook',
+      kernel: { name: kernelName },
+    };
+
+    const response = await this.request<JupyterSession>('POST', '/api/sessions', body);
+    return response;
   }
 
   // ===========================================================================
