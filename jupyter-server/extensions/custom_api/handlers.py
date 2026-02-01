@@ -336,14 +336,14 @@ class ContentsListHandler(BaseCustomHandler):
     """GET/POST /api/contents"""
 
     @web.authenticated
-    def get(self):
+    async def get(self):
         """ファイル一覧を取得"""
         path = self.get_argument("path", "/")
 
         try:
             # パストラバーサル対策
             path = validate_path(path)
-            model = self.contents_manager.get(path, content=True)
+            model = await self.contents_manager.get(path, content=True)
             contents = []
             if model["type"] == "directory":
                 for item in model.get("content", []):
@@ -399,12 +399,12 @@ class ContentsHandler(BaseCustomHandler):
     """GET/POST/PUT /api/contents/{path}"""
 
     @web.authenticated
-    def get(self, path: str):
+    async def get(self, path: str):
         """ファイルまたはノートブックの内容を取得"""
         try:
             # パストラバーサル対策
             path = validate_path(path)
-            model = self.contents_manager.get(path, content=True)
+            model = await self.contents_manager.get(path, content=True)
             if model["type"] == "notebook":
                 self.write_success({
                     "path": "/" + path,
@@ -425,7 +425,7 @@ class ContentsHandler(BaseCustomHandler):
             self.write_error_response("INTERNAL_ERROR", str(e), 500)
 
     @web.authenticated
-    def post(self, path: str = ""):
+    async def post(self, path: str = ""):
         """ノートブックまたはファイルを作成"""
         body = self.get_json_body()
         content_type = body.get("type", "notebook")
@@ -435,12 +435,12 @@ class ContentsHandler(BaseCustomHandler):
             # パストラバーサル対策
             target_path = validate_path(target_path)
             if content_type == "notebook":
-                model = self.contents_manager.new(
+                model = await self.contents_manager.new(
                     path=target_path,
                     model={"type": "notebook", "content": {"cells": [], "metadata": {}}},
                 )
             else:
-                model = self.contents_manager.new(path=target_path)
+                model = await self.contents_manager.new(path=target_path)
 
             self.write_success({
                 "path": "/" + model["path"],
@@ -451,7 +451,7 @@ class ContentsHandler(BaseCustomHandler):
             self.write_error_response("INTERNAL_ERROR", str(e), 500)
 
     @web.authenticated
-    def put(self, path: str):
+    async def put(self, path: str):
         """ファイルまたはノートブックを更新"""
         body = self.get_json_body()
         content = body.get("content")
@@ -459,10 +459,23 @@ class ContentsHandler(BaseCustomHandler):
         try:
             # パストラバーサル対策
             path = validate_path(path)
-            model = self.contents_manager.get(path, content=False)
+            model = await self.contents_manager.get(path, content=False)
             model["content"] = content
-            self.contents_manager.save(model, path)
+            await self.contents_manager.save(model, path)
             self.write_success({"path": "/" + path, "status": "updated"})
+        except FileNotFoundError:
+            self.write_error_response("NOTEBOOK_NOT_FOUND", f"Not found: {path}", 404)
+        except Exception as e:
+            self.write_error_response("INTERNAL_ERROR", str(e), 500)
+
+    @web.authenticated
+    async def delete(self, path: str):
+        """ファイルまたはノートブックを削除"""
+        try:
+            # パストラバーサル対策
+            path = validate_path(path)
+            await self.contents_manager.delete(path)
+            self.write_success({"path": "/" + path, "status": "deleted"})
         except FileNotFoundError:
             self.write_error_response("NOTEBOOK_NOT_FOUND", f"Not found: {path}", 404)
         except Exception as e:
@@ -473,7 +486,7 @@ class ContentsCellsHandler(BaseCustomHandler):
     """PATCH /api/contents/{path}/cells"""
 
     @web.authenticated
-    def patch(self, path: str):
+    async def patch(self, path: str):
         """セルを追加・更新・削除"""
         body = self.get_json_body()
         action = body.get("action")
@@ -483,7 +496,7 @@ class ContentsCellsHandler(BaseCustomHandler):
         try:
             # パストラバーサル対策
             path = validate_path(path)
-            model = self.contents_manager.get(path, content=True)
+            model = await self.contents_manager.get(path, content=True)
             if model["type"] != "notebook":
                 self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
                 return
@@ -525,7 +538,7 @@ class ContentsCellsHandler(BaseCustomHandler):
                 return
 
             model["content"]["cells"] = cells
-            self.contents_manager.save(model, path)
+            await self.contents_manager.save(model, path)
             self.write_success({"path": "/" + path, "status": "updated"})
 
         except FileNotFoundError:

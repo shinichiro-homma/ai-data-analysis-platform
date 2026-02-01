@@ -217,6 +217,15 @@ export class JupyterClient {
     );
   }
 
+  async deleteContents(path: string): Promise<void> {
+    await this.request<ApiResponse<unknown>>(
+      'DELETE',
+      `/api/contents/${encodeURIComponent(path)}`,
+      undefined,
+      { path }
+    );
+  }
+
   // ===========================================================================
   // 内部メソッド
   // ===========================================================================
