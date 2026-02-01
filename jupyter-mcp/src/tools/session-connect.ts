@@ -26,7 +26,14 @@ interface SessionConnectArgs {
 export async function executeSessionConnect(
   args: Record<string, unknown>
 ): Promise<McpResponse> {
-  const { notebook_path, kernel_id } = args as SessionConnectArgs;
+  const { notebook_path, kernel_id, ...unexpectedArgs } = args as SessionConnectArgs & Record<string, unknown>;
+
+  // 入力検証: 予期しない引数の警告（セキュリティのベストプラクティス）
+  if (Object.keys(unexpectedArgs).length > 0) {
+    console.warn(
+      `[session_connect] 予期しない引数が渡されました: ${JSON.stringify(unexpectedArgs)}`
+    );
+  }
 
   // 入力検証: notebook_path または kernel_id のどちらかが必要
   if (!notebook_path && !kernel_id) {
