@@ -44,6 +44,23 @@ export async function cleanupNotebook(notebookPath: string): Promise<void> {
 }
 
 /**
+ * テスト後のクリーンアップ: セッション（カーネル）を削除
+ */
+export async function cleanupSession(sessionId: string): Promise<void> {
+  try {
+    await jupyterClient.deleteKernel(sessionId);
+    console.log(`[Cleanup] Deleted session: ${sessionId}`);
+  } catch (error) {
+    // セッションが存在しない場合（404エラー）は無視
+    if (error instanceof JupyterClientError && error.statusCode === 404) {
+      console.log(`[Cleanup] Session not found (already deleted): ${sessionId}`);
+    } else {
+      console.error(`[Cleanup] Failed to delete session ${sessionId}:`, error);
+    }
+  }
+}
+
+/**
  * Jupyter サーバーの接続確認
  */
 export async function checkJupyterConnection(): Promise<void> {
