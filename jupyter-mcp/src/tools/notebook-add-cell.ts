@@ -3,13 +3,21 @@
  */
 
 import { jupyterClient } from "../jupyter-client/client.js";
+import { validateNotebookPath } from "../utils/path-validator.js";
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  extractErrorCode,
+  extractErrorMessage,
+  type McpResponse,
+} from "../utils/response-formatter.js";
 
 /**
  * ノートブックにセルを追加する
  */
 export async function executeNotebookAddCell(
   args: Record<string, unknown>
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<McpResponse> {
   // 引数の検証
   const notebookPath = args.notebook_path as string | undefined;
   const cellType = args.cell_type as "code" | "markdown" | undefined;
@@ -46,6 +54,16 @@ export async function executeNotebookAddCell(
     );
   }
 
+  // パストラバーサル攻撃対策
+  try {
+    validateNotebookPath(notebookPath);
+  } catch (error) {
+    return createErrorResponse(
+      extractErrorMessage(error),
+      "VALIDATION_ERROR"
+    );
+  }
+
   try {
     // セルを追加
     await jupyterClient.operateCell(notebookPath, {
@@ -58,60 +76,18 @@ export async function executeNotebookAddCell(
     });
 
     const positionMessage =
-      position !== undefined
-        ? `位置 ${position} に`
-        : "末尾に";
+      position !== undefined ? `位置 ${position} に` : "末尾に";
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            {
-              success: true,
-              notebook_path: notebookPath,
-              cell_type: cellType,
-              position: position,
-              message: `ノートブック "${notebookPath}" の${positionMessage}${cellType} セルを追加しました`,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+    return createSuccessResponse({
+      notebook_path: notebookPath,
+      cell_type: cellType,
+      position: position,
+      message: `ノートブック "${notebookPath}" の${positionMessage}${cellType} セルを追加しました`,
+    });
   } catch (error) {
-    // エラーハンドリング
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const code = "code" in (error as any) ? (error as any).code : "INTERNAL_ERROR";
-
-    return createErrorResponse(message, code);
+    return createErrorResponse(
+      extractErrorMessage(error),
+      extractErrorCode(error)
+    );
   }
-}
-
-/**
- * エラーレスポンスを生成
- */
-function createErrorResponse(
-  message: string,
-  code: string
-): { content: Array<{ type: string; text: string }> } {
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(
-          {
-            success: false,
-            error: {
-              code,
-              message,
-            },
-          },
-          null,
-          2
-        ),
-      },
-    ],
-  };
 }
