@@ -9,6 +9,7 @@ import { executeSessionCreate } from "./session-create.js";
 import { executeSessionList } from "./session-list.js";
 import { executeSessionDelete } from "./session-delete.js";
 import { executeSessionConnect } from "./session-connect.js";
+import { executeExecuteCode } from "./execute-code.js";
 
 /**
  * ツール定義
@@ -118,6 +119,28 @@ const tools: Tool[] = [
       required: [],
     },
   },
+  {
+    name: "execute_code",
+    description: "Pythonコードを実行し、結果を返します。事前にsession_createでセッションを作成してください。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "セッションID",
+        },
+        code: {
+          type: "string",
+          description: "実行するPythonコード",
+        },
+        timeout: {
+          type: "number",
+          description: "タイムアウト秒数（デフォルト30秒、最大300秒）",
+        },
+      },
+      required: ["session_id"],
+    },
+  },
 ];
 
 /**
@@ -147,6 +170,8 @@ export async function handleToolCall(
       return executeSessionDelete(args);
     case "session_connect":
       return executeSessionConnect(args);
+    case "execute_code":
+      return executeExecuteCode(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

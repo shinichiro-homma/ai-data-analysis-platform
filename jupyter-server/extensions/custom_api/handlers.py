@@ -244,11 +244,17 @@ class KernelExecuteHandler(BaseCustomHandler):
             return
 
         body = self.get_json_body()
-        code = body.get("code", "")
+        code = body.get("code")
         timeout = body.get("timeout", 30)
 
-        if not code:
+        # code パラメータは必須だが、空文字列は許可（空コードは何もしないだけ）
+        if code is None:
             self.write_error_response("VALIDATION_ERROR", "code is required", 400)
+            return
+
+        # 空文字列の場合はそのまま処理（何もしない）
+        if not isinstance(code, str):
+            self.write_error_response("VALIDATION_ERROR", "code must be a string", 400)
             return
 
         executor = KernelExecutor(kernel_id, self.kernel_manager)
