@@ -167,4 +167,30 @@ describe('session_create の notebook_path 対応の結合テスト', () => {
 
     createdSessionIds.push(data.session_id);
   });
+
+  test('セキュリティ: パストラバーサル攻撃を防ぐ', async () => {
+    const maliciousPath = '../../../etc/passwd.ipynb';
+    const result = await handleToolCall('session_create', {
+      notebook_path: maliciousPath,
+    });
+
+    const data = parseToolCallResult(result);
+    expect(data.success).toBe(false);
+    expect(data.error).toBeDefined();
+    const errorObj = data.error as { code: string; message: string };
+    expect(errorObj.message).toContain('..');
+  });
+
+  test('セキュリティ: NULLバイト攻撃を防ぐ', async () => {
+    const maliciousPath = 'test\0.ipynb';
+    const result = await handleToolCall('session_create', {
+      notebook_path: maliciousPath,
+    });
+
+    const data = parseToolCallResult(result);
+    expect(data.success).toBe(false);
+    expect(data.error).toBeDefined();
+    const errorObj = data.error as { code: string; message: string };
+    expect(errorObj.message).toContain('不正な文字');
+  });
 });

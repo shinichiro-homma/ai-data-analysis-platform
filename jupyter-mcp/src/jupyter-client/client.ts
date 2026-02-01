@@ -32,6 +32,7 @@ import {
   NotebookNotFoundError,
   createErrorFromResponse,
 } from './errors.js';
+import { normalizeNotebookPath } from '../utils/path-validator.js';
 
 const DEFAULT_BASE_URL = 'http://localhost:8888';
 const DEFAULT_TIMEOUT = 30000;
@@ -138,10 +139,10 @@ export class JupyterClient {
   // 指定パスのノートブックに関連するセッションを取得
   async getSessionByPath(notebookPath: string): Promise<JupyterSession | null> {
     const sessions = await this.listSessions();
-    // パス正規化: 先頭の '/' の有無に対応
-    const normalizedPath = notebookPath.replace(/^\//, '');
+    // パス正規化（セキュリティチェック含む）
+    const normalizedPath = normalizeNotebookPath(notebookPath);
     return sessions.find(s => {
-      const sessionPath = s.path.replace(/^\//, '');
+      const sessionPath = normalizeNotebookPath(s.path);
       return sessionPath === normalizedPath;
     }) ?? null;
   }
@@ -157,8 +158,8 @@ export class JupyterClient {
    * 注意: /api/sessions は標準APIなので ApiResponse ラッパーなし
    */
   async createSession(notebookPath: string, kernelName = 'python3'): Promise<JupyterSession> {
-    // パス正規化: 先頭の '/' を除去
-    const normalizedPath = notebookPath.replace(/^\//, '');
+    // パス正規化（セキュリティチェック含む）
+    const normalizedPath = normalizeNotebookPath(notebookPath);
     // ファイル名を抽出
     const name = normalizedPath.split('/').pop() ?? normalizedPath;
 
