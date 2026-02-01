@@ -8,6 +8,7 @@ import { executeNotebookAddCell } from "./notebook-add-cell.js";
 import { executeSessionCreate } from "./session-create.js";
 import { executeSessionList } from "./session-list.js";
 import { executeSessionDelete } from "./session-delete.js";
+import { executeSessionConnect } from "./session-connect.js";
 
 /**
  * ツール定義
@@ -99,6 +100,24 @@ const tools: Tool[] = [
       required: ["session_id"],
     },
   },
+  {
+    name: "session_connect",
+    description: "既存のセッション（ブラウザで開いているノートブック）に接続します。ユーザーが既にJupyterLabでノートブックを開いて作業中の場合に、同じカーネル（セッション）に接続して変数を共有できます。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebook_path: {
+          type: "string",
+          description: "接続したいノートブックのパス（例: analysis.ipynb）",
+        },
+        kernel_id: {
+          type: "string",
+          description: "接続したいカーネルのID。notebook_path の代わりに指定可能",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -126,6 +145,8 @@ export async function handleToolCall(
       return executeSessionList(args);
     case "session_delete":
       return executeSessionDelete(args);
+    case "session_connect":
+      return executeSessionConnect(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

@@ -26,6 +26,25 @@ export interface DeleteKernelResponse {
 }
 
 // =============================================================================
+// セッション関連
+// =============================================================================
+
+// Jupyter Server の /api/sessions が返すセッション情報
+export interface JupyterSession {
+  id: string;
+  path: string;           // ノートブックパス
+  name: string;           // ノートブック名
+  type: 'notebook';
+  kernel: {
+    id: string;
+    name: string;
+    last_activity: string;
+    execution_state: KernelStatus;
+    connections: number;
+  };
+}
+
+// =============================================================================
 // コード実行関連
 // =============================================================================
 

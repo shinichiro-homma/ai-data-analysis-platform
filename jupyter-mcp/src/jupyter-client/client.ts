@@ -7,6 +7,7 @@ import {
   Kernel,
   CreateKernelRequest,
   DeleteKernelResponse,
+  JupyterSession,
   ExecuteRequest,
   ExecuteResult,
   Variable,
@@ -120,6 +121,34 @@ export class JupyterClient {
       { kernelId }
     );
     return response.data;
+  }
+
+  // ===========================================================================
+  // セッション管理
+  // ===========================================================================
+
+  // セッション一覧を取得（ノートブックとカーネルの対応関係）
+  // 注意: /api/sessions は標準APIなので ApiResponse ラッパーなし
+  async listSessions(): Promise<JupyterSession[]> {
+    const response = await this.request<JupyterSession[]>('GET', '/api/sessions');
+    return response;
+  }
+
+  // 指定パスのノートブックに関連するセッションを取得
+  async getSessionByPath(notebookPath: string): Promise<JupyterSession | null> {
+    const sessions = await this.listSessions();
+    // パス正規化: 先頭の '/' の有無に対応
+    const normalizedPath = notebookPath.replace(/^\//, '');
+    return sessions.find(s => {
+      const sessionPath = s.path.replace(/^\//, '');
+      return sessionPath === normalizedPath;
+    }) ?? null;
+  }
+
+  // 指定カーネルIDに関連するセッションを取得
+  async getSessionByKernelId(kernelId: string): Promise<JupyterSession | null> {
+    const sessions = await this.listSessions();
+    return sessions.find(s => s.kernel.id === kernelId) ?? null;
   }
 
   // ===========================================================================
