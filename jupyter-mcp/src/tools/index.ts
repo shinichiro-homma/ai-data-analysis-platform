@@ -6,6 +6,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { executeNotebookCreate } from "./notebook-create.js";
 import { executeNotebookAddCell } from "./notebook-add-cell.js";
 import { executeSessionCreate } from "./session-create.js";
+import { executeSessionList } from "./session-list.js";
 
 /**
  * ツール定義
@@ -74,6 +75,15 @@ const tools: Tool[] = [
       required: [],
     },
   },
+  {
+    name: "session_list",
+    description: "アクティブな分析セッションの一覧を取得します。",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -97,6 +107,8 @@ export async function handleToolCall(
       return executeNotebookAddCell(args);
     case "session_create":
       return executeSessionCreate(args);
+    case "session_list":
+      return executeSessionList(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
