@@ -4,6 +4,7 @@
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { executeNotebookCreate } from "./notebook-create.js";
+import { executeNotebookAddCell } from "./notebook-add-cell.js";
 
 /**
  * ツール定義
@@ -27,6 +28,33 @@ const tools: Tool[] = [
       required: ["name"],
     },
   },
+  {
+    name: "notebook_add_cell",
+    description: "ノートブックにセル（code または markdown）を追加します",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebook_path: {
+          type: "string",
+          description: "ノートブックのパス（例: analysis.ipynb）",
+        },
+        cell_type: {
+          type: "string",
+          enum: ["code", "markdown"],
+          description: "セルの種類（code または markdown）",
+        },
+        source: {
+          type: "string",
+          description: "セルの内容",
+        },
+        position: {
+          type: "number",
+          description: "挿入位置（0-indexed、省略時は末尾に追加）",
+        },
+      },
+      required: ["notebook_path", "cell_type", "source"],
+    },
+  },
 ];
 
 /**
@@ -46,6 +74,8 @@ export async function handleToolCall(
   switch (name) {
     case "notebook_create":
       return executeNotebookCreate(args);
+    case "notebook_add_cell":
+      return executeNotebookAddCell(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
