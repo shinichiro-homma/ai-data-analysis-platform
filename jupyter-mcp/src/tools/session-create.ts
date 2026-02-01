@@ -11,6 +11,7 @@ import {
   type McpResponse,
 } from "../utils/response-formatter.js";
 import { kernelToSessionInfo } from "../utils/session-formatter.js";
+import { validateStringParameter } from "../utils/validation.js";
 
 interface SessionCreateArgs {
   name?: string;
@@ -26,34 +27,34 @@ export async function executeSessionCreate(
   const { name = "python3", notebook_path } = args as SessionCreateArgs;
 
   // 入力検証: name パラメータ
-  if (name && typeof name !== "string") {
+  const nameValidation = validateStringParameter(name, "name", {
+    required: false,
+    maxLength: 100,
+    allowEmpty: false,
+  });
+
+  if (!nameValidation.isValid) {
     return createErrorResponse(
-      "name パラメータは文字列である必要があります",
+      nameValidation.errorMessage!,
       "VALIDATION_ERROR"
     );
   }
 
-  // 長さチェック（DoS対策）
-  if (name && name.length > 100) {
-    return createErrorResponse(
-      "カーネル名が長すぎます（最大100文字）",
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // NULL バイト攻撃対策
-  if (name && name.includes("\0")) {
-    return createErrorResponse(
-      "カーネル名に不正な文字が含まれています",
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // notebook_path パラメータの検証
+  // 入力検証: notebook_path パラメータ
   if (notebook_path !== undefined) {
-    if (typeof notebook_path !== "string") {
+    const pathValidation = validateStringParameter(
+      notebook_path,
+      "notebook_path",
+      {
+        required: false,
+        maxLength: 500,
+        allowEmpty: false,
+      }
+    );
+
+    if (!pathValidation.isValid) {
       return createErrorResponse(
-        "notebook_path パラメータは文字列である必要があります",
+        pathValidation.errorMessage!,
         "VALIDATION_ERROR"
       );
     }
