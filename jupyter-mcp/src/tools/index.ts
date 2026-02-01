@@ -7,6 +7,7 @@ import { executeNotebookCreate } from "./notebook-create.js";
 import { executeNotebookAddCell } from "./notebook-add-cell.js";
 import { executeSessionCreate } from "./session-create.js";
 import { executeSessionList } from "./session-list.js";
+import { executeSessionDelete } from "./session-delete.js";
 
 /**
  * ツール定義
@@ -84,6 +85,20 @@ const tools: Tool[] = [
       required: [],
     },
   },
+  {
+    name: "session_delete",
+    description: "分析セッションを終了し、リソースを解放します。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "終了するセッションID",
+        },
+      },
+      required: ["session_id"],
+    },
+  },
 ];
 
 /**
@@ -109,6 +124,8 @@ export async function handleToolCall(
       return executeSessionCreate(args);
     case "session_list":
       return executeSessionList(args);
+    case "session_delete":
+      return executeSessionDelete(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
