@@ -13,6 +13,7 @@ import {
   generateTestNotebookName,
   cleanupNotebook,
   checkJupyterConnection,
+  parseToolCallResult,
 } from '../setup.js';
 
 describe('ノートブック基本操作の結合テスト', () => {
@@ -42,7 +43,7 @@ describe('ノートブック基本操作の結合テスト', () => {
     });
 
     // 2. 作成成功を確認
-    const createData = JSON.parse(createResult.content[0].text);
+    const createData = parseToolCallResult(createResult);
     expect(createData.success).toBe(true);
     expect(createData.path).toBe(`/${notebookPath}`);
 
@@ -54,7 +55,7 @@ describe('ノートブック基本操作の結合テスト', () => {
     });
 
     // 4. 追加成功を確認
-    const addCellData = JSON.parse(addCellResult.content[0].text);
+    const addCellData = parseToolCallResult(addCellResult);
     expect(addCellData.success).toBe(true);
 
     // 5. ノートブックの内容を取得して検証
@@ -76,7 +77,7 @@ describe('ノートブック基本操作の結合テスト', () => {
       name: notebookName,
     });
 
-    const createData = JSON.parse(createResult.content[0].text);
+    const createData = parseToolCallResult(createResult);
     expect(createData.success).toBe(true);
 
     // 2. markdown セルを追加
@@ -86,7 +87,7 @@ describe('ノートブック基本操作の結合テスト', () => {
       source: '# Test Heading\n\nThis is a test markdown cell.',
     });
 
-    const addCellData = JSON.parse(addCellResult.content[0].text);
+    const addCellData = parseToolCallResult(addCellResult);
     expect(addCellData.success).toBe(true);
 
     // 3. ノートブックの内容を検証
@@ -127,7 +128,7 @@ describe('ノートブック基本操作の結合テスト', () => {
       position: 0,
     });
 
-    const insertData = JSON.parse(insertResult.content[0].text);
+    const insertData = parseToolCallResult(insertResult);
     expect(insertData.success).toBe(true);
 
     // 4. セルの順序を確認
@@ -153,7 +154,8 @@ describe('ノートブック基本操作の結合テスト', () => {
     const createResult = await handleToolCall('notebook_create', {
       name: notebookName,
     });
-    expect(JSON.parse(createResult.content[0].text).success).toBe(true);
+    const createData = parseToolCallResult(createResult);
+    expect(createData.success).toBe(true);
 
     // 2. タイトルセルを追加
     await handleToolCall('notebook_add_cell', {

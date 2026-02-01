@@ -1,4 +1,14 @@
 import { jupyterClient } from '../src/jupyter-client/client.js';
+import { JupyterClientError } from '../src/jupyter-client/errors.js';
+
+/**
+ * MCPツール実行結果のレスポンス型
+ */
+export interface ToolCallResponse {
+  success: boolean;
+  path?: string;
+  [key: string]: unknown;
+}
 
 /**
  * テスト用のノートブック名を生成
@@ -10,6 +20,13 @@ export function generateTestNotebookName(testName: string): string {
 }
 
 /**
+ * MCPツール実行結果をパースして型安全に取得
+ */
+export function parseToolCallResult(result: { content: Array<{ type: string; text: string }> }): ToolCallResponse {
+  return JSON.parse(result.content[0].text) as ToolCallResponse;
+}
+
+/**
  * テスト後のクリーンアップ: ノートブックを削除
  */
 export async function cleanupNotebook(notebookPath: string): Promise<void> {
@@ -17,8 +34,8 @@ export async function cleanupNotebook(notebookPath: string): Promise<void> {
     await jupyterClient.deleteContents(notebookPath);
     console.log(`[Cleanup] Deleted notebook: ${notebookPath}`);
   } catch (error) {
-    // ノートブックが存在しない場合は無視
-    if (error instanceof Error && error.message.includes('404')) {
+    // ノートブックが存在しない場合（404エラー）は無視
+    if (error instanceof JupyterClientError && error.statusCode === 404) {
       console.log(`[Cleanup] Notebook not found (already deleted): ${notebookPath}`);
     } else {
       console.error(`[Cleanup] Failed to delete notebook ${notebookPath}:`, error);
