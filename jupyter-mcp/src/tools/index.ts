@@ -5,6 +5,7 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { executeNotebookCreate } from "./notebook-create.js";
 import { executeNotebookAddCell } from "./notebook-add-cell.js";
+import { executeSessionCreate } from "./session-create.js";
 
 /**
  * ツール定義
@@ -55,6 +56,24 @@ const tools: Tool[] = [
       required: ["notebook_path", "cell_type", "source"],
     },
   },
+  {
+    name: "session_create",
+    description: "新しいデータ分析セッションを作成します。コード実行前に必ず呼び出してください。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "カーネル名（デフォルト: python3）",
+        },
+        notebook_path: {
+          type: "string",
+          description: "関連付けるノートブックのパス。指定するとユーザーがそのノートブックを開いたときに同じカーネルを共有できる（現在未実装）",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -76,6 +95,8 @@ export async function handleToolCall(
       return executeNotebookCreate(args);
     case "notebook_add_cell":
       return executeNotebookAddCell(args);
+    case "session_create":
+      return executeSessionCreate(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
