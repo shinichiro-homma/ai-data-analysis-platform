@@ -10,6 +10,7 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from "../utils/response-formatter.js";
+import { kernelToSessionInfo } from "../utils/session-formatter.js";
 
 interface SessionCreateArgs {
   name?: string;
@@ -67,12 +68,10 @@ export async function executeSessionCreate(
     // カーネルを作成
     const kernel = await jupyterClient.createKernel(name);
 
-    return createSuccessResponse({
-      session_id: kernel.id,
-      kernel_id: kernel.id,
-      status: kernel.status,
-      created_at: kernel.started_at,
-    });
+    // セッション形式に変換（kernel_name は不要なので false を指定）
+    const sessionInfo = kernelToSessionInfo(kernel, false);
+
+    return createSuccessResponse({ ...sessionInfo });
   } catch (error) {
     return createErrorResponse(
       extractErrorMessage(error),
