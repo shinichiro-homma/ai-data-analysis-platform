@@ -25,9 +25,18 @@ export function validateStringParameter(
     required?: boolean;
     maxLength?: number;
     allowEmpty?: boolean;
+    allowNull?: boolean;
   } = {}
 ): ValidationResult {
-  const { required = false, maxLength = 100, allowEmpty = false } = options;
+  const { required = false, maxLength = 100, allowEmpty = false, allowNull = true } = options;
+
+  // null チェック
+  if (value === null && !allowNull) {
+    return {
+      isValid: false,
+      errorMessage: `${fieldName} パラメータが不正です`,
+    };
+  }
 
   // 必須チェック
   if (required && !value) {

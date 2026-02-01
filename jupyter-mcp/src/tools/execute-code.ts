@@ -71,34 +71,20 @@ export async function executeExecuteCode(
     );
   }
 
+  // 検証後、session_id は必ず string
+  const validatedSessionId = session_id as string;
+
   // 入力検証: code
-  // code パラメータはオプション（省略時は空文字列）、空文字列も許可
-  if (code === null) {
-    return createErrorResponse(
-      "code パラメータが不正です",
-      "VALIDATION_ERROR"
-    );
-  }
+  const codeValidation = validateStringParameter(code, "code", {
+    required: false,
+    allowEmpty: true,
+    maxLength: 1000000,
+    allowNull: false,
+  });
 
-  if (typeof code !== "string") {
+  if (!codeValidation.isValid) {
     return createErrorResponse(
-      "code パラメータは文字列である必要があります",
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // 長さチェック（DoS対策）
-  if (code.length > 1000000) {
-    return createErrorResponse(
-      "code が長すぎます（最大1000000文字）",
-      "VALIDATION_ERROR"
-    );
-  }
-
-  // NULLバイト攻撃対策
-  if (code.includes("\0")) {
-    return createErrorResponse(
-      "code に不正な文字が含まれています",
+      codeValidation.errorMessage!,
       "VALIDATION_ERROR"
     );
   }
@@ -128,16 +114,8 @@ export async function executeExecuteCode(
   }
 
   try {
-    // session_id の存在チェック（検証後なので必ず存在するはず）
-    if (!session_id || typeof session_id !== 'string') {
-      return createErrorResponse(
-        "session_id パラメータが不正です",
-        "VALIDATION_ERROR"
-      );
-    }
-
     // session_id を kernel_id に解決
-    const kernelId = await resolveKernelId(session_id);
+    const kernelId = await resolveKernelId(validatedSessionId);
 
     // コード実行
     const result = await jupyterClient.executeCode(kernelId, {

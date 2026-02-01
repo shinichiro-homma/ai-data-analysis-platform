@@ -257,6 +257,29 @@ class KernelExecuteHandler(BaseCustomHandler):
             self.write_error_response("VALIDATION_ERROR", "code must be a string", 400)
             return
 
+        # 長さチェック（DoS対策）
+        if len(code) > 1000000:
+            self.write_error_response("VALIDATION_ERROR", "code exceeds maximum length (1000000 characters)", 400)
+            return
+
+        # NULLバイト攻撃対策
+        if "\0" in code:
+            self.write_error_response("VALIDATION_ERROR", "code contains invalid characters", 400)
+            return
+
+        # timeout パラメータの検証
+        if not isinstance(timeout, (int, float)):
+            self.write_error_response("VALIDATION_ERROR", "timeout must be a number", 400)
+            return
+
+        if timeout <= 0:
+            self.write_error_response("VALIDATION_ERROR", "timeout must be positive", 400)
+            return
+
+        if timeout > 300:
+            self.write_error_response("VALIDATION_ERROR", "timeout exceeds maximum (300 seconds)", 400)
+            return
+
         executor = KernelExecutor(kernel_id, self.kernel_manager)
         start_time = time.time()
 
