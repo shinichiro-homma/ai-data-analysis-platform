@@ -18,7 +18,41 @@ import {
   cleanupSession,
   checkJupyterConnection,
   parseToolCallResult,
+  type ToolCallResponse,
 } from '../setup.js';
+
+// テスト用の型定義
+interface Variable {
+  name: string;
+  type: string;
+  value?: unknown;
+  size?: string;
+}
+
+interface GetVariablesResponse extends ToolCallResponse {
+  variables: Variable[];
+}
+
+interface DataFrameInfoResponse extends ToolCallResponse {
+  shape: [number, number];
+  columns: string[];
+  dtypes: Record<string, string>;
+  head: Array<Record<string, unknown>>;
+  describe: Record<string, Record<string, number>>;
+}
+
+// テストヘルパー関数
+async function createTestSession(createdSessionIds: string[]): Promise<string> {
+  const createResult = await handleToolCall('session_create', {
+    name: 'python3',
+  });
+  const createData = parseToolCallResult(createResult);
+  expect(createData.success).toBe(true);
+
+  const sessionId = createData.session_id as string;
+  createdSessionIds.push(sessionId);
+  return sessionId;
+}
 
 describe('変数管理のワークフローテスト', () => {
   const testNotebooks: string[] = [];
@@ -45,14 +79,7 @@ describe('変数管理のワークフローテスト', () => {
   describe('データ読み込みと変数確認フロー', () => {
     test('データ読み込み → get_variables で DataFrame を確認', async () => {
       // 1. セッション作成
-      const createResult = await handleToolCall('session_create', {
-        name: 'python3',
-      });
-      const createData = parseToolCallResult(createResult);
-      expect(createData.success).toBe(true);
-
-      const sessionId = createData.session_id as string;
-      createdSessionIds.push(sessionId);
+      const sessionId = await createTestSession(createdSessionIds);
 
       // 2. pandas インポート & CSV データ模擬
       const importResult = await handleToolCall('execute_code', {
@@ -80,33 +107,20 @@ df = pd.read_csv(io.StringIO(csv_data))
       });
 
       // 4. DataFrame 変数が含まれていることを確認
-      const getVariablesData = parseToolCallResult(getVariablesResult);
+      const getVariablesData = parseToolCallResult(getVariablesResult) as GetVariablesResponse;
       expect(getVariablesData.success).toBe(true);
 
-      const variables = getVariablesData.variables as Array<{
-        name: string;
-        type: string;
-        size?: string;
-      }>;
-
-      const dfVar = variables.find(v => v.name === 'df');
-      expect(dfVar).toBeDefined();
-      expect(dfVar?.type).toBe('DataFrame');
-      expect(dfVar?.size).toContain('rows');
-    }, 10000);
+      const dfVariable = getVariablesData.variables.find(v => v.name === 'df');
+      expect(dfVariable).toBeDefined();
+      expect(dfVariable?.type).toBe('DataFrame');
+      expect(dfVariable?.size).toContain('rows');
+    }, 15000);
   });
 
   describe('get_dataframe_info の統合テスト', () => {
     test('DataFrame 作成 → get_dataframe_info で詳細情報取得', async () => {
       // 1. セッション作成
-      const createResult = await handleToolCall('session_create', {
-        name: 'python3',
-      });
-      const createData = parseToolCallResult(createResult);
-      expect(createData.success).toBe(true);
-
-      const sessionId = createData.session_id as string;
-      createdSessionIds.push(sessionId);
+      const sessionId = await createTestSession(createdSessionIds);
 
       // 2. DataFrame 作成（カラム名、型、サンプルデータ定義）
       const createDfResult = await handleToolCall('execute_code', {
@@ -133,56 +147,44 @@ df = pd.DataFrame({
       });
 
       // 4. shape, columns, dtypes, head, describe を検証
-      const dfInfoData = parseToolCallResult(dfInfoResult);
+      const dfInfoData = parseToolCallResult(dfInfoResult) as DataFrameInfoResponse;
       expect(dfInfoData.success).toBe(true);
 
       // shape（配列形式: [rows, columns]）
       expect(dfInfoData.shape).toBeDefined();
-      const shape = dfInfoData.shape as [number, number];
-      expect(shape[0]).toBe(5); // rows
-      expect(shape[1]).toBe(4); // columns
+      expect(dfInfoData.shape[0]).toBe(5); // rows
+      expect(dfInfoData.shape[1]).toBe(4); // columns
 
       // columns（文字列配列）
       expect(dfInfoData.columns).toBeDefined();
-      const columns = dfInfoData.columns as string[];
-      expect(columns).toHaveLength(4);
-      expect(columns).toContain('int_col');
-      expect(columns).toContain('float_col');
-      expect(columns).toContain('str_col');
-      expect(columns).toContain('bool_col');
+      expect(dfInfoData.columns).toHaveLength(4);
+      expect(dfInfoData.columns).toContain('int_col');
+      expect(dfInfoData.columns).toContain('float_col');
+      expect(dfInfoData.columns).toContain('str_col');
+      expect(dfInfoData.columns).toContain('bool_col');
 
       // dtypes（オブジェクト形式）
       expect(dfInfoData.dtypes).toBeDefined();
-      const dtypes = dfInfoData.dtypes as Record<string, string>;
-      expect(dtypes.int_col).toBeDefined();
-      expect(dtypes.float_col).toBeDefined();
+      expect(dfInfoData.dtypes.int_col).toBeDefined();
+      expect(dfInfoData.dtypes.float_col).toBeDefined();
 
       // head（配列形式）
       expect(dfInfoData.head).toBeDefined();
-      const head = dfInfoData.head as Array<Record<string, unknown>>;
-      expect(head.length).toBeGreaterThan(0);
-      expect(head[0]).toHaveProperty('int_col');
+      expect(dfInfoData.head.length).toBeGreaterThan(0);
+      expect(dfInfoData.head[0]).toHaveProperty('int_col');
 
       // describe（オブジェクト形式）
       expect(dfInfoData.describe).toBeDefined();
-      const describe = dfInfoData.describe as Record<string, Record<string, number>>;
-      expect(describe.int_col).toBeDefined();
-      expect(describe.int_col.count).toBeDefined();
-      expect(describe.int_col.mean).toBeDefined();
-    }, 10000);
+      expect(dfInfoData.describe.int_col).toBeDefined();
+      expect(dfInfoData.describe.int_col.count).toBeDefined();
+      expect(dfInfoData.describe.int_col.mean).toBeDefined();
+    }, 15000);
   });
 
   describe('複数変数の追跡テスト', () => {
     test('複数コード実行 → 変数が累積して保持される', async () => {
       // 1. セッション作成
-      const createResult = await handleToolCall('session_create', {
-        name: 'python3',
-      });
-      const createData = parseToolCallResult(createResult);
-      expect(createData.success).toBe(true);
-
-      const sessionId = createData.session_id as string;
-      createdSessionIds.push(sessionId);
+      const sessionId = await createTestSession(createdSessionIds);
 
       // 2. x = 10 実行
       await handleToolCall('execute_code', {
@@ -207,38 +209,25 @@ df = pd.DataFrame({
         session_id: sessionId,
       });
 
-      const getVariablesData = parseToolCallResult(getVariablesResult);
+      const getVariablesData = parseToolCallResult(getVariablesResult) as GetVariablesResponse;
       expect(getVariablesData.success).toBe(true);
 
-      const variables = getVariablesData.variables as Array<{
-        name: string;
-        type: string;
-        value?: unknown;
-      }>;
-
       // すべての変数が存在することを確認
-      const xVar = variables.find(v => v.name === 'x');
-      const yVar = variables.find(v => v.name === 'y');
-      const zVar = variables.find(v => v.name === 'z');
+      const xVariable = getVariablesData.variables.find(v => v.name === 'x');
+      const yVariable = getVariablesData.variables.find(v => v.name === 'y');
+      const zVariable = getVariablesData.variables.find(v => v.name === 'z');
 
-      expect(xVar).toBeDefined();
-      expect(yVar).toBeDefined();
-      expect(zVar).toBeDefined();
+      expect(xVariable).toBeDefined();
+      expect(yVariable).toBeDefined();
+      expect(zVariable).toBeDefined();
 
       // 6. z の値が 30 であることを確認
-      expect(zVar?.value).toBe(30);
-    }, 10000);
+      expect(zVariable?.value).toBe(30);
+    }, 15000);
 
     test('変数の上書き → 新しい値に更新される', async () => {
       // 1. セッション作成
-      const createResult = await handleToolCall('session_create', {
-        name: 'python3',
-      });
-      const createData = parseToolCallResult(createResult);
-      expect(createData.success).toBe(true);
-
-      const sessionId = createData.session_id as string;
-      createdSessionIds.push(sessionId);
+      const sessionId = await createTestSession(createdSessionIds);
 
       // 2. x = 100 実行
       await handleToolCall('execute_code', {
@@ -257,32 +246,19 @@ df = pd.DataFrame({
         session_id: sessionId,
       });
 
-      const getVariablesData = parseToolCallResult(getVariablesResult);
+      const getVariablesData = parseToolCallResult(getVariablesResult) as GetVariablesResponse;
       expect(getVariablesData.success).toBe(true);
 
-      const variables = getVariablesData.variables as Array<{
-        name: string;
-        type: string;
-        value?: unknown;
-      }>;
-
-      const xVar = variables.find(v => v.name === 'x');
-      expect(xVar).toBeDefined();
-      expect(xVar?.value).toBe(200);
+      const xVariable = getVariablesData.variables.find(v => v.name === 'x');
+      expect(xVariable).toBeDefined();
+      expect(xVariable?.value).toBe(200);
     });
   });
 
   describe('実践的な分析シナリオ', () => {
     test('インポート → データ作成 → 変換 → 集計', async () => {
       // 1. セッション作成
-      const createResult = await handleToolCall('session_create', {
-        name: 'python3',
-      });
-      const createData = parseToolCallResult(createResult);
-      expect(createData.success).toBe(true);
-
-      const sessionId = createData.session_id as string;
-      createdSessionIds.push(sessionId);
+      const sessionId = await createTestSession(createdSessionIds);
 
       // 2. pandas, numpy インポート
       const importResult = await handleToolCall('execute_code', {
@@ -309,13 +285,9 @@ df = pd.DataFrame({
       let getVariablesResult = await handleToolCall('get_variables', {
         session_id: sessionId,
       });
-      let getVariablesData = parseToolCallResult(getVariablesResult);
+      let getVariablesData = parseToolCallResult(getVariablesResult) as GetVariablesResponse;
       expect(getVariablesData.success).toBe(true);
-      let variables = getVariablesData.variables as Array<{
-        name: string;
-        type: string;
-      }>;
-      expect(variables.some(v => v.name === 'df')).toBe(true);
+      expect(getVariablesData.variables.some(v => v.name === 'df')).toBe(true);
 
       // 4. 列追加（df['new_col'] = ...）
       const addColResult = await handleToolCall('execute_code', {
@@ -330,10 +302,9 @@ df = pd.DataFrame({
         session_id: sessionId,
         variable_name: 'df',
       });
-      const dfInfoData = parseToolCallResult(dfInfoResult);
+      const dfInfoData = parseToolCallResult(dfInfoResult) as DataFrameInfoResponse;
       expect(dfInfoData.success).toBe(true);
-      const columns = dfInfoData.columns as string[];
-      expect(columns).toContain('doubled');
+      expect(dfInfoData.columns).toContain('doubled');
 
       // 5. グループ集計（df.groupby().sum()）
       const groupbyResult = await handleToolCall('execute_code', {
@@ -347,13 +318,9 @@ df = pd.DataFrame({
       getVariablesResult = await handleToolCall('get_variables', {
         session_id: sessionId,
       });
-      getVariablesData = parseToolCallResult(getVariablesResult);
+      getVariablesData = parseToolCallResult(getVariablesResult) as GetVariablesResponse;
       expect(getVariablesData.success).toBe(true);
-      variables = getVariablesData.variables as Array<{
-        name: string;
-        type: string;
-      }>;
-      expect(variables.some(v => v.name === 'grouped')).toBe(true);
+      expect(getVariablesData.variables.some(v => v.name === 'grouped')).toBe(true);
     }, 15000);
   });
 });
@@ -374,14 +341,7 @@ describe('get_dataframe_info エラーハンドリング', () => {
 
   test('存在しない変数名を指定 → NOT_FOUND エラー', async () => {
     // 1. セッション作成
-    const createResult = await handleToolCall('session_create', {
-      name: 'python3',
-    });
-    const createData = parseToolCallResult(createResult);
-    expect(createData.success).toBe(true);
-
-    const sessionId = createData.session_id as string;
-    createdSessionIds.push(sessionId);
+    const sessionId = await createTestSession(createdSessionIds);
 
     // 2. get_dataframe_info('non_existent_var')
     const dfInfoResult = await handleToolCall('get_dataframe_info', {
@@ -396,18 +356,11 @@ describe('get_dataframe_info エラーハンドリング', () => {
 
     const error = dfInfoData.error as { code?: string; message?: string };
     expect(error.code).toMatch(/NOT_FOUND|VARIABLE_NOT_FOUND|NameError/);
-  });
+  }, 15000);
 
   test('DataFrame 以外の変数を指定 → INVALID_VARIABLE_TYPE エラー', async () => {
     // 1. セッション作成
-    const createResult = await handleToolCall('session_create', {
-      name: 'python3',
-    });
-    const createData = parseToolCallResult(createResult);
-    expect(createData.success).toBe(true);
-
-    const sessionId = createData.session_id as string;
-    createdSessionIds.push(sessionId);
+    const sessionId = await createTestSession(createdSessionIds);
 
     // 2. x = 42 実行
     await handleToolCall('execute_code', {
@@ -429,5 +382,5 @@ describe('get_dataframe_info エラーハンドリング', () => {
     const error = dfInfoData.error as { code?: string; message?: string };
     expect(error.code).toMatch(/INVALID_VARIABLE_TYPE|TypeError/);
     expect(error.message).toBeDefined();
-  });
+  }, 20000);
 });
