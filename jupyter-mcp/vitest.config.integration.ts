@@ -7,5 +7,11 @@ export default defineConfig({
     hookTimeout: 10000, // beforeEach/afterEach用
     globals: true,
     environment: 'node',
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true, // 並列実行を無効化（直列実行）
+      },
+    },
   },
 });

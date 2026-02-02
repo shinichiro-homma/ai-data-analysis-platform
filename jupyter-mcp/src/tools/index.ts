@@ -10,6 +10,7 @@ import { executeSessionList } from "./session-list.js";
 import { executeSessionDelete } from "./session-delete.js";
 import { executeSessionConnect } from "./session-connect.js";
 import { executeExecuteCode } from "./execute-code.js";
+import { executeGetVariables } from "./get-variables.js";
 
 /**
  * ツール定義
@@ -141,6 +142,20 @@ const tools: Tool[] = [
       required: ["session_id"],
     },
   },
+  {
+    name: "get_variables",
+    description: "セッション内で定義されている変数の一覧を取得します。変数名、型、サイズ（概算）を返します。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "セッションID",
+        },
+      },
+      required: ["session_id"],
+    },
+  },
 ];
 
 /**
@@ -172,6 +187,8 @@ export async function handleToolCall(
       return executeSessionConnect(args);
     case "execute_code":
       return executeExecuteCode(args);
+    case "get_variables":
+      return executeGetVariables(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
