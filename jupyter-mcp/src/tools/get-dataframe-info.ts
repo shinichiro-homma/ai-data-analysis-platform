@@ -21,6 +21,26 @@ interface GetDataframeInfoArgs {
   head_rows?: number;
 }
 
+interface DataFrameInfoResponse {
+  success: boolean;
+  name: string;
+  shape: [number, number];
+  columns: string[];
+  dtypes: Record<string, string>;
+  head?: Record<string, unknown>[];
+  describe: Record<
+    string,
+    {
+      count?: number;
+      mean?: number;
+      std?: number;
+      min?: number;
+      max?: number;
+    }
+  >;
+  memory_bytes?: number;
+}
+
 /**
  * DataFrame 変数の詳細情報を取得する
  */
@@ -66,6 +86,30 @@ export async function executeGetDataframeInfo(
     );
   }
 
+  // 入力検証: head_rows
+  if (head_rows !== undefined) {
+    if (typeof head_rows !== "number") {
+      return createErrorResponse(
+        "head_rows パラメータは数値である必要があります",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    if (!Number.isInteger(head_rows) || head_rows <= 0) {
+      return createErrorResponse(
+        "head_rows は正の整数である必要があります",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    if (head_rows > 1000) {
+      return createErrorResponse(
+        "head_rows は最大 1000 行です",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
+
   // 検証後、session_id と variable_name は必ず string
   const validatedSessionId = session_id as string;
   const validatedVariableName = variable_name as string;
@@ -92,25 +136,7 @@ export async function executeGetDataframeInfo(
     const dfVariable = variable as DataFrameVariable;
 
     // レスポンスを整形
-    const response: {
-      success: boolean;
-      name: string;
-      shape: [number, number];
-      columns: string[];
-      dtypes: Record<string, string>;
-      head?: Record<string, unknown>[];
-      describe: Record<
-        string,
-        {
-          count?: number;
-          mean?: number;
-          std?: number;
-          min?: number;
-          max?: number;
-        }
-      >;
-      memory_bytes?: number;
-    } = {
+    const response: DataFrameInfoResponse = {
       success: true,
       name: dfVariable.name,
       shape: dfVariable.shape,
@@ -132,7 +158,7 @@ export async function executeGetDataframeInfo(
       response.head = limitedHead;
     }
 
-    return createSuccessResponse(response);
+    return createSuccessResponse(response as unknown as Record<string, unknown>);
   } catch (error) {
     return createErrorResponse(
       extractErrorMessage(error),
