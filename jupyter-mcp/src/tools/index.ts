@@ -11,6 +11,7 @@ import { executeSessionDelete } from "./session-delete.js";
 import { executeSessionConnect } from "./session-connect.js";
 import { executeExecuteCode } from "./execute-code.js";
 import { executeGetVariables } from "./get-variables.js";
+import { executeGetDataframeInfo } from "./get-dataframe-info.js";
 
 /**
  * ツール定義
@@ -156,6 +157,32 @@ const tools: Tool[] = [
       required: ["session_id"],
     },
   },
+  {
+    name: "get_dataframe_info",
+    description: "DataFrame 変数の詳細情報（カラム情報、先頭行、統計情報）を取得します。データの構造を把握する際に使用してください。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "セッションID",
+        },
+        variable_name: {
+          type: "string",
+          description: "DataFrame 変数名",
+        },
+        include_head: {
+          type: "boolean",
+          description: "先頭行を含めるか（デフォルト: true）",
+        },
+        head_rows: {
+          type: "number",
+          description: "先頭何行を取得するか（デフォルト: 5）",
+        },
+      },
+      required: ["session_id", "variable_name"],
+    },
+  },
 ];
 
 /**
@@ -189,6 +216,8 @@ export async function handleToolCall(
       return executeExecuteCode(args);
     case "get_variables":
       return executeGetVariables(args);
+    case "get_dataframe_info":
+      return executeGetDataframeInfo(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
