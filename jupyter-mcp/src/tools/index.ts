@@ -12,6 +12,7 @@ import { executeSessionConnect } from "./session-connect.js";
 import { executeExecuteCode } from "./execute-code.js";
 import { executeGetVariables } from "./get-variables.js";
 import { executeGetDataframeInfo } from "./get-dataframe-info.js";
+import { executeFileList } from "./file-list.js";
 
 /**
  * ツール定義
@@ -183,6 +184,24 @@ const tools: Tool[] = [
       required: ["session_id", "variable_name"],
     },
   },
+  {
+    name: "file_list",
+    description: "ワークスペース内のファイル一覧を取得します。ノートブック作成後の確認や、データファイルの一覧取得に使用できます。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "セッションID",
+        },
+        path: {
+          type: "string",
+          description: "ファイル一覧を取得するディレクトリパス（デフォルト: / でルートディレクトリ）",
+        },
+      },
+      required: ["session_id"],
+    },
+  },
 ];
 
 /**
@@ -218,6 +237,8 @@ export async function handleToolCall(
       return executeGetVariables(args);
     case "get_dataframe_info":
       return executeGetDataframeInfo(args);
+    case "file_list":
+      return executeFileList(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
