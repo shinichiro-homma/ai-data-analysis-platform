@@ -16,10 +16,36 @@ import {
   parseToolCallResult,
 } from '../setup.js';
 
+/**
+ * ファイルエントリの型定義
+ */
+interface FileEntry {
+  name: string;
+  type: string;
+  size?: number;
+  modified_at?: string;
+}
+
+/**
+ * file_list レスポンスの型定義
+ */
+interface FileListResponse {
+  success: boolean;
+  path?: string;
+  contents?: FileEntry[];
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+/**
+ * テスト用セッションID定数
+ */
+const TEST_SESSION_ID = 'test-session-for-file-list';
+
 describe('ファイル操作の結合テスト', () => {
   const testNotebooks: string[] = [];
-  // file_list ツールはセッション検証するが、実際には使用しないためダミー値を使用
-  const dummySessionId = 'test-session-for-file-list';
 
   beforeAll(async () => {
     // Jupyter サーバーの接続確認
@@ -48,17 +74,16 @@ describe('ファイル操作の結合テスト', () => {
 
     // 2. file_list でルートディレクトリのファイル一覧を取得
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: '/',
     });
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // 3. 作成したノートブックが一覧に含まれることを確認
     expect(fileListData.path).toBe('/');
     expect(Array.isArray(fileListData.contents)).toBe(true);
 
-    const createdFile = (fileListData.contents as Array<{ name: string; type: string }>)
-      .find(file => file.name === notebookPath);
+    const createdFile = fileListData.contents?.find(file => file.name === notebookPath);
 
     expect(createdFile).toBeDefined();
 
@@ -69,9 +94,9 @@ describe('ファイル操作の結合テスト', () => {
   test('ルートディレクトリのファイル一覧を取得（path 省略）', async () => {
     // 1. file_list(session_id, path=undefined) を呼び出し
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
     });
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // 2. contents 配列が返ることを確認
     expect(Array.isArray(fileListData.contents)).toBe(true);
@@ -83,10 +108,10 @@ describe('ファイル操作の結合テスト', () => {
   test('ルートディレクトリのファイル一覧を取得（path="/"）', async () => {
     // 1. file_list(session_id, path="/") を呼び出し
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: '/',
     });
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // 2. contents 配列が返ることを確認
     expect(Array.isArray(fileListData.contents)).toBe(true);
@@ -103,20 +128,15 @@ describe('ファイル操作の結合テスト', () => {
 
     // 2. file_list 呼び出し
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: '/',
     });
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // 3. 各ファイルエントリに name, type, size, modified_at が含まれることを確認
     expect(Array.isArray(fileListData.contents)).toBe(true);
 
-    const createdFile = (fileListData.contents as Array<{
-      name: string;
-      type: string;
-      size?: number;
-      modified_at?: string;
-    }>).find(file => file.name === notebookPath);
+    const createdFile = fileListData.contents?.find(file => file.name === notebookPath);
 
     expect(createdFile).toBeDefined();
     expect(createdFile?.name).toBe(notebookPath);
@@ -149,14 +169,13 @@ describe('ファイル操作の結合テスト', () => {
 
     // 2. file_list でルートディレクトリを取得
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: '/',
     });
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // 3. A, B, C すべてが一覧に含まれることを確認
-    const fileNames = (fileListData.contents as Array<{ name: string }>)
-      .map(file => file.name);
+    const fileNames = fileListData.contents?.map(file => file.name) ?? [];
 
     expect(fileNames).toContain(pathA);
     expect(fileNames).toContain(pathB);
@@ -165,7 +184,7 @@ describe('ファイル操作の結合テスト', () => {
 });
 
 describe('file_list エラーハンドリング', () => {
-  const dummySessionId = 'test-session-for-error-handling';
+  const TEST_SESSION_ID = 'test-session-for-error-handling';
 
   beforeAll(async () => {
     await checkJupyterConnection();
@@ -174,17 +193,17 @@ describe('file_list エラーハンドリング', () => {
   test('パストラバーサル攻撃を拒否', async () => {
     // file_list(session_id, path="../etc/passwd") を呼び出し
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: '../etc/passwd',
     });
 
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // VALIDATION_ERROR エラーを確認
     expect(fileListData.success).toBe(false);
     expect(fileListData.error).toBeDefined();
-    expect((fileListData.error as { code: string }).code).toBe('VALIDATION_ERROR');
-    expect((fileListData.error as { message: string }).message).toContain('..');
+    expect(fileListData.error?.code).toBe('VALIDATION_ERROR');
+    expect(fileListData.error?.message).toContain('..');
   });
 
   test('存在しないパスを指定 → エラー', async () => {
@@ -192,17 +211,17 @@ describe('file_list エラーハンドリング', () => {
 
     // file_list(session_id, path="nonexistent-directory") を呼び出し
     const fileListResult = await handleToolCall('file_list', {
-      session_id: dummySessionId,
+      session_id: TEST_SESSION_ID,
       path: nonExistentPath,
     });
 
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // エラーを確認（現在の実装では INTERNAL_ERROR として返される）
     // TODO: jupyter-client の listContents に context を渡して NOT_FOUND を返すように改善
     expect(fileListData.success).toBe(false);
     expect(fileListData.error).toBeDefined();
-    expect((fileListData.error as { code: string }).code).toBe('INTERNAL_ERROR');
+    expect(fileListData.error?.code).toBe('INTERNAL_ERROR');
   });
 
   test('session_id が未指定 → VALIDATION_ERROR', async () => {
@@ -211,12 +230,12 @@ describe('file_list エラーハンドリング', () => {
       session_id: '',
     });
 
-    const fileListData = parseToolCallResult(fileListResult);
+    const fileListData = parseToolCallResult(fileListResult) as FileListResponse;
 
     // VALIDATION_ERROR エラーを確認
     expect(fileListData.success).toBe(false);
     expect(fileListData.error).toBeDefined();
-    expect((fileListData.error as { code: string }).code).toBe('VALIDATION_ERROR');
-    expect((fileListData.error as { message: string }).message).toMatch(/session_id/i);
+    expect(fileListData.error?.code).toBe('VALIDATION_ERROR');
+    expect(fileListData.error?.message).toMatch(/session_id/i);
   });
 });
