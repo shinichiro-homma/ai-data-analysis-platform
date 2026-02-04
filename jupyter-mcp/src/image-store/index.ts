@@ -109,6 +109,15 @@ class ImageStore {
   }
 
   /**
+   * 全セッションの全画像を取得
+   *
+   * @returns StoredImageの配列
+   */
+  listAll(): StoredImage[] {
+    return Array.from(this.images.values());
+  }
+
+  /**
    * セッションに紐づく画像一覧を取得
    *
    * @param sessionId セッションID
