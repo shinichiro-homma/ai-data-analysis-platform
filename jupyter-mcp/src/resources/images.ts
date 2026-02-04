@@ -7,28 +7,8 @@
  */
 
 import { imageStore } from "../image-store/index.js";
-
-/**
- * リソースURIのスキーム
- */
-const RESOURCE_URI_SCHEME = 'jupyter://sessions';
-
-/**
- * MIMEタイプからファイル拡張子を取得
- *
- * @param mimeType MIMEタイプ
- * @returns ファイル拡張子
- */
-function getExtensionFromMimeType(mimeType: string): string {
-  const mapping: Record<string, string> = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/svg+xml": "svg",
-    "image/gif": "gif",
-  };
-
-  return mapping[mimeType] || "png";
-}
+import { buildResourceUriFromImage } from "../image-store/uri-utils.js";
+import type { Resource } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * 画像リソース一覧を取得
@@ -36,22 +16,21 @@ function getExtensionFromMimeType(mimeType: string): string {
  * @param uriPrefix オプショナルなURIプレフィックスでフィルタ（例: "jupyter://sessions/abc123/"）
  * @returns MCPリソース一覧
  */
-export function listResources(uriPrefix?: string): { resources: Array<{ uri: string; name: string; mimeType: string; description: string }> } {
+export function listResources(uriPrefix?: string): { resources: Resource[] } {
   // 全画像を取得
   const allImages = imageStore.listAll();
 
   // URIプレフィックスでフィルタ（指定されている場合）
   const images = uriPrefix
     ? allImages.filter((img) => {
-        const uri = `${RESOURCE_URI_SCHEME}/${img.sessionId}/images/${img.id}.${getExtensionFromMimeType(img.mimeType)}`;
+        const uri = buildResourceUriFromImage(img);
         return uri.startsWith(uriPrefix);
       })
     : allImages;
 
   // MCPリソース形式に変換
-  const resources = images.map((img) => {
-    const extension = getExtensionFromMimeType(img.mimeType);
-    const uri = `${RESOURCE_URI_SCHEME}/${img.sessionId}/images/${img.id}.${extension}`;
+  const resources: Resource[] = images.map((img) => {
+    const uri = buildResourceUriFromImage(img);
 
     return {
       uri,

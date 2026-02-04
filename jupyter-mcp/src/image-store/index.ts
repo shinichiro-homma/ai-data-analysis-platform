@@ -6,16 +6,7 @@
 
 import { randomUUID } from "crypto";
 import type { StoredImage, ImageReference, ImageOutput } from "./types.js";
-
-/**
- * リソースURIのスキーム
- */
-const RESOURCE_URI_SCHEME = 'jupyter://sessions';
-
-/**
- * リソースURIのパターン（imageIdを抽出するための正規表現）
- */
-const RESOURCE_URI_PATTERN = /^jupyter:\/\/sessions\/[^/]+\/images\/([^.]+)\.[^.]+$/;
+import { buildResourceUri, extractImageIdFromUri } from "./uri-utils.js";
 
 /**
  * 画像ストアクラス
@@ -55,11 +46,8 @@ class ImageStore {
     const newCount = currentCount + 1;
     this.sessionCounters.set(sessionId, newCount);
 
-    // ファイル拡張子を決定
-    const extension = this.getExtensionFromMimeType(imageData.mime_type);
-
     // リソースURIを生成
-    const resourceUri = `${RESOURCE_URI_SCHEME}/${sessionId}/images/${imageId}.${extension}`;
+    const resourceUri = buildResourceUri(sessionId, imageId, imageData.mime_type);
 
     // 説明を生成
     const description = `matplotlib output [${newCount}]`;
@@ -100,7 +88,7 @@ class ImageStore {
     }
 
     // URIからimageIdを抽出
-    const imageId = this.extractImageIdFromUri(resourceUri);
+    const imageId = extractImageIdFromUri(resourceUri);
     if (!imageId) {
       return undefined;
     }
@@ -149,38 +137,6 @@ class ImageStore {
     this.sessionCounters.delete(sessionId);
   }
 
-  /**
-   * MIMEタイプからファイル拡張子を取得
-   *
-   * @param mimeType MIMEタイプ
-   * @returns ファイル拡張子
-   */
-  private getExtensionFromMimeType(mimeType: string): string {
-    const mapping: Record<string, string> = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/svg+xml": "svg",
-      "image/gif": "gif",
-    };
-
-    return mapping[mimeType] || "png";
-  }
-
-  /**
-   * リソースURIから画像IDを抽出
-   *
-   * @param resourceUri MCPリソースURI
-   * @returns 画像ID または null
-   */
-  private extractImageIdFromUri(resourceUri: string): string | null {
-    const match = resourceUri.match(RESOURCE_URI_PATTERN);
-
-    if (!match) {
-      return null;
-    }
-
-    return match[1]; // imageId
-  }
 }
 
 /**
