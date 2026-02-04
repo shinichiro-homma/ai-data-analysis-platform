@@ -97,7 +97,7 @@
 
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
-| 7.1 | execute_code の画像出力対応 | [ ] | matplotlibグラフ実行時にimages配列が返る | |
+| 7.1 | execute_code の画像出力対応 | [x] | matplotlibグラフ実行時にimages配列が返る | |
 | 7.2 | MCPリソース実装 | [ ] | リソースURIで画像一覧・取得が可能 | resources/list, resources/read |
 | 7.3 | get_image_resource ツール実装 | [ ] | MCPツールで画像データ（base64）が取得できる | |
 | 7.4 | 結合テスト | [ ] | グラフ描画→画像取得→内容確認の一連フロー | |

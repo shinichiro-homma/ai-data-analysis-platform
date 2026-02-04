@@ -12,6 +12,7 @@ import {
 } from "../utils/response-formatter.js";
 import { validateStringParameter } from "../utils/validation.js";
 import { resolveKernelId } from "../utils/session-resolver.js";
+import { imageStore } from "../image-store/index.js";
 
 interface ExecuteCodeArgs {
   session_id: string;
@@ -105,11 +106,16 @@ export async function executeExecuteCode(
         .map((o) => o.text)
         .join("");
 
+      // 画像をストアに保存し、ImageReference形式に変換
+      const imageReferences = result.images.map((img) => {
+        return imageStore.store(kernelId, img);
+      });
+
       return createSuccessResponse({
         stdout,
         stderr,
         result: result.result,
-        images: result.images,
+        images: imageReferences,
         execution_time_ms: result.execution_time_ms,
       });
     }
