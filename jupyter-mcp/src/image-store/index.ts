@@ -8,6 +8,16 @@ import { randomUUID } from "crypto";
 import type { StoredImage, ImageReference, ImageOutput } from "./types.js";
 
 /**
+ * リソースURIのスキーム
+ */
+const RESOURCE_URI_SCHEME = 'jupyter://sessions';
+
+/**
+ * リソースURIのパターン（imageIdを抽出するための正規表現）
+ */
+const RESOURCE_URI_PATTERN = /^jupyter:\/\/sessions\/[^/]+\/images\/([^.]+)\.[^.]+$/;
+
+/**
  * 画像ストアクラス
  *
  * セッション内で生成された画像をメモリ上に保存し、
@@ -26,8 +36,17 @@ class ImageStore {
    * @param sessionId セッションID
    * @param imageData Jupyter APIから返された画像データ
    * @returns ImageReference（resource_uri を含む）
+   * @throws Error sessionId または imageData が無効な場合
    */
   store(sessionId: string, imageData: ImageOutput): ImageReference {
+    // 入力検証
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new Error('Invalid sessionId');
+    }
+    if (!imageData || !imageData.mime_type || !imageData.data) {
+      throw new Error('Invalid imageData');
+    }
+
     // 画像IDを生成
     const imageId = randomUUID();
 
@@ -40,7 +59,7 @@ class ImageStore {
     const extension = this.getExtensionFromMimeType(imageData.mime_type);
 
     // リソースURIを生成
-    const resourceUri = `jupyter://sessions/${sessionId}/images/${imageId}.${extension}`;
+    const resourceUri = `${RESOURCE_URI_SCHEME}/${sessionId}/images/${imageId}.${extension}`;
 
     // 説明を生成
     const description = `matplotlib output [${newCount}]`;
@@ -72,8 +91,14 @@ class ImageStore {
    *
    * @param resourceUri MCPリソースURI
    * @returns StoredImage または undefined
+   * @throws Error resourceUri が無効な形式の場合
    */
   get(resourceUri: string): StoredImage | undefined {
+    // 入力検証
+    if (!resourceUri || typeof resourceUri !== 'string') {
+      throw new Error('Invalid resourceUri');
+    }
+
     // URIからimageIdを抽出
     const imageId = this.extractImageIdFromUri(resourceUri);
     if (!imageId) {
@@ -90,15 +115,9 @@ class ImageStore {
    * @returns StoredImageの配列
    */
   listBySession(sessionId: string): StoredImage[] {
-    const result: StoredImage[] = [];
-
-    for (const image of this.images.values()) {
-      if (image.sessionId === sessionId) {
-        result.push(image);
-      }
-    }
-
-    return result;
+    return Array.from(this.images.values()).filter(
+      (image) => image.sessionId === sessionId
+    );
   }
 
   /**
@@ -107,14 +126,10 @@ class ImageStore {
    * @param sessionId セッションID
    */
   deleteBySession(sessionId: string): void {
-    // 削除対象のimageIdを収集
-    const imageIdsToDelete: string[] = [];
-
-    for (const [imageId, image] of this.images.entries()) {
-      if (image.sessionId === sessionId) {
-        imageIdsToDelete.push(imageId);
-      }
-    }
+    // セッションに紐づく画像を抽出して削除
+    const imageIdsToDelete = Array.from(this.images.entries())
+      .filter(([, image]) => image.sessionId === sessionId)
+      .map(([imageId]) => imageId);
 
     // 削除実行
     for (const imageId of imageIdsToDelete) {
@@ -149,8 +164,7 @@ class ImageStore {
    * @returns 画像ID または null
    */
   private extractImageIdFromUri(resourceUri: string): string | null {
-    // 形式: jupyter://sessions/{session_id}/images/{image_id}.{ext}
-    const match = resourceUri.match(/^jupyter:\/\/sessions\/[^/]+\/images\/([^.]+)\.[^.]+$/);
+    const match = resourceUri.match(RESOURCE_URI_PATTERN);
 
     if (!match) {
       return null;

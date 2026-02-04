@@ -36,20 +36,5 @@ export interface ImageReference {
   description: string;
 }
 
-/**
- * Jupyter APIから返される画像出力
- *
- * Note: この型は jupyter-client/types.ts の ImageOutput と同じ構造を持つ
- */
-export interface ImageOutput {
-  /** 画像ID（jupyter-server が生成） */
-  id: string;
-  /** MIMEタイプ */
-  mime_type: string;
-  /** base64エンコードされた画像データ */
-  data: string;
-  /** 幅（オプション） */
-  width?: number;
-  /** 高さ（オプション） */
-  height?: number;
-}
+// ImageOutput は jupyter-client/types.ts から import して使用する
+export type { ImageOutput } from '../jupyter-client/types.js';
