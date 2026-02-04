@@ -13,6 +13,7 @@ import { executeExecuteCode } from "./execute-code.js";
 import { executeGetVariables } from "./get-variables.js";
 import { executeGetDataframeInfo } from "./get-dataframe-info.js";
 import { executeFileList } from "./file-list.js";
+import { executeGetImageResource } from "./get-image-resource.js";
 
 /**
  * ツール定義
@@ -202,6 +203,20 @@ const tools: Tool[] = [
       required: ["session_id"],
     },
   },
+  {
+    name: "get_image_resource",
+    description: "execute_code で生成された画像データを取得します。リソースURIを指定して、画像のbase64データを取得できます。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        resource_uri: {
+          type: "string",
+          description: "画像のリソースURI（例: jupyter://sessions/abc123/images/output-001.png）。execute_codeのレスポンスに含まれるimages[].resource_uriを指定してください。",
+        },
+      },
+      required: ["resource_uri"],
+    },
+  },
 ];
 
 /**
@@ -239,6 +254,8 @@ export async function handleToolCall(
       return executeGetDataframeInfo(args);
     case "file_list":
       return executeFileList(args);
+    case "get_image_resource":
+      return executeGetImageResource(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
