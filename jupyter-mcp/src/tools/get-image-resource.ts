@@ -9,6 +9,8 @@ import { imageStore } from "../image-store/index.js";
 import {
   createSuccessResponse,
   createErrorResponse,
+  extractErrorCode,
+  extractErrorMessage,
   type McpResponse,
 } from "../utils/response-formatter.js";
 import { validateStringParameter } from "../utils/validation.js";
@@ -51,7 +53,7 @@ export async function executeGetImageResource(
 
     if (!image) {
       return createErrorResponse(
-        `指定されたリソースURIの画像が見つかりません: ${validatedResourceUri}`,
+        "指定されたリソースURIの画像が見つかりません",
         "NOT_FOUND"
       );
     }
@@ -64,17 +66,9 @@ export async function executeGetImageResource(
       height: image.height,
     });
   } catch (error) {
-    // imageStore.get() の内部エラー（不正なURI形式等）
-    if (error instanceof Error) {
-      return createErrorResponse(
-        `画像の取得に失敗しました: ${error.message}`,
-        "INVALID_URI"
-      );
-    }
-
     return createErrorResponse(
-      "画像の取得中に予期しないエラーが発生しました",
-      "INTERNAL_ERROR"
+      extractErrorMessage(error),
+      extractErrorCode(error)
     );
   }
 }
