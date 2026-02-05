@@ -18,6 +18,14 @@ export interface McpClientConnection {
 }
 
 /**
+ * MCP ツール呼び出し結果のレスポンス型
+ */
+export interface McpToolCallResponse {
+  success: boolean;
+  [key: string]: unknown;
+}
+
+/**
  * テスト用 MCP クライアント接続を作成
  *
  * InMemoryTransport を使用してクライアント-サーバー間の接続を確立する。
@@ -27,40 +35,63 @@ export interface McpClientConnection {
  * @example
  * const { client, cleanup } = await createMcpClient();
  * try {
- *   const result = await client.callTool('session_create', { name: 'python3' });
+ *   const result = await client.callTool({
+ *     name: 'session_create',
+ *     arguments: { name: 'python3' }
+ *   });
  *   // ...
  * } finally {
  *   await cleanup();
  * }
  */
 export async function createMcpClient(): Promise<McpClientConnection> {
-  // サーバーインスタンス作成
   const server = createServer();
-
-  // InMemoryTransport のペアを作成
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-  // サーバーを接続
-  await server.connect(serverTransport);
+  let isConnected = false;
 
-  // クライアントを作成して接続
-  const client = new Client(
-    {
-      name: "test-client",
-      version: "1.0.0",
-    },
-    {
-      capabilities: {},
+  try {
+    // サーバーを接続
+    await server.connect(serverTransport);
+
+    // クライアントを作成して接続
+    const client = new Client(
+      {
+        name: "test-client",
+        version: "1.0.0",
+      },
+      {
+        capabilities: {},
+      }
+    );
+
+    await client.connect(clientTransport);
+    isConnected = true;
+
+    // クリーンアップ関数
+    const cleanup = async () => {
+      await client.close();
+      await server.close();
+    };
+
+    return { client, cleanup };
+  } catch (error) {
+    // 接続失敗時のクリーンアップ
+    if (isConnected) {
+      await server.close();
     }
-  );
+    throw error;
+  }
+}
 
-  await client.connect(clientTransport);
-
-  // クリーンアップ関数
-  const cleanup = async () => {
-    await client.close();
-    await server.close();
-  };
-
-  return { client, cleanup };
+/**
+ * MCP ツール呼び出し結果をパースして型安全に取得
+ *
+ * @param result - MCP ツール呼び出し結果
+ * @returns パースされた JSON オブジェクト
+ */
+export function parseMcpToolCallResult(result: {
+  content: Array<{ type: string; text: string | unknown }>;
+}): McpToolCallResponse {
+  return JSON.parse(result.content[0].text as string) as McpToolCallResponse;
 }

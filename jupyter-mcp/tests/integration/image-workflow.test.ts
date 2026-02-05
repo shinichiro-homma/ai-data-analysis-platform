@@ -16,9 +16,32 @@
  */
 
 import { describe, test, expect, beforeAll, afterEach } from 'vitest';
-import { createMcpClient } from '../helpers/mcp-client.js';
-import type { McpClientConnection } from '../helpers/mcp-client.js';
+import { createMcpClient, parseMcpToolCallResult } from '../helpers/mcp-client.js';
+import type { McpClientConnection, McpToolCallResponse } from '../helpers/mcp-client.js';
 import { cleanupSession, checkJupyterConnection } from '../setup.js';
+
+/**
+ * MCP クライアント経由でセッションを作成するヘルパー関数
+ */
+async function createSession(
+  client: McpClientConnection['client'],
+  createdSessionIds: string[]
+): Promise<string> {
+  const createResult = await client.callTool({
+    name: 'session_create',
+    arguments: {
+      name: 'python3',
+    },
+  });
+
+  const createData = parseMcpToolCallResult(createResult);
+  expect(createData.success).toBe(true);
+
+  const sessionId = createData.session_id as string;
+  createdSessionIds.push(sessionId);
+
+  return sessionId;
+}
 
 describe('画像リソースのワークフローテスト（MCP プロトコル経由）', () => {
   const createdSessionIds: string[] = [];
@@ -43,21 +66,7 @@ describe('画像リソースのワークフローテスト（MCP プロトコル
 
       try {
         // 2. session_create でセッションを作成
-        const createResult = await client.callTool({
-          name: 'session_create',
-          arguments: {
-            name: 'python3',
-          },
-        });
-
-        expect(createResult.content).toBeDefined();
-        expect(createResult.content[0].type).toBe('text');
-
-        const createData = JSON.parse(createResult.content[0].text as string);
-        expect(createData.success).toBe(true);
-
-        const sessionId = createData.session_id as string;
-        createdSessionIds.push(sessionId);
+        const sessionId = await createSession(client, createdSessionIds);
 
         // 3. execute_code で matplotlib グラフを描画
         const code = `
@@ -76,7 +85,7 @@ plt.show()
           },
         });
 
-        const executeData = JSON.parse(executeResult.content[0].text as string);
+        const executeData = parseMcpToolCallResult(executeResult);
         expect(executeData.success).toBe(true);
         expect(executeData.images).toBeDefined();
 
@@ -125,7 +134,7 @@ plt.show()
           },
         });
 
-        const imageData = JSON.parse(getImageResult.content[0].text as string);
+        const imageData = parseMcpToolCallResult(getImageResult);
         expect(imageData.success).toBe(true);
         expect(imageData.mime_type).toBe('image/png');
         expect(imageData.data).toBeDefined();
@@ -141,7 +150,7 @@ plt.show()
           },
         });
 
-        const deleteData = JSON.parse(deleteResult.content[0].text as string);
+        const deleteData = parseMcpToolCallResult(deleteResult);
         expect(deleteData.success).toBe(true);
 
         // クリーンアップリストから削除（既に削除済み）
@@ -162,28 +171,10 @@ plt.show()
 
       try {
         // 2. セッション A を作成
-        const createResultA = await client.callTool({
-          name: 'session_create',
-          arguments: {
-            name: 'python3',
-          },
-        });
-        const createDataA = JSON.parse(createResultA.content[0].text as string);
-        expect(createDataA.success).toBe(true);
-        const sessionIdA = createDataA.session_id as string;
-        createdSessionIds.push(sessionIdA);
+        const sessionIdA = await createSession(client, createdSessionIds);
 
         // 3. セッション B を作成
-        const createResultB = await client.callTool({
-          name: 'session_create',
-          arguments: {
-            name: 'python3',
-          },
-        });
-        const createDataB = JSON.parse(createResultB.content[0].text as string);
-        expect(createDataB.success).toBe(true);
-        const sessionIdB = createDataB.session_id as string;
-        createdSessionIds.push(sessionIdB);
+        const sessionIdB = await createSession(client, createdSessionIds);
 
         // 4. セッション A でグラフ 1 枚描画
         const codeA = `
@@ -280,17 +271,7 @@ plt.show()
 
       try {
         // 2. セッション作成
-        const createResult = await client.callTool({
-          name: 'session_create',
-          arguments: {
-            name: 'python3',
-          },
-        });
-        const createData = JSON.parse(createResult.content[0].text as string);
-        expect(createData.success).toBe(true);
-
-        const sessionId = createData.session_id as string;
-        createdSessionIds.push(sessionId);
+        const sessionId = await createSession(client, createdSessionIds);
 
         // 3. execute_code でグラフを描画
         const code = `
@@ -311,7 +292,7 @@ plt.show()
           },
         });
 
-        const executeData = JSON.parse(executeResult.content[0].text as string);
+        const executeData = parseMcpToolCallResult(executeResult);
         expect(executeData.success).toBe(true);
         expect(executeData.images).toHaveLength(1);
 
