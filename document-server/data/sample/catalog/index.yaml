@@ -1,0 +1,13 @@
+tables_index:
+  - table_name: customer_master
+    display_name: "会員マスタ"
+    summary: "統合会員の基本情報を管理するマスタテーブル。"
+    category: "マスタ系"
+  - table_name: product_master
+    display_name: "商品マスタ"
+    summary: "取扱商品の基本情報・カテゴリ・価格を管理するマスタテーブル。"
+    category: "マスタ系"
+  - table_name: purchase_history
+    display_name: "購買履歴"
+    summary: "統合会員の購買トランザクションデータ。1レコード＝1購買明細。"
+    category: "トランザクション系"

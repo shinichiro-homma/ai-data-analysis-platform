@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+
+# JupyterLab AI Sync build outputs
+jupyterlab-ai-sync/lib/
+jupyterlab-ai-sync/jupyterlab-ai-sync/
+jupyterlab-ai-sync/*.tsbuildinfo
+jupyterlab-ai-sync/package-lock.json
+
+# Jupyter work directory
+jupyter-server/work/
+jupyter-server/jupyter-server/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Production data (user-specific, not committed)
+document-server/data/production/
+postgres/data/production/*
+!postgres/data/production/.gitkeep
+postgres/data/csv/production/*
+!postgres/data/csv/production/.gitkeep
+postgres/init/production/*
+!postgres/init/production/.gitkeep
+
+# Debug files
+*.debug
+

@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "workspaces": [
+    "packages/mcp-shared",
+    "jupyter-mcp",
+    "document-mcp",
+    "tests/e2e"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "dotenv": "^17.3.1",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  }
+}

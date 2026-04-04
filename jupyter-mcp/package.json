@@ -1,0 +1,27 @@
+{
+  "name": "jupyter-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Jupyter notebook operations",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.unit.ts",
+    "test:unit": "vitest run --config vitest.config.unit.ts",
+    "test:integration": "vitest run --config vitest.config.integration.ts",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ai-data-analysis/mcp-shared": "*",
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "@vitest/ui": "^1.2.0",
+    "ws": "^8.19.0"
+  }
+}

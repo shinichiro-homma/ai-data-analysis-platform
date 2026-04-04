@@ -1,0 +1,83 @@
+table_name: product_master
+display_name: 商品マスタ
+summary: "取扱商品の基本情報・カテゴリ・価格を管理するマスタテーブル。"
+category: マスタ系
+description: |
+  取扱商品の基本情報を管理するマスタテーブル。
+  大分類・中分類・小分類の3階層カテゴリ構造を持ち、商品カテゴリ分析の軸となる。
+data_source:
+  type: postgresql
+  table: product_master
+columns:
+  - name: product_code
+    type: varchar(13)
+    description: 商品コード（主キー）
+    nullable: false
+    key_type: "商品コード"
+    examples: ["P0001", "P0015"]
+
+  - name: product_name
+    type: varchar(200)
+    description: 商品名
+    nullable: false
+
+  - name: jan_code
+    type: varchar(13)
+    description: JANコード
+    nullable: true
+    examples: ["4901234567001"]
+
+  - name: category_large
+    type: varchar(50)
+    description: 大分類
+    nullable: false
+    domain:
+      values:
+        - 食品
+        - 飲料
+        - 日用品
+        - 化粧品
+
+  - name: category_medium
+    type: varchar(50)
+    description: 中分類
+    nullable: false
+
+  - name: category_small
+    type: varchar(50)
+    description: 小分類
+    nullable: true
+
+  - name: unit_price
+    type: integer
+    description: 定価（税抜）
+    nullable: false
+    examples: [98, 780, 2980]
+
+  - name: cost_price
+    type: integer
+    description: 原価
+    nullable: true
+
+  - name: supplier_name
+    type: varchar(100)
+    description: 仕入先名
+    nullable: true
+
+  - name: is_active
+    type: boolean
+    description: 販売中フラグ
+    nullable: false
+
+  - name: registered_date
+    type: date
+    description: 商品登録日
+    nullable: false
+
+statistics:
+  row_count: 50000
+  update_frequency: "随時"
+
+notes_table_level:
+  - "is_active=false の商品は販売終了品。過去の購買履歴には残る。"
+  - "category_large は食品/飲料/日用品/化粧品の4大分類。"

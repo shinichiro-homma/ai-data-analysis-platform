@@ -1,0 +1,4 @@
+name: "統合会員ID"
+aliases: ["統合会員ID", "統合顧客ID", "customer_id"]
+definition: "サンプル株式会社の統合顧客ID体系。メンバーズカード等の会員情報を統合管理する。customer_masterテーブルのcustomer_idカラムに格納される。"
+related_terms: ["ロイヤルティランク", "メンバーズカード"]

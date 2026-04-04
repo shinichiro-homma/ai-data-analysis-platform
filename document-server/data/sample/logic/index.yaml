@@ -1,0 +1,7 @@
+logic_index:
+  - logic_name: "member_id_remapping"
+    summary: "統合会員IDの洗い替え処理。洗い替え前IDを最新IDに変換する。"
+    category: "前処理"
+  - logic_name: "sales_basic_aggregation"
+    summary: "店舗別・顧客セグメント別の売上基礎集計（買上額・買上人数）"
+    category: "集計"

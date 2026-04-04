@@ -1,0 +1,13 @@
+name: "商品カテゴリ"
+aliases: ["商品分類", "カテゴリ", "product category"]
+definition: "商品の大分類・中分類・小分類の3階層カテゴリ体系。product_masterテーブルのcategory_large/category_medium/category_smallカラムで管理される。"
+related_terms: ["店舗"]
+values:
+  - label: "食品"
+    description: "大分類。精肉、青果、パン・菓子等を含む"
+  - label: "飲料"
+    description: "大分類。水、茶系飲料、コーヒー、果汁飲料等を含む"
+  - label: "日用品"
+    description: "大分類。ハンドケア、洗濯用品、紙製品等を含む"
+  - label: "化粧品"
+    description: "大分類。スキンケア、日焼け止め等を含む"

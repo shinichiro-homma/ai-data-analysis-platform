@@ -1,0 +1,82 @@
+table_name: customer_master
+display_name: 会員マスタ
+summary: "統合会員の基本情報を管理するマスタテーブル。"
+category: マスタ系
+description: |
+  統合会員の基本情報を管理するマスタテーブル。
+  ロイヤルティランクや都道府県などの属性情報を保持し、顧客セグメント分析の軸となる。
+data_source:
+  type: postgresql
+  table: customer_master
+columns:
+  - name: customer_id
+    type: varchar(16)
+    description: 統合会員ID（主キー）
+    nullable: false
+    key_type: "統合会員番号"
+    examples: ["MB00010001", "MB00010020"]
+
+  - name: customer_name
+    type: varchar(100)
+    description: 会員名
+    nullable: false
+
+  - name: gender
+    type: varchar(4)
+    description: 性別
+    nullable: false
+    domain:
+      values:
+        - 男性
+        - 女性
+        - その他
+
+  - name: birth_date
+    type: date
+    description: 生年月日
+    nullable: true
+
+  - name: postal_code
+    type: varchar(8)
+    description: 郵便番号
+    nullable: true
+    examples: ["100-0001", "150-0002"]
+
+  - name: prefecture
+    type: varchar(10)
+    description: 都道府県
+    nullable: true
+    examples: ["東京都", "大阪府", "北海道"]
+
+  - name: loyalty_rank
+    type: varchar(10)
+    description: ロイヤルティランク
+    nullable: false
+    domain:
+      values:
+        - レギュラー
+        - シルバー
+        - ゴールド
+        - プラチナ
+
+  - name: registration_date
+    type: date
+    description: 会員登録日
+    nullable: false
+
+  - name: email
+    type: varchar(200)
+    description: メールアドレス
+    nullable: true
+
+  - name: phone
+    type: varchar(20)
+    description: 電話番号
+    nullable: true
+
+statistics:
+  row_count: 500000
+  update_frequency: "日次バッチ"
+
+notes_table_level:
+  - "ロイヤルティランクは年間購買額に基づき月次で更新される。"

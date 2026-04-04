@@ -1,0 +1,52 @@
+# jupyterlab-ai-sync
+
+JupyterLabのフロントエンド拡張。AIの操作をノートブック上でリアルタイム表示する。
+
+## 概要
+
+- jupyter-serverのWebSocket `/api/ai/events` からAI操作イベントを受信
+- ノートブックUIにセル追加・実行結果をリアルタイム反映
+- AI編集中のノートブックロック/アンロック制御
+- WebSocket切断時は全ノートブックのロックを自動解除
+- 切断後5秒間隔で自動再接続
+
+## 技術スタック
+
+[docs/requirements/jupyterlab-ai-sync.md](../docs/requirements/jupyterlab-ai-sync.md) を参照。
+
+## コマンド
+
+```bash
+# 依存関係インストール
+npm install
+
+# ビルド
+npm run build
+
+# JupyterLabにインストール（開発モード）
+jupyter labextension develop . --overwrite
+
+# JupyterLabにインストール（本番）
+pip install .
+```
+
+## 受信イベント
+
+| イベント | 説明 |
+|---------|------|
+| `ai_edit_start` | ノートブックをロック |
+| `cell_added` | セルをUIに追加 |
+| `cell_execute_start` | セルを実行中状態にする |
+| `cell_output` | セルに出力を追加（ストリーミング） |
+| `cell_execute_end` | セルの実行中状態を解除 |
+| `ai_edit_end` | ノートブックのロックを解除 |
+
+ペイロードの詳細は `src/websocket-client.ts` のメッセージハンドリングを参照。
+
+## 要件定義
+
+詳細は [docs/requirements/jupyterlab-ai-sync.md](../docs/requirements/jupyterlab-ai-sync.md) を参照。
+
+## 依存関係
+
+- jupyter-server の AI同期WebSocketエンドポイント（`/api/ai/events`）が実装されていること

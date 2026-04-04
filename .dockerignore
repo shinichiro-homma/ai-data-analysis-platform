@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Node.js
+**/node_modules
+**/dist
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+
+# IDE
+.vscode
+.idea
+**/.DS_Store
+
+# Documentation
+docs/
+*.md
+!jupyter-server/requirements.txt
+!document-server/requirements.txt
+
+# Claude Code
+.claude/
+
+# Scripts (not needed in Docker)
+scripts/
+
+# Test files
+**/vitest.config*.ts
+**/tests/
+**/test/
+
+# Environment
+.env
+.env.*
+
+# Logs
+**/*.log

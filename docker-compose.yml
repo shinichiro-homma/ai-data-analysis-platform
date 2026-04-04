@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: analysis-db
+    environment:
+      - DATA_ENV=${DATA_ENV}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_READONLY_PASSWORD=${POSTGRES_READONLY_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  jupyter-server:
+    build:
+      context: .
+      dockerfile: jupyter-server/Dockerfile
+    container_name: jupyter-server
+    ports:
+      - "8888:8888"
+    environment:
+      - DATA_ENV=${DATA_ENV}
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - KERNEL_TIMEOUT=1800
+      - EXECUTION_TIMEOUT=30
+      - MAX_OUTPUT_SIZE=1048576
+      - DATABASE_URL=postgresql://jupyter_readonly:${POSTGRES_READONLY_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - jupyter_work:/home/jovyan/work
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  document-server:
+    build:
+      context: .
+      dockerfile: document-server/Dockerfile
+    container_name: document-server
+    ports:
+      - "3002:3002"
+    environment:
+      - DATA_ENV=${DATA_ENV}
+      - PORT=3002
+    volumes:
+      - ./document-server/data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: postgres_data_${DATA_ENV}
+  jupyter_work:

@@ -1,0 +1,13 @@
+name: "ロイヤルティランク"
+aliases: ["ロイヤルティランク", "Loyalty Rank", "顧客ランク"]
+definition: "統合会員の購買実績に基づく顧客ロイヤルティランク。年間購買額に応じてレギュラー、シルバー、ゴールド、プラチナの4段階で付与される。"
+related_terms: ["統合会員ID"]
+values:
+  - label: "レギュラー"
+    description: "基本ランク"
+  - label: "シルバー"
+    description: "年間購買額XX万円以上"
+  - label: "ゴールド"
+    description: "年間購買額XX万円以上"
+  - label: "プラチナ"
+    description: "年間購買額XX万円以上"

@@ -1,0 +1,9 @@
+logic_name: "sales_basic_aggregation"
+description: |
+  店舗別・顧客セグメント別の売上基礎集計処理。
+  買上額・買上人数をピボット集計し、分析用の基礎データを作成する。
+file_path: "logic/code/python/sales_basic_aggregation.py"
+language: "python"
+usage_type: "reference"
+input_tables: ["purchase_history", "customer_master"]
+output_description: "店舗別・顧客セグメント別の売上集計DataFrame"

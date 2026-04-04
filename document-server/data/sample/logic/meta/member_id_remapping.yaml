@@ -1,0 +1,17 @@
+logic_name: "member_id_remapping"
+description: |
+  統合会員IDの洗い替え処理。会員統合やID体系変更に伴い、
+  旧IDを最新のIDに変換する前処理。購買データ分析の前段で
+  ほぼ必須となる処理。
+file_path: "logic/code/sql/member_id_remapping.sql"
+language: "sql"
+usage_type: "template"
+input_tables: ["purchase_history", "member_id_mapping"]
+output_description: "洗い替え後のcustomer_idを持つトランザクションデータ"
+usage_context: |
+  購買データを使った分析の前処理として、ほぼ全ての分析で最初に適用する。
+  2022年3月以前のデータは特に洗い替えが必要。
+related_logic: ["sales_basic_aggregation"]
+notes: |
+  洗い替えマッピングテーブルは月次で更新される。
+  最新のmapping_dateのレコードを使うこと。

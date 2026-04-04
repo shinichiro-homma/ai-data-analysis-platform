@@ -1,0 +1,139 @@
+table_name: purchase_history
+display_name: 購買履歴
+summary: "統合会員の購買トランザクションデータ。1レコード＝1購買明細。"
+category: トランザクション系
+description: |
+  統合会員の購買トランザクションデータ。
+  各レコードが1購買明細（1商品）に対応する。
+  明細レベルの分析や、独自の集計軸での集計が必要な場合に使用する。
+data_source:
+  type: postgresql
+  table: purchase_history
+
+columns:
+  - name: transaction_detail_id
+    type: serial
+    description: "明細ID（自動採番、主キー）"
+    nullable: false
+
+  - name: transaction_id
+    type: varchar(20)
+    description: "トランザクションID（同一会計の明細で共通）"
+    nullable: false
+    examples: ["TX20240101001", "TX20250112010"]
+
+  - name: customer_id
+    type: varchar(16)
+    description: "統合会員ID"
+    nullable: false
+    key_type: "統合会員番号"
+    domain:
+      master_table: customer_master
+      master_column: customer_id
+      label_column: customer_name
+    notes: |
+      会員マスタとの結合にはこのカラムを使うこと。
+    examples: ["MB00010001", "MB00010020"]
+
+  - name: product_code
+    type: varchar(13)
+    description: "商品コード"
+    nullable: false
+    key_type: "商品コード"
+    domain:
+      master_table: product_master
+      master_column: product_code
+      label_column: product_name
+    notes: |
+      商品マスタとの結合にはこのカラムを使うこと。
+    examples: ["P0001", "P0015"]
+
+  - name: transaction_date
+    type: date
+    description: "取引日"
+    nullable: false
+
+  - name: transaction_time
+    type: time
+    description: "取引時刻"
+    nullable: true
+
+  - name: quantity
+    type: integer
+    description: "数量"
+    nullable: false
+
+  - name: unit_price
+    type: integer
+    description: "販売単価（税抜）"
+    nullable: false
+
+  - name: amount
+    type: integer
+    description: "購買金額（税抜、数量×単価）"
+    nullable: false
+    notes: |
+      税抜金額。キャンセル済み取引もレコードとして残っているため、
+      売上集計時は status != 'cancelled' でフィルタすること。
+    examples: [196, 780, 2980]
+
+  - name: discount_amount
+    type: integer
+    description: "値引額"
+    nullable: false
+
+  - name: store_code
+    type: varchar(10)
+    description: "店舗コード"
+    nullable: false
+    examples: ["ST001", "ST005"]
+    notes: |
+      ST001=東京本店、ST002=横浜店、ST003=大宮店、ST004=名古屋店、ST005=大阪店
+
+  - name: channel
+    type: varchar(10)
+    description: "販売チャネル"
+    nullable: false
+    domain:
+      values:
+        - 店舗
+        - EC
+
+  - name: status
+    type: varchar(16)
+    description: "取引ステータス"
+    nullable: false
+    domain:
+      values:
+        - completed    # 完了
+        - cancelled    # キャンセル
+        - returned     # 返品
+
+  - name: payment_method
+    type: varchar(20)
+    description: "支払方法"
+    nullable: true
+    domain:
+      values:
+        - 現金
+        - クレジットカード
+        - 電子マネー
+
+  - name: point_used
+    type: integer
+    description: "利用ポイント数"
+    nullable: false
+
+statistics:
+  row_count: 15000000
+  date_range:
+    from: "2020-01-01"
+    to: "2025-12-31"
+  update_frequency: "日次バッチ"
+  avg_basket_size: 3.2
+  top_categories: ["食品", "日用品", "衣料"]
+  cancelled_rate: 0.05
+
+notes_table_level:
+  - "キャンセル済み取引もレコードとして残っている。売上集計時はstatus != 'cancelled'でフィルタすること。"
+  - "同一transaction_idの明細は同一会計（同一レシート）に対応する。"

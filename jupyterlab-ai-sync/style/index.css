@@ -1,0 +1,96 @@
+/**
+ * JupyterLab AI Sync Extension Styles
+ */
+
+/* AI編集中ロックバナー */
+.jp-ai-lock-indicator {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 0 12px;
+}
+
+.jp-ai-lock-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--jp-ui-font-color1);
+}
+
+.jp-ai-lock-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.jp-ai-lock-text {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ===== ファイルブラウザツリー展開スタイル ===== */
+
+/* 子アイテムのコンテナ */
+.jp-fb-tree-children {
+  display: block;
+  overflow: hidden;
+}
+
+/* ツリー内の各アイテム行 */
+.jp-fb-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  cursor: pointer;
+  font-size: var(--jp-ui-font-size1);
+  color: var(--jp-ui-font-color1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.jp-fb-tree-item:hover {
+  background-color: var(--jp-layout-color2);
+}
+
+/* 展開/折りたたみ矢印アイコン */
+.jp-fb-tree-expand-icon {
+  display: inline-block;
+  font-size: 8px;
+  width: 12px;
+  text-align: center;
+  color: var(--jp-ui-font-color2);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.jp-fb-tree-expand-icon--open {
+  transform: rotate(90deg);
+}
+
+/* フォルダアイコン */
+.jp-fb-tree-folder-icon {
+  display: inline-block;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ファイルアイコン */
+.jp-fb-tree-file-icon {
+  display: inline-block;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* アイテム名 */
+.jp-fb-tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,15 @@
+name: "店舗"
+aliases: ["施設", "チェーン店", "store_code"]
+definition: "各店舗の総称。purchase_historyテーブルのstore_codeカラムで識別される。ST001=東京本店、ST002=横浜店、ST003=大宮店、ST004=名古屋店、ST005=大阪店。"
+related_terms: ["商品カテゴリ"]
+values:
+  - label: "ST001"
+    description: "東京本店"
+  - label: "ST002"
+    description: "横浜店"
+  - label: "ST003"
+    description: "大宮店"
+  - label: "ST004"
+    description: "名古屋店"
+  - label: "ST005"
+    description: "大阪店"
