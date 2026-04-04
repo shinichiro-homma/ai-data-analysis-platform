@@ -4,11 +4,17 @@
 api-contracts.md に定義された仕様に従った API を提供する。
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from tornado import web
 
@@ -787,7 +793,7 @@ def _serialize_value(val):
     return val
 
 
-def _df_to_records(df: "pd.DataFrame") -> list[dict]:
+def _df_to_records(df: pd.DataFrame) -> list[dict]:
     """DataFrame を JSON 直列化可能なレコードのリストに変換する"""
     rows = []
     for _, row in df.iterrows():
