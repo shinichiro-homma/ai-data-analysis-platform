@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install ruff
-          pip install -e "document-server[dev]"
+          pip install -e "document-server[dev]" types-PyYAML
           pip install pytest pytest-asyncio
 
       - name: Ruff format check
