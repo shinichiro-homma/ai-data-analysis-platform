@@ -10,6 +10,8 @@ import sys
 import types as _types
 from pathlib import Path
 
+import pytest
+
 _ext_dir = Path(__file__).resolve().parent.parent / "extensions"
 
 # --- 1. 重い依存のモック ---
@@ -272,8 +274,6 @@ class TestValidateFilename:
 # _validate_export_filename テスト
 # ============================================================
 
-import pytest
-
 
 class TestValidateExportFilename:
     """_validate_export_filename のテスト（タスク 33.1 で追加予定の関数）"""
@@ -386,33 +386,39 @@ class TestNormalizeParquetSchema:
 
     def test_decimal_converted_to_float64(self):
         """decimal128 フィールドが float64 に変換される"""
-        schema = pa.schema([
-            pa.field("amount", pa.decimal128(28, 20)),
-            pa.field("name", pa.string()),
-        ])
+        schema = pa.schema(
+            [
+                pa.field("amount", pa.decimal128(28, 20)),
+                pa.field("name", pa.string()),
+            ]
+        )
         result = _normalize_parquet_schema(schema)
         assert result.field("amount").type == pa.float64()
         assert result.field("name").type == pa.string()
 
     def test_different_decimal_precisions(self):
         """異なる精度の decimal128 がすべて float64 に変換される"""
-        schema = pa.schema([
-            pa.field("a", pa.decimal128(27, 20)),
-            pa.field("b", pa.decimal128(38, 10)),
-            pa.field("c", pa.decimal128(10, 2)),
-        ])
+        schema = pa.schema(
+            [
+                pa.field("a", pa.decimal128(27, 20)),
+                pa.field("b", pa.decimal128(38, 10)),
+                pa.field("c", pa.decimal128(10, 2)),
+            ]
+        )
         result = _normalize_parquet_schema(schema)
         for field in result:
             assert field.type == pa.float64()
 
     def test_non_decimal_types_unchanged(self):
         """decimal 以外の型はそのまま保持される"""
-        schema = pa.schema([
-            pa.field("id", pa.int64()),
-            pa.field("name", pa.string()),
-            pa.field("flag", pa.bool_()),
-            pa.field("score", pa.float64()),
-        ])
+        schema = pa.schema(
+            [
+                pa.field("id", pa.int64()),
+                pa.field("name", pa.string()),
+                pa.field("flag", pa.bool_()),
+                pa.field("score", pa.float64()),
+            ]
+        )
         result = _normalize_parquet_schema(schema)
         assert result.field("id").type == pa.int64()
         assert result.field("name").type == pa.string()
@@ -421,12 +427,14 @@ class TestNormalizeParquetSchema:
 
     def test_mixed_schema(self):
         """decimal と非 decimal が混在するスキーマの正規化"""
-        schema = pa.schema([
-            pa.field("membership_no", pa.string()),
-            pa.field("purchase_amount", pa.decimal128(28, 20)),
-            pa.field("date_str", pa.string()),
-            pa.field("count", pa.int64()),
-        ])
+        schema = pa.schema(
+            [
+                pa.field("membership_no", pa.string()),
+                pa.field("purchase_amount", pa.decimal128(28, 20)),
+                pa.field("date_str", pa.string()),
+                pa.field("count", pa.int64()),
+            ]
+        )
         result = _normalize_parquet_schema(schema)
         assert result.field("membership_no").type == pa.string()
         assert result.field("purchase_amount").type == pa.float64()

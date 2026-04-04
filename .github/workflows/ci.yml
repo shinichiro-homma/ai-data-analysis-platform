@@ -1,0 +1,286 @@
+name: CI
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ──────────────────────────────────────────────
+  # TypeScript: format + 型チェック + ユニットテスト
+  # ──────────────────────────────────────────────
+  ts-typecheck-and-test:
+    name: TypeScript lint, typecheck & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prettier check
+        run: npx prettier --check "jupyter-mcp/src/**/*.ts" "document-mcp/src/**/*.ts" "packages/mcp-shared/src/**/*.ts"
+
+      - name: Build mcp-shared
+        run: npm -w packages/mcp-shared run build
+
+      - name: Typecheck
+        run: |
+          npx -w jupyter-mcp tsc --noEmit
+          npx -w document-mcp tsc --noEmit
+
+      - name: Unit tests
+        run: |
+          npm -w jupyter-mcp test
+          npm -w document-mcp test
+
+  # ──────────────────────────────────────────────
+  # Python: format + lint + 型チェック + ユニットテスト
+  # ──────────────────────────────────────────────
+  python-lint-and-test:
+    name: Python lint, typecheck & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install ruff
+          pip install -e "document-server[dev]" types-PyYAML
+          pip install pytest pytest-asyncio sqlparse
+
+      - name: Ruff format check
+        run: |
+          ruff format --check document-server/src/ document-server/tests/
+          ruff format --check jupyter-server/extensions/ jupyter-server/tests/
+          ruff format --check scripts/*.py scripts/lib/*.py
+
+      - name: Ruff lint
+        run: |
+          ruff check document-server/src/ document-server/tests/
+          ruff check jupyter-server/extensions/ jupyter-server/tests/
+          ruff check scripts/*.py scripts/lib/*.py
+
+      - name: Mypy (document-server)
+        working-directory: document-server
+        run: mypy src/
+
+      - name: Test document-server
+        working-directory: document-server
+        run: pytest
+
+      - name: Test jupyter-server
+        working-directory: jupyter-server
+        run: pytest
+
+  # ──────────────────────────────────────────────
+  # JupyterLab AI Sync: ビルド検証
+  # ──────────────────────────────────────────────
+  jupyterlab-ai-sync-build:
+    name: JupyterLab AI Sync build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install JupyterLab
+        run: pip install jupyterlab>=4.0.0
+
+      - name: Install and build
+        working-directory: jupyterlab-ai-sync
+        run: |
+          npm install
+          npm run build
+
+  # ──────────────────────────────────────────────
+  # 統合テスト（機能テスト — 必須）
+  # ──────────────────────────────────────────────
+  integration-test:
+    name: Integration test (Docker Compose)
+    runs-on: ubuntu-latest
+    needs: [ts-typecheck-and-test, python-lint-and-test]
+    env:
+      DATA_ENV: sample
+      POSTGRES_DB: analysis_db
+      POSTGRES_USER: jupyter
+      POSTGRES_PASSWORD: ci-test-password
+      POSTGRES_READONLY_PASSWORD: ci-readonly-password
+      JUPYTER_TOKEN: ci-test-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install data loader dependencies
+        run: pip install psycopg2-binary pyarrow
+
+      - name: Build MCP servers
+        run: |
+          npm -w packages/mcp-shared run build
+          npm -w jupyter-mcp run build
+          npm -w document-mcp run build
+
+      - name: Start services
+        run: |
+          docker compose up -d --build --wait
+          docker compose ps
+
+      - name: Wait for healthy services
+        run: |
+          echo "Waiting for services to become healthy..."
+          for i in $(seq 1 30); do
+            if docker compose ps | grep -q "unhealthy\|starting"; then
+              echo "  attempt $i/30 — waiting..."
+              sleep 5
+            else
+              echo "All services healthy."
+              docker compose ps
+              exit 0
+            fi
+          done
+          echo "Services did not become healthy in time."
+          docker compose ps
+          docker compose logs
+          exit 1
+        timeout-minutes: 5
+
+      - name: Load sample data into PostgreSQL
+        run: |
+          PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
+            python postgres/init/sample/load-data.py
+
+      - name: Run MCP integration tests (excluding performance)
+        env:
+          JUPYTER_SERVER_URL: http://localhost:8888
+          DOCUMENT_SERVER_URL: http://localhost:3002
+          JUPYTER_TOKEN: ci-test-token
+        run: |
+          npx -w jupyter-mcp vitest run --config vitest.config.integration.ts --exclude '**/performance.test.ts'
+          npx -w document-mcp vitest run --config vitest.config.integration.ts --exclude '**/performance.test.ts'
+
+      - name: Run E2E tests (excluding performance)
+        env:
+          JUPYTER_SERVER_URL: http://localhost:8888
+          DOCUMENT_SERVER_URL: http://localhost:3002
+          JUPYTER_TOKEN: ci-test-token
+        run: npx -w tests/e2e vitest run --exclude '**/performance.test.ts'
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+  # ──────────────────────────────────────────────
+  # パフォーマンステスト（参考 — 失敗しても CI をブロックしない）
+  # ──────────────────────────────────────────────
+  performance-test:
+    name: Performance test (informational)
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    continue-on-error: true
+    env:
+      DATA_ENV: sample
+      POSTGRES_DB: analysis_db
+      POSTGRES_USER: jupyter
+      POSTGRES_PASSWORD: ci-test-password
+      POSTGRES_READONLY_PASSWORD: ci-readonly-password
+      JUPYTER_TOKEN: ci-test-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install data loader dependencies
+        run: pip install psycopg2-binary pyarrow
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build MCP servers
+        run: |
+          npm -w packages/mcp-shared run build
+          npm -w jupyter-mcp run build
+          npm -w document-mcp run build
+
+      - name: Start services
+        run: |
+          docker compose up -d --build --wait
+          docker compose ps
+
+      - name: Wait for healthy services
+        run: |
+          echo "Waiting for services to become healthy..."
+          for i in $(seq 1 30); do
+            if docker compose ps | grep -q "unhealthy\|starting"; then
+              echo "  attempt $i/30 — waiting..."
+              sleep 5
+            else
+              echo "All services healthy."
+              docker compose ps
+              exit 0
+            fi
+          done
+          echo "Services did not become healthy in time."
+          docker compose ps
+          docker compose logs
+          exit 1
+        timeout-minutes: 5
+
+      - name: Load sample data into PostgreSQL
+        run: |
+          PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
+            python postgres/init/sample/load-data.py
+
+      - name: Run performance tests
+        env:
+          JUPYTER_SERVER_URL: http://localhost:8888
+          DOCUMENT_SERVER_URL: http://localhost:3002
+          JUPYTER_TOKEN: ci-test-token
+        run: |
+          npx -w jupyter-mcp vitest run --config vitest.config.integration.ts tests/integration/performance.test.ts || true
+          npx -w document-mcp vitest run --config vitest.config.integration.ts tests/integration/performance.test.ts || true
+          npx -w tests/e2e vitest run tests/e2e/performance.test.ts || true
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=100

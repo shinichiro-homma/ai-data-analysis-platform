@@ -27,7 +27,7 @@ from .code_validator import validate_code
 from .kernel_executor import KernelExecutor
 from .session_handlers import CustomSessionsHandler, get_kernel_workspace, unregister_kernel
 from .sql_handlers import SqlExecuteHandler, SqlExportHandler
-from .workspace_handlers import WorkspaceHandler, WorkspaceSummarizeHandler, WorkspacesHandler
+from .workspace_handlers import WorkspaceHandler, WorkspacesHandler, WorkspaceSummarizeHandler
 
 log = logging.getLogger(__name__)
 

@@ -56,7 +56,8 @@ jupyter-server/jupyter-server/
 .playwright-mcp/
 
 # Production data (user-specific, not committed)
-document-server/data/production/
+document-server/data/production/*
+!document-server/data/production/.gitkeep
 postgres/data/production/*
 !postgres/data/production/.gitkeep
 postgres/data/csv/production/*

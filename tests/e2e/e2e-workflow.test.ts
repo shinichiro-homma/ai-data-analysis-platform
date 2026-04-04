@@ -425,10 +425,8 @@ describe('シナリオ 5: エラーハンドリング', () => {
 
     const { kernelId } = await setupJupyterEnv('scenario5-error');
 
-    // 構文エラー
-    const syntaxResult = await executeCode(kernelId, 'def foo(');
-    expect(syntaxResult.success).toBe(false);
-    expect(syntaxResult.error).not.toBeNull();
+    // 構文エラー — サーバーのコードバリデーションで HTTP 400 CODE_NOT_ALLOWED として拒否される
+    await expect(executeCode(kernelId, 'def foo(')).rejects.toThrow(/HTTP 400/);
 
     // 実行時エラー
     const runtimeResult = await executeCode(kernelId, '1 / 0');

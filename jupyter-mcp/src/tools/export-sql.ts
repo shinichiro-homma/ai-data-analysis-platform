@@ -47,10 +47,7 @@ export async function executeExportSql(args: Record<string, unknown>): Promise<M
   // 入力検証: format（parquet / csv のみ許可）
   if (format !== undefined) {
     if (format !== 'parquet' && format !== 'csv') {
-      return createErrorResponse(
-        'format は "parquet" または "csv" のみ指定できます',
-        'VALIDATION_ERROR',
-      );
+      return createErrorResponse('format は "parquet" または "csv" のみ指定できます', 'VALIDATION_ERROR');
     }
   }
 

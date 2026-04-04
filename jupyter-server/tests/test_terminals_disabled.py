@@ -8,11 +8,7 @@ jupyter_server_config.py に terminals_enabled = False が設定されている�
 
 from pathlib import Path
 
-_config_path = (
-    Path(__file__).resolve().parent.parent
-    / "jupyter_config"
-    / "jupyter_server_config.py"
-)
+_config_path = Path(__file__).resolve().parent.parent / "jupyter_config" / "jupyter_server_config.py"
 
 
 def _read_config() -> str:
@@ -29,9 +25,7 @@ class TestTerminalsDisabled:
     def test_terminals_enabled_present(self):
         """設定ファイルに terminals_enabled が含まれる"""
         content = _read_config()
-        assert "terminals_enabled" in content, (
-            "jupyter_server_config.py に terminals_enabled が見つかりません"
-        )
+        assert "terminals_enabled" in content, "jupyter_server_config.py に terminals_enabled が見つかりません"
 
     def test_terminals_enabled_is_false(self):
         """terminals_enabled が False に設定されている"""
@@ -46,9 +40,7 @@ class TestTerminalsDisabled:
             if "terminals_enabled" in stripped and "False" in stripped:
                 found = True
                 break
-        assert found, (
-            "jupyter_server_config.py に `terminals_enabled = False` の設定が見つかりません"
-        )
+        assert found, "jupyter_server_config.py に `terminals_enabled = False` の設定が見つかりません"
 
     def test_terminals_enabled_not_true(self):
         """terminals_enabled が True に設定されていない（コメント行を除く）"""
@@ -58,6 +50,4 @@ class TestTerminalsDisabled:
             if stripped.startswith("#"):
                 continue
             if "terminals_enabled" in stripped:
-                assert "True" not in stripped, (
-                    f"terminals_enabled が True に設定されています: {line!r}"
-                )
+                assert "True" not in stripped, f"terminals_enabled が True に設定されています: {line!r}"

@@ -222,8 +222,8 @@ class TestWorkspaceFileAccessRegression:
 
     def test_other_workspace_file_blocked(self):
         """他のワークスペースのファイルは PermissionError"""
-        with pytest.raises(PermissionError, match="another workspace"):
-            open(str(self.other_ws / "secret.txt"))
+        with pytest.raises(PermissionError, match="another workspace"), open(str(self.other_ws / "secret.txt")):
+            pass
 
     def test_system_file_allowed(self):
         """システムファイル（ワークスペースルート外）はアクセス可能"""

@@ -159,14 +159,7 @@ describe('jupyter-mcp MCP オーバーヘッドテスト (NF1: 100ms以内)', ()
     await measureOverhead(
       'get_variables',
       () => handleToolCall('get_variables', { session_id: sessionId }),
-      () =>
-        restFetch(`/api/kernels/${encodeURIComponent(kernelId!)}/execute`, {
-          method: 'POST',
-          body: JSON.stringify({
-            code: "__import__('json').dumps({name: str(type(perf_test_var).__name__) for name in dir() if not name.startswith('_')})",
-            timeout: 10,
-          }),
-        }),
+      () => restFetch(`/api/kernels/${encodeURIComponent(kernelId!)}/variables`),
       OVERHEAD_THRESHOLD_MS,
     );
   });
