@@ -1135,13 +1135,13 @@ AI編集モード終了。ノートブックのロックを解除する。
 
 #### GET /glossary/index
 
-用語のインデックスを取得する。オプションの query パラメータで用語名（name）および別名（aliases）を部分一致検索できる。
+用語のインデックスを取得する。オプションの query パラメータで用語名（name）、別名（aliases）、および関連用語（related_terms）を部分一致検索できる。
 
 **クエリパラメータ:**
 
 | パラメータ | 必須 | 説明 |
 |-----------|------|------|
-| `query` | 任意 | 検索キーワード（上限は `document-server/src/routers/terms.py` の `max_length` を参照）。name および aliases を部分一致検索。省略時は全件返却 |
+| `query` | 任意 | 検索キーワード（上限は `document-server/src/routers/terms.py` の `max_length` を参照）。name、aliases、related_terms を部分一致検索。省略時は全件返却 |
 
 **レスポンス（query なし — 全件返却）:**
 ```json

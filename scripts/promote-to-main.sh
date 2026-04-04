@@ -157,7 +157,23 @@ BODY
   echo "$PR_URL"
 fi
 
-# --- dev に戻る ---
+# --- CI 待機 + ブランチ削除 ---
+
+if ! $NO_PR; then
+  echo ""
+  echo "CI の完了を待機中..."
+  PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
+  if gh pr checks "$PR_NUMBER" --watch; then
+    echo "CI パス ✓"
+  else
+    echo "CI 失敗 — ブランチを残します。修正後に再実行してください。"
+    git checkout "$DEV_BRANCH"
+    exit 1
+  fi
+fi
+
+# --- dev に戻る + 一時ブランチ削除 ---
 
 git checkout "$DEV_BRANCH"
-echo "dev ブランチに戻りました。"
+git branch -d "$PROMOTE_BRANCH"
+echo "dev ブランチに戻りました。一時ブランチ $PROMOTE_BRANCH を削除しました。"
