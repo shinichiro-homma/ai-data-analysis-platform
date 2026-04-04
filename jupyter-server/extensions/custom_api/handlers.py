@@ -4,11 +4,17 @@
 api-contracts.md に定義された仕様に従った API を提供する。
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from tornado import web
 
@@ -670,11 +676,12 @@ class ContentsCellsHandler(BaseCustomHandler):
 
     @web.authenticated
     async def patch(self, path: str):
-        """セルを追加・更新・削除"""
+        """セルを追加・更新・削除・並び替え"""
         body = self.get_json_body()
         action = body.get("action")
         cell = body.get("cell")
         index = body.get("index")
+        to_index = body.get("to_index")
 
         try:
             # パストラバーサル対策
@@ -724,6 +731,18 @@ class ContentsCellsHandler(BaseCustomHandler):
                     return
                 cells.pop(index)
 
+            elif action == "reorder":
+                if index is None or index < 0 or index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {index}", 400)
+                    return
+                if not isinstance(to_index, int) or to_index < 0 or to_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid to_index: {to_index}", 400)
+                    return
+                cell_to_move = cells.pop(index)
+                # to_index を pop 後のリストに対して挿入
+                insert_index = min(to_index, len(cells))
+                cells.insert(insert_index, cell_to_move)
+
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)
                 return
@@ -737,6 +756,128 @@ class ContentsCellsHandler(BaseCustomHandler):
         except Exception as e:
             log.error("Failed to update cells '%s': %s", path, e, exc_info=True)
             self.write_error_response("INTERNAL_ERROR", "Failed to update cells", 500)
+
+
+# =============================================================================
+# データプレビュー
+# =============================================================================
+
+_MAX_HEAD_ROWS = 50
+_DEFAULT_HEAD_ROWS = 5
+
+
+def _serialize_value(val):
+    """pandas/numpy 値を JSON 直列化可能な Python 型に変換する"""
+    import math
+
+    import numpy as np
+
+    if val is None:
+        return None
+    if isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    if isinstance(val, np.integer):
+        return int(val)
+    if isinstance(val, np.floating):
+        v = float(val)
+        if math.isnan(v) or math.isinf(v):
+            return None
+        return v
+    if isinstance(val, np.bool_):
+        return bool(val)
+    # datetime 系は str() で ISO 8601 風に変換
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return val
+
+
+def _df_to_records(df: pd.DataFrame) -> list[dict]:
+    """DataFrame を JSON 直列化可能なレコードのリストに変換する"""
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({col: _serialize_value(row[col]) for col in df.columns})
+    return rows
+
+
+class ContentsPreviewHandler(BaseCustomHandler):
+    """GET /api/custom/contents/{path}/preview"""
+
+    @web.authenticated
+    def get(self, path: str):
+        """CSV/Parquetファイルの先頭行・カラム情報・行数を返す"""
+        import pandas as pd
+        import pyarrow.parquet as pq
+
+        try:
+            path = validate_path(path)
+        except ValueError as e:
+            self.write_error_response("VALIDATION_ERROR", str(e), 400)
+            return
+
+        # head_rows クエリパラメータ
+        head_rows_str = self.get_argument("head_rows", str(_DEFAULT_HEAD_ROWS))
+        try:
+            head_rows = int(head_rows_str)
+        except ValueError:
+            self.write_error_response("VALIDATION_ERROR", "head_rows must be an integer", 400)
+            return
+
+        if head_rows < 0:
+            self.write_error_response("VALIDATION_ERROR", "head_rows must be >= 0", 400)
+            return
+        if head_rows > _MAX_HEAD_ROWS:
+            self.write_error_response("VALIDATION_ERROR", f"head_rows must be <= {_MAX_HEAD_ROWS}", 400)
+            return
+
+        # 拡張子チェック
+        if path.endswith(".csv"):
+            file_format = "csv"
+        elif path.endswith(".parquet"):
+            file_format = "parquet"
+        else:
+            self.write_error_response("UNSUPPORTED_FORMAT", "Only .csv and .parquet files are supported", 400)
+            return
+
+        # 絶対パスを解決
+        abs_path = Path(JUPYTER_ROOT_DIR) / path
+
+        if not abs_path.exists():
+            self.write_error_response("NOT_FOUND", f"File not found: {path}", 404)
+            return
+
+        try:
+            file_size_bytes = abs_path.stat().st_size
+
+            if file_format == "csv":
+                head_df = pd.read_csv(abs_path, nrows=head_rows)
+                # ヘッダー行を除いた全行数をカウント
+                with open(abs_path, encoding="utf-8") as f:
+                    row_count = sum(1 for _ in f) - 1
+                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+                head_records = _df_to_records(head_df)
+
+            else:  # parquet
+                pf = pq.ParquetFile(abs_path)
+                row_count = pf.metadata.num_rows
+                head_df = pf.read_row_group(0).to_pandas().head(head_rows)
+                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+                head_records = _df_to_records(head_df)
+
+            self.write_success(
+                {
+                    "path": "/" + path,
+                    "format": file_format,
+                    "columns": columns,
+                    "row_count": row_count,
+                    "head": head_records,
+                    "file_size_bytes": file_size_bytes,
+                }
+            )
+        except Exception as e:
+            log.error("Failed to preview file '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to preview file", 500)
 
 
 # =============================================================================
@@ -932,6 +1073,7 @@ def get_handlers(base_url: str = ""):
         (f"{base_url}/api/custom/contents", ContentsListHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells/([0-9]+)/execute", ContentsCellExecuteHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells", ContentsCellsHandler),
+        (f"{base_url}/api/custom/contents/(.*)/preview", ContentsPreviewHandler),
         (f"{base_url}/api/custom/contents/(.*)", ContentsHandler),
         # AI同期イベント
         (f"{base_url}/api/ai/events", AiEventsWebSocketHandler),
