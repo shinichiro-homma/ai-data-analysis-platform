@@ -75,7 +75,7 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 #### F3.1: 用語インデックス（検索対応）
 - 用語集の用語インデックスを取得
 - 返却情報: 用語名、一行説明
-- オプションの query パラメータで用語名（name）および別名（aliases）を部分一致検索できる
+- オプションの query パラメータで部分一致検索できる（検索対象は `docs/requirements/document-server.md` F3.1 を参照）
 - query 指定時はヒットした用語のみ返却、省略時は全件返却
 
 ### F4: 用語詳細取得（第2層）

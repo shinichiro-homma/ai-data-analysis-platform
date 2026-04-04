@@ -65,9 +65,9 @@
 #### F3.1: 用語インデックス
 - 登録済み用語のインデックスを取得
 - name, summary を返却
-- オプションの query パラメータ（上限は `src/routers/terms.py` の `max_length` を参照）で用語名（name）および別名（aliases、第2層で管理）を部分一致検索できる
+- オプションの query パラメータ（上限は `src/routers/terms.py` の `max_length` を参照）で用語名（name）、別名（aliases、第2層で管理）、および関連用語（related_terms、第2層で管理）を部分一致検索できる
 - query 指定時はヒットした用語のみ返却、省略時は全件返却
-- 起動時に全用語詳細から aliases を読み込み、インメモリの検索インデックスを構築する
+- 起動時に全用語詳細から aliases および related_terms を読み込み、インメモリの検索インデックスを構築する
 
 #### F3.2: 用語詳細（一括対応）
 - 指定用語（複数指定可、上限は `src/models.py` の `BULK_REQUEST_MAX` を参照）の詳細情報を取得
@@ -508,6 +508,7 @@ notes: |
 - [ ] query パラメータなしで全件返却される
 - [ ] query パラメータ指定時、name に部分一致する用語が返却される
 - [ ] query パラメータ指定時、aliases に部分一致する用語が返却される
+- [ ] query パラメータ指定時、related_terms に部分一致する用語が返却される
 - [ ] query パラメータが上限（`src/routers/terms.py` の `max_length` 参照）を超えた場合にバリデーションエラーが返る
 - [ ] query パラメータ指定時、ヒットなしの場合は空配列が返却される
 - [ ] 指定用語の詳細を取得できる（一括対応）
