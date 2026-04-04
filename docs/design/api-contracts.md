@@ -127,7 +127,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/kernels/{kernel_id}/interrupt
 
-実行中のコードを中断する。
+実行中のコードを中断する。JupyterLab UI 用の内部 API であり、MCP ツールとしては公開しない。
 
 **レスポンス:**
 ```json

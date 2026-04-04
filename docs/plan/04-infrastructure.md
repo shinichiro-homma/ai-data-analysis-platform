@@ -46,7 +46,7 @@
 | 4.1 | jupyter-mcp ドキュメント整合 | [x] | - | execute_code エラーレスポンス（ネスト形式）、画像URI（sessions複数形）、get_dataframe_info（success/name追加）、execute_code timeout最大値記載追加 |
 | 4.2 | document-server ドキュメント・コード整合 | [x] | - | DataSource CSV型対応（models.py）、未使用エラーコード削除（TABLE_NOT_FOUND/TERM_NOT_FOUND）、INTERNAL_ERROR追加 |
 | 4.3 | document-mcp ドキュメント整合 | [x] | - | インデックス系3ツールの戻り値に success フィールド追加、get_table_index description をコード実装に統一 |
-| 4.4 | jupyter-server ドキュメント整合 | [x] | - | CLAUDE.md API一覧（interrupt/restart/variables/{name}/contents CRUD）・ライブラリリスト更新 |
+| 4.4 | jupyter-server ドキュメント整合 | [x] | - | CLAUDE.md API一覧（restart/variables/{name}/contents CRUD）・ライブラリリスト更新 |
 | 4.5 | jupyterlab-ai-sync ドキュメント整合 | [x] | - | イベントペイロード、WebSocket仕様、パス解決、空セル置換、trusted設定、ロック動作の文書化 |
 
 ---

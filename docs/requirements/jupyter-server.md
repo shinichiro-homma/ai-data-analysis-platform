@@ -29,7 +29,6 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - 画像出力（matplotlib等）をbase64形式で取得できる
 
 #### F2.2: 実行制御
-- 実行中のコードを中断できる
 - タイムアウト設定が可能（デフォルト値・最大値は `jupyter-server/extensions/custom_api/base.py` の `validate_timeout()` を参照）
 
 #### F2.3: 変数管理
