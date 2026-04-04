@@ -29,7 +29,7 @@ PostgreSQLにCSVデータを初期ロードし、データカタログ（テー�
 |---|--------|-----------|-----------|------|
 | 2.1 | 用語集検索機能（サーバー＋MCP） | [x] | get_term_index(query="PC") で aliases に "PC" を含む用語がヒットし、get_term_detail で詳細取得できる | document-server: GET /glossary/index に query パラメータ追加・検索インデックス構築、document-mcp: get_term_index に query パラメータ追加。document-server 89テスト、document-mcp 54テスト全パス |
 | 2.2 | 用語の書き方ガイド作成 | [x] | - | docs/guides/add-term.md：aliases の書き方、各フィールドの説明 |
-| 2.3 | 用語検索の related_terms 対応 | [ ] | get_term_index(query="ヒルズID") で related_terms に「ヒルズID」を含む用語（例: 3Key認証）がヒットする | document-server: 検索インデックスに related_terms を追加。API レスポンス形式の変更なし |
+| 2.3 | 用語検索の related_terms 対応 | [x] | get_term_index(query="ヒルズID") で related_terms に「ヒルズID」を含む用語（例: 3Key認証）がヒットする | document-server: 検索インデックスに related_terms を追加。API レスポンス形式の変更なし |
 
 ---
 

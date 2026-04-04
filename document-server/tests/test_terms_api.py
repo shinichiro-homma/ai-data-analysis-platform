@@ -102,6 +102,16 @@ def test_get_term_index_with_query_no_match(client: TestClient) -> None:
     assert data["terms"] == []
 
 
+def test_get_term_index_with_query_related_term_match(client: TestClient) -> None:
+    """query で related_terms に部分一致する用語が返る。"""
+    resp = client.get("/glossary/index", params={"query": "統合会員ID"})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    names = {t["name"] for t in data["terms"]}
+    # 「ロイヤルティランク」は related_terms に「統合会員ID」を含むのでヒットする
+    assert "ロイヤルティランク" in names
+
+
 def test_get_term_index_with_query_case_insensitive(client: TestClient) -> None:
     """query は大文字小文字を区別しない。"""
     resp_lower = client.get("/glossary/index", params={"query": "loyalty rank"})
