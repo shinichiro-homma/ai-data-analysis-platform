@@ -22,6 +22,9 @@ import { executeWorkspaceUpdate } from './workspace-update.js';
 import { executeWorkspaceSummarize } from './workspace-summarize.js';
 import { executeNotebookCreate } from './notebook-create.js';
 import { executeNotebookAddCell } from './notebook-add-cell.js';
+import { executeNotebookListCells } from './notebook-list-cells.js';
+import { executeNotebookEditCell } from './notebook-edit-cell.js';
+import { executeNotebookDeleteCell } from './notebook-delete-cell.js';
 import { executeSessionCreate } from './session-create.js';
 import { executeSessionList } from './session-list.js';
 import { executeSessionDelete } from './session-delete.js';
@@ -35,6 +38,7 @@ import { executeAiEditEnd } from './ai-edit-end.js';
 import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
+import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -174,6 +178,98 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeNotebookAddCell,
+  },
+  {
+    definition: {
+      name: 'notebook_list_cells',
+      description: 'Retrieves the list of cells in a notebook with their index, type, source, and outputs.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+        },
+        required: ['notebook_path'],
+      },
+    },
+    execute: executeNotebookListCells,
+  },
+  {
+    definition: {
+      name: 'notebook_edit_cell',
+      description: 'Edits the source code of an existing cell in a notebook.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to edit (0-indexed)',
+          },
+          source: {
+            type: 'string',
+            description: 'New source code for the cell',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'source'],
+      },
+    },
+    execute: executeNotebookEditCell,
+  },
+  {
+    definition: {
+      name: 'notebook_delete_cell',
+      description: 'Deletes a cell from a notebook at the specified index.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to delete (0-indexed)',
+          },
+        },
+        required: ['notebook_path', 'cell_index'],
+      },
+    },
+    execute: executeNotebookDeleteCell,
+  },
+  {
+    definition: {
+      name: 'notebook_execute_cell',
+      description: 'Re-executes an existing cell in a notebook at the specified index using the given session.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to execute (0-indexed)',
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in seconds (default: 30, max: 300)',
+          },
+        },
+        required: ['notebook_path', 'session_id', 'cell_index'],
+      },
+    },
+    execute: executeNotebookExecuteCell,
   },
   {
     definition: {
