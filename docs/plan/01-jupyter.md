@@ -189,6 +189,6 @@ SQLクエリ結果を大量行対応でワークスペースにファイル保�
 
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
-| 16.1 | セル一覧取得・編集・削除 | [→] | notebook_list_cells でセル一覧取得。notebook_edit_cell でセル編集。notebook_delete_cell でセル削除後、後続セルのインデックスが正しく更新される | jupyter-server: GET /cells 新規、PATCH /cells の update/delete は実装済み。jupyter-mcp: 3ツール新規作成 |
-| 16.2 | セル再実行 | [ ] | notebook_execute_cell で指定セルを再実行し、出力と実行回数が更新される。リアルタイム同期でブラウザにも反映される | jupyter-server: POST /cells/{index}/execute 新規。jupyter-mcp: notebook_execute_cell 新規作成 |
+| 16.1 | セル一覧取得・編集・削除 | [x] | notebook_list_cells でセル一覧取得。notebook_edit_cell でセル編集。notebook_delete_cell でセル削除後、後続セルのインデックスが正しく更新される | jupyter-server: GET /cells 新規、PATCH /cells の update/delete は実装済み。jupyter-mcp: 3ツール新規作成 |
+| 16.2 | セル再実行 | [→] | notebook_execute_cell で指定セルを再実行し、出力と実行回数が更新される。リアルタイム同期でブラウザにも反映される | jupyter-server: POST /cells/{index}/execute 新規。jupyter-mcp: notebook_execute_cell 新規作成 |
 | 16.3 | セル操作の結合テスト | [ ] | セル追加→一覧取得→編集→再実行→削除の一連フローが動作する。AI編集モード中のリアルタイム同期も確認 | Phase 8（AI同期）との統合テスト |

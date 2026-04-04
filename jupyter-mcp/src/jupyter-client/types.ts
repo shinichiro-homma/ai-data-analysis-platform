@@ -374,6 +374,23 @@ export interface BroadcastEventResponse {
 }
 
 // =============================================================================
+// セル再実行関連
+// =============================================================================
+
+export interface CellExecuteRequest {
+  kernel_id: string;
+  timeout?: number;
+}
+
+export interface CellExecuteResponse {
+  cell_index: number;
+  source: string;
+  execution_count: number;
+  outputs: CellOutputData[];
+  execution_time_ms: number;
+}
+
+// =============================================================================
 // SQL実行関連
 // =============================================================================
 

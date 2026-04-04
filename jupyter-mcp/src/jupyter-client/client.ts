@@ -37,6 +37,8 @@ import {
   AiEvent,
   BroadcastEventResponse,
   CellOutputData,
+  CellExecuteRequest,
+  CellExecuteResponse,
 } from './types.js';
 import {
   JupyterClientError,
@@ -426,6 +428,26 @@ export class JupyterClient {
       '/api/sql/export',
       params,
       undefined,
+      requestTimeoutMs,
+    );
+    return response.data;
+  }
+
+  // ===========================================================================
+  // セル再実行
+  // ===========================================================================
+
+  async executeCellInNotebook(
+    path: string,
+    cellIndex: number,
+    request: CellExecuteRequest,
+  ): Promise<CellExecuteResponse> {
+    const requestTimeoutMs = this.calculateRequestTimeout(request.timeout);
+    const response = await this.request<ApiResponse<CellExecuteResponse>>(
+      'POST',
+      `/api/custom/contents/${encodeURIComponent(path)}/cells/${cellIndex}/execute`,
+      request,
+      { path, index: cellIndex },
       requestTimeoutMs,
     );
     return response.data;

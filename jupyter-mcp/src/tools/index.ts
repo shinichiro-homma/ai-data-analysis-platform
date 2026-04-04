@@ -38,6 +38,7 @@ import { executeAiEditEnd } from './ai-edit-end.js';
 import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
+import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -240,6 +241,35 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeNotebookDeleteCell,
+  },
+  {
+    definition: {
+      name: 'notebook_execute_cell',
+      description: 'Re-executes an existing cell in a notebook at the specified index using the given session.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to execute (0-indexed)',
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in seconds (default: 30, max: 300)',
+          },
+        },
+        required: ['notebook_path', 'session_id', 'cell_index'],
+      },
+    },
+    execute: executeNotebookExecuteCell,
   },
   {
     definition: {
