@@ -600,6 +600,38 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 - `400 VALIDATION_ERROR` - ノートブック以外のファイル、コードセル以外のセル、または範囲外のインデックスを指定した場合
 - `404 NOT_FOUND` - ファイルまたはカーネルが存在しない場合
 
+#### GET /api/custom/contents/{path}/preview
+
+CSV/Parquetファイルの構造をプレビューする。カーネル不要で直接ファイルを読み取る。
+
+| クエリパラメータ | 型 | 必須 | 説明 |
+|-----------------|-----|------|------|
+| head_rows | number | No | 先頭行数（デフォルト5、最大50） |
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "path": "/workspaces/ws-abc123/data/sales.csv",
+    "format": "csv",
+    "columns": [
+      { "name": "id", "dtype": "int64" },
+      { "name": "name", "dtype": "object" },
+      { "name": "amount", "dtype": "float64" }
+    ],
+    "row_count": 1000,
+    "head": [
+      { "id": 1, "name": "Product A", "amount": 100.5 }
+    ],
+    "file_size_bytes": 204800
+  }
+}
+```
+
+**エラー:**
+- `400 UNSUPPORTED_FORMAT` - `.csv`/`.parquet` 以外のファイル
+- `404 NOT_FOUND` - ファイルが存在しない
+
 ### SQL実行
 
 #### POST /api/sql/execute
@@ -1457,6 +1489,7 @@ AI編集モード終了。ノートブックのロックを解除する。
 | `DATABASE_CONNECTION_ERROR` | データベースへの接続エラー |
 | `DATABASE_NOT_CONFIGURED` | DATABASE_URLが設定されていない |
 | `FILE_WRITE_ERROR` | エクスポートファイルの書き出しに失敗 |
+| `UNSUPPORTED_FORMAT` | CSV/Parquet以外のファイル形式が指定された |
 
 ### document-server
 

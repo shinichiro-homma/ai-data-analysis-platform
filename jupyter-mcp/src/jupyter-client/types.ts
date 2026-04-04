@@ -447,6 +447,28 @@ export interface FileContent {
 }
 
 // =============================================================================
+// データプレビュー関連
+// =============================================================================
+
+export interface DataPreviewColumn {
+  name: string;
+  dtype: string;
+}
+
+export interface DataPreviewResponse {
+  path: string;
+  format: 'csv' | 'parquet';
+  row_count: number;
+  columns: DataPreviewColumn[];
+  head: Record<string, unknown>[];
+  file_size_bytes: number;
+}
+
+export interface DataPreviewOptions {
+  head_rows?: number;
+}
+
+// =============================================================================
 // クライアント設定
 // =============================================================================
 

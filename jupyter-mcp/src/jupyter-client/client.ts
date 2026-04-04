@@ -39,6 +39,8 @@ import {
   CellOutputData,
   CellExecuteRequest,
   CellExecuteResponse,
+  DataPreviewResponse,
+  DataPreviewOptions,
 } from './types.js';
 import {
   JupyterClientError,
@@ -449,6 +451,25 @@ export class JupyterClient {
       request,
       { path, index: cellIndex },
       requestTimeoutMs,
+    );
+    return response.data;
+  }
+
+  // ===========================================================================
+  // データプレビュー
+  // ===========================================================================
+
+  async getDataPreview(path: string, options?: DataPreviewOptions): Promise<DataPreviewResponse> {
+    const params = new URLSearchParams();
+    if (options?.head_rows !== undefined) {
+      params.set('head_rows', String(options.head_rows));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await this.request<ApiResponse<DataPreviewResponse>>(
+      'GET',
+      `/api/custom/contents/${encodeContentsPath(path)}/preview${query}`,
+      undefined,
+      { path },
     );
     return response.data;
   }

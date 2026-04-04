@@ -40,6 +40,7 @@ import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
 import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
+import { executeDataPreview } from './data-preview.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -594,6 +595,34 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeGetImage,
+  },
+  {
+    definition: {
+      name: 'data_preview',
+      description:
+        'Retrieves the structure (column names, types, head rows, total row count) of a CSV or Parquet file in the workspace without requiring a kernel. Use to inspect data before analysis.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace_id: {
+            type: 'string',
+            description: 'Workspace ID',
+          },
+          file_path: {
+            type: 'string',
+            description: 'File path relative to workspace (e.g., data/sales.csv)',
+          },
+          head_rows: {
+            type: 'number',
+            description: 'Number of head rows to retrieve (default: 5, max: 50)',
+            minimum: 0,
+            maximum: 50,
+          },
+        },
+        required: ['workspace_id', 'file_path'],
+      },
+    },
+    execute: executeDataPreview,
   },
 ];
 
