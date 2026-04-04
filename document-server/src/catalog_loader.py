@@ -422,15 +422,13 @@ class CatalogStore:
         return len(indexes)
 
     def _build_term_search_index(self) -> None:
-        """全用語詳細から aliases を読み込み、検索インデックスを構築する。"""
+        """全用語詳細から aliases と related_terms を読み込み、検索インデックスを構築する。"""
         index: dict[str, list[str]] = {}
         for name, detail in self._term_details.items():
-            keywords = [name.lower()]
-            for alias in detail.aliases:
-                lowered = alias.lower()
-                if lowered not in keywords:
-                    keywords.append(lowered)
-            index[name] = keywords
+            keywords: set[str] = {name.lower()}
+            for term in detail.aliases + (detail.related_terms or []):
+                keywords.add(term.lower())
+            index[name] = list(keywords)
         self._term_search_index = index
         logger.info("Term search index built: %d entries", len(index))
 

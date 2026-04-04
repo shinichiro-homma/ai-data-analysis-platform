@@ -163,6 +163,31 @@ if ! $NO_PR; then
   echo ""
   echo "CI の完了を待機中..."
   PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
+
+  # CI チェックが登録されるまで待機（PR 作成直後はチェックが0件）
+  MAX_WAIT=60
+  WAITED=0
+  while [[ $WAITED -lt $MAX_WAIT ]]; do
+    CHECK_COUNT=$(gh pr checks "$PR_NUMBER" --json name --jq 'length' 2>/dev/null || echo "0")
+    if [[ "$CHECK_COUNT" -gt 0 ]]; then
+      echo "CI チェック検出: ${CHECK_COUNT} 件"
+      break
+    fi
+    echo "CI チェック登録待ち... (${WAITED}s/${MAX_WAIT}s)"
+    sleep 5
+    WAITED=$((WAITED + 5))
+  done
+
+  if [[ $WAITED -ge $MAX_WAIT ]]; then
+    echo "WARNING: ${MAX_WAIT}秒待機しましたが CI チェックが検出されませんでした。"
+    echo "PR: $PR_URL"
+    echo "手動で CI の状態を確認してください。"
+    git checkout "$DEV_BRANCH"
+    git branch -d "$PROMOTE_BRANCH"
+    echo "dev ブランチに戻りました。一時ブランチ $PROMOTE_BRANCH を削除しました。"
+    exit 0
+  fi
+
   if gh pr checks "$PR_NUMBER" --watch; then
     echo "CI パス ✓"
   else
