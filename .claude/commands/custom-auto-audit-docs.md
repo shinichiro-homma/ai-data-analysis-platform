@@ -4,7 +4,15 @@
 
 ---
 
-## 0. スキルの読み込み
+## 0. 前提ルール
+
+`.claude/rules/dry.md` と `.claude/rules/documentation.md` の原則に従うこと。
+
+修正時の注意：
+- 「欠落」の修正で情報を追加する際は、`docs/STRUCTURE.md` の SSoT 表を確認し、**正のファイルにのみ詳細を書く**。サマリー場所に詳細を追加してはならない
+- 「冗長」の修正は、SSoT でないファイルの詳細記述を削除またはサマリーに置き換えること
+
+## 0a. スキルの読み込み
 
 `.claude/skills/doc-code-audit/SKILL.md` を読み込んでください。
 

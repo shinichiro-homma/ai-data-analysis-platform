@@ -2,6 +2,15 @@
 
 以下の手順で作業してください：
 
+## 0. DRY 原則の遵守
+
+`.claude/rules/dry.md` と `.claude/rules/documentation.md` の原則に従うこと。
+
+特に以下を守ること：
+- `docs/STRUCTURE.md` の「Single Source of Truth（正）の定義」表に従い、**正のファイルに詳細を書き、サマリー/参照を置いてよい場所には名前リストや1行概要のみ書く**
+- overview.md や */CLAUDE.md に、requirements や api-contracts と同じ詳細（入出力スキーマ、パラメータ説明等）を転記しない
+- 整合性確認（ステップ2）では「名前の一致」を確認するが、**詳細の重複がないこと** も確認する
+
 ## 1. 変更の適用
 
 先ほど洗い出した影響箇所に対して、変更を適用してください。
