@@ -294,7 +294,7 @@ JupyterLabのフロントエンド拡張。AIの操作をノートブック上�
 1. AI → document-mcp: get_term_index(query="略称") で検索（略称・不明用語がある場合）
    または get_term_index() で全件取得（全体像把握）
 2. document-mcp → document-server: GET /glossary/index?query=略称
-3. document-server: name + aliases（第2層で管理）を部分一致検索
+3. document-server: name + aliases + related_terms（第2層で管理）を部分一致検索
 4. document-mcp → AI: ヒットした用語インデックス
 
 5. AI → document-mcp: get_term_detail(["ロイヤルティランク", "統合会員ID"])

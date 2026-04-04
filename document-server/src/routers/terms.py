@@ -13,7 +13,9 @@ router = APIRouter(prefix="/glossary", tags=["glossary"])
 @router.get("/index")
 def get_term_index(
     store: CatalogStore = Depends(get_catalog_store),
-    query: str | None = Query(default=None, max_length=200, description="検索キーワード（name + aliases 部分一致）"),
+    query: str | None = Query(
+        default=None, max_length=200, description="検索キーワード（name、aliases、related_terms 部分一致）"
+    ),
 ) -> dict:
     if query:
         terms = [t.model_dump() for t in store.search_term_indexes(query)]
