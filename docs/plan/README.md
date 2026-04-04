@@ -12,12 +12,12 @@
 
 | ファイル | カテゴリ | Phase数 | タスク数 |
 |---------|---------|---------|---------|
-| [01-jupyter.md](01-jupyter.md) | Jupyter（server + mcp + ai-sync） | 15 | 51 |
-| [02-document.md](02-document.md) | Document（server + mcp） | 6 | 19 |
+| [01-jupyter.md](01-jupyter.md) | Jupyter（server + mcp + ai-sync） | 18 | 57 |
+| [02-document.md](02-document.md) | Document（server + mcp） | 7 | 22 |
 | [03-workspace.md](03-workspace.md) | Workspace（cross-cutting） | 4 | 20 |
 | [04-infrastructure.md](04-infrastructure.md) | Infrastructure | 8 | 43 |
 
-**合計: 133タスク**
+**合計: 142タスク**
 
 ## ステータス凡例
 
@@ -98,6 +98,4 @@ docs/tasks/ はカテゴリ別サブディレクトリ（`jupyter/`, `document/`
 | 環境変数 `EXECUTION_TIMEOUT` | jupyter-server | コード実行タイムアウトの環境変数制御（現在はAPIパラメータのデフォルト30秒をハードコード） |
 | 環境変数 `MAX_OUTPUT_SIZE` | jupyter-server | 出力サイズ上限の環境変数制御（NF1で1MB/実行と定義） |
 | 同時カーネル上限の強制 | jupyter-server | 最大5カーネルの制限を強制する仕組み（F1.1で定義、未実装） |
-| NF3: 可用性（部分） | jupyter-server | カーネルクラッシュ時の自動復旧（アイドルシャットダウンは Jupyter Phase 15 で対応済み） |
-| API認証 | document-server | REST APIの認証（現在未実装、信頼されたネットワーク前提） |
 | NF3: ログ | document-mcp | 全ツール呼び出しの開始・完了・エラーのログ出力（logger.ts は存在するがツール実行層で未使用） |

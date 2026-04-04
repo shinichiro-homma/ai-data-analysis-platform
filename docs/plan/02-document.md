@@ -75,3 +75,15 @@ MCPツールの description を強化し、Claude が分析フロー全体の中
 |---|--------|-----------|-----------|------|
 | 6.1 | MCPツールの description 強化（実装） | [x] | `scripts/test.sh document-mcp` と `scripts/test.sh jupyter-mcp` が全テスト通過 | document-mcp 5ツール + jupyter-mcp 3ツールの description 更新。テキスト変更のみ、ロジック・型変更なし。複数行 description はテンプレートリテラルで実装。要件定義の description 同期は別途 `/custom-change-requirement` で対応 |
 | 6.2 | MCPツールの description 強化（手動検証） | [x] | Claude Desktop で production 環境に接続し、(1) 分析前に get_logic_index が自発的に呼ばれる (2) key_type/domain で正しい JOIN が生成される (3) ツール呼び出し順序がワークフロー通りになる (4) related_terms の再帰的解決が行われる | 6.1 完了後に実施。NG の場合は原因分析と description の追加修正を行う |
+
+---
+
+## Phase 7: REST API 認証
+
+document-server の REST API に認証を追加する。現在は信頼されたネットワーク前提で無認証だが、Bearer トークン認証を導入し、document-mcp からのリクエストにもトークンを付与する。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 7.1 | document-server: Bearer トークン認証の実装 | [ ] | 認証トークンなしのリクエストが 401 で拒否され、正しいトークン付きリクエストが成功する | jupyter-server の既存トークン認証を参考に実装 |
+| 7.2 | document-mcp: 認証トークン付与 | [ ] | document-mcp から document-server への全リクエストに Authorization ヘッダーが付与される | 環境変数でトークンを設定 |
+| 7.3 | REST API 認証の結合テスト | [ ] | document-mcp 経由でカタログ・用語集・ロジックの取得が認証付きで正常動作する | 認証なしアクセスの拒否も確認 |
