@@ -64,7 +64,7 @@ jobs:
         run: |
           pip install ruff
           pip install -e "document-server[dev]" types-PyYAML
-          pip install pytest pytest-asyncio
+          pip install pytest pytest-asyncio sqlparse
 
       - name: Ruff format check
         run: |
