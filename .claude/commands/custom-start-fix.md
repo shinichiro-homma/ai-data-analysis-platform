@@ -2,7 +2,7 @@ Issue #$ARGUMENTS の修正を実装します。
 
 以下の手順で作業してください：
 
-## 1. 未コミットの変更確認
+## 1. 未コミットの変更確認とブランチ切り替え
 
 まず、未コミットの変更がないか確認してください：
 
@@ -11,6 +11,9 @@ git status
 ```
 
 未コミットの変更がある場合は、先にコミットまたはスタッシュしてください。
+
+次に、`.claude/rules/branch-workflow.md` の「ブランチ切り替え」に従い、対象 Issue の fix ブランチに切り替えてください。
+ブランチが存在しない場合は「ブランチ作成」に従って作成してください。
 
 ## 2. イシュー詳細ファイルの確認
 
@@ -80,29 +83,26 @@ git status
    ```
    fix: {修正内容の要約}
 
-   Closes #{Issue番号}
+   Refs #{Issue番号}
    ```
 
 3. `tests/known-failures.json` に該当エントリがあれば削除する：
    ```bash
-   # 該当する既知障害エントリを確認
    scripts/manage-known-failures.sh list
-   # 該当エントリがあれば削除（ID は list の出力から確認）
    scripts/manage-known-failures.sh remove --id {kf-XXX}
    ```
 
-4. GitHub Issue をクローズする：
-   ```bash
-   gh issue close $ARGUMENTS
-   ```
+4. `.claude/rules/branch-workflow.md` の「PR 作成」に従い、fix → dev の PR を作成する
 
-5. 以下の形式で報告する：
+5. `.claude/rules/branch-workflow.md` の「CI 待機 + Issue クローズ」に従い、CI パス後に Issue をクローズする。CI が失敗した場合は Issue をクローズせず、修正を案内して停止する
+
+6. 以下の形式で報告する：
    ```
    ## 修正完了
 
    - Issue: #$ARGUMENTS
+   - PR: {PR URL}
    - 設計ファイル: docs/issues/{番号}-{名前}.md
-   - コミット: {コミットハッシュ}
 
    ### 修正内容
    （修正の要約）
