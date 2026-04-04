@@ -180,12 +180,13 @@ export interface UpdateNotebookRequest {
   content: NotebookContent;
 }
 
-export type CellAction = 'add' | 'update' | 'delete';
+export type CellAction = 'add' | 'update' | 'delete' | 'reorder';
 
 export interface CellOperationRequest {
   action: CellAction;
   cell?: Partial<Cell>;
   index?: number;
+  to_index?: number;
 }
 
 // =============================================================================

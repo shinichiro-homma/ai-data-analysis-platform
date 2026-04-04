@@ -25,6 +25,7 @@ import { executeNotebookAddCell } from './notebook-add-cell.js';
 import { executeNotebookListCells } from './notebook-list-cells.js';
 import { executeNotebookEditCell } from './notebook-edit-cell.js';
 import { executeNotebookDeleteCell } from './notebook-delete-cell.js';
+import { executeNotebookReorderCell } from './notebook-reorder-cell.js';
 import { executeSessionCreate } from './session-create.js';
 import { executeSessionList } from './session-list.js';
 import { executeSessionDelete } from './session-delete.js';
@@ -241,6 +242,31 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeNotebookDeleteCell,
+  },
+  {
+    definition: {
+      name: 'notebook_reorder_cell',
+      description: 'Moves a cell from one position to another within a notebook.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to move (0-indexed, source position)',
+          },
+          to_index: {
+            type: 'number',
+            description: 'Target position to move the cell to (0-indexed)',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'to_index'],
+      },
+    },
+    execute: executeNotebookReorderCell,
   },
   {
     definition: {

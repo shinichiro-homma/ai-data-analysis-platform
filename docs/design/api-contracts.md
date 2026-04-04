@@ -549,6 +549,18 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 }
 ```
 
+**リクエスト（セル並び替え）:**
+```json
+{
+  "action": "reorder",
+  "index": 2,
+  "to_index": 0
+}
+```
+
+`index` のセルを pop した後のリストに対して `to_index` の位置に insert する。
+`index == to_index` の場合はノーオプとして正常終了する。
+
 #### POST /api/custom/contents/{path}/cells/{index}/execute
 
 指定セルのコードをカーネルで再実行し、セルの出力と実行回数を更新する。

@@ -670,11 +670,12 @@ class ContentsCellsHandler(BaseCustomHandler):
 
     @web.authenticated
     async def patch(self, path: str):
-        """セルを追加・更新・削除"""
+        """セルを追加・更新・削除・並び替え"""
         body = self.get_json_body()
         action = body.get("action")
         cell = body.get("cell")
         index = body.get("index")
+        to_index = body.get("to_index")
 
         try:
             # パストラバーサル対策
@@ -723,6 +724,18 @@ class ContentsCellsHandler(BaseCustomHandler):
                     self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {index}", 400)
                     return
                 cells.pop(index)
+
+            elif action == "reorder":
+                if index is None or index < 0 or index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {index}", 400)
+                    return
+                if not isinstance(to_index, int) or to_index < 0 or to_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid to_index: {to_index}", 400)
+                    return
+                cell_to_move = cells.pop(index)
+                # to_index を pop 後のリストに対して挿入
+                insert_index = min(to_index, len(cells))
+                cells.insert(insert_index, cell_to_move)
 
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)
