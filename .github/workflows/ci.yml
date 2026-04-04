@@ -34,9 +34,11 @@ jobs:
       - name: Prettier check
         run: npx prettier --check "jupyter-mcp/src/**/*.ts" "document-mcp/src/**/*.ts" "packages/mcp-shared/src/**/*.ts"
 
+      - name: Build mcp-shared
+        run: npm -w packages/mcp-shared run build
+
       - name: Typecheck
         run: |
-          npx -w packages/mcp-shared tsc --noEmit
           npx -w jupyter-mcp tsc --noEmit
           npx -w document-mcp tsc --noEmit
 
@@ -62,7 +64,7 @@ jobs:
         run: |
           pip install ruff
           pip install -e "document-server[dev]"
-          pip install -e "jupyter-server[dev]"
+          pip install pytest pytest-asyncio
 
       - name: Ruff format check
         run: |
