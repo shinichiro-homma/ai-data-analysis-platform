@@ -75,11 +75,3 @@ MCPツールの description を強化し、Claude が分析フロー全体の中
 |---|--------|-----------|-----------|------|
 | 6.1 | MCPツールの description 強化（実装） | [x] | `scripts/test.sh document-mcp` と `scripts/test.sh jupyter-mcp` が全テスト通過 | document-mcp 5ツール + jupyter-mcp 3ツールの description 更新。テキスト変更のみ、ロジック・型変更なし。複数行 description はテンプレートリテラルで実装。要件定義の description 同期は別途 `/custom-change-requirement` で対応 |
 | 6.2 | MCPツールの description 強化（手動検証） | [x] | Claude Desktop で production 環境に接続し、(1) 分析前に get_logic_index が自発的に呼ばれる (2) key_type/domain で正しい JOIN が生成される (3) ツール呼び出し順序がワークフロー通りになる (4) related_terms の再帰的解決が行われる | 6.1 完了後に実施。NG の場合は原因分析と description の追加修正を行う |
-
----
-
-## 変更履歴
-
-| 日付 | 変更内容 |
-|------|----------|
-| 2026-04-04 | Phase 2 にタスク 2.3（用語検索の related_terms 対応）を追加。検索対象に related_terms を含めてヒット率を改善する |
