@@ -365,9 +365,14 @@ Agent ツールでサブエージェントを起動してください。
 
 ---
 
-## 3. PR 作成
+## 3. PR 作成 + CI 待機 + ブランチクリーンアップ
 
-すべてのタスクが完了したら、`.claude/rules/branch-workflow.md` の「PR 作成」に従い、feature → dev の PR を作成してください。
+すべてのタスクが完了したら：
+
+1. `.claude/rules/branch-workflow.md` の「PR 作成」に従い、feature → dev の PR を作成する
+2. `.claude/rules/branch-workflow.md` の「CI 待機 + dev 切り替え + ブランチ削除」に従い、CI パスを待ってから dev に切り替え、ローカルブランチを削除する
+
+CI が失敗した場合はブランチを削除せず、修正を案内して停止してください。
 
 ## 4. 全タスク完了報告
 

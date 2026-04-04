@@ -94,7 +94,7 @@ git status
 
 4. `.claude/rules/branch-workflow.md` の「PR 作成」に従い、fix → dev の PR を作成する
 
-5. `.claude/rules/branch-workflow.md` の「CI 待機 + Issue クローズ」に従い、CI パス後に Issue をクローズする。CI が失敗した場合は Issue をクローズせず、修正を案内して停止する
+5. `.claude/rules/branch-workflow.md` の「CI 待機 + dev 切り替え + ブランチ削除」に従い、CI パス後に Issue をクローズし、dev に切り替えてローカルブランチを削除する。CI が失敗した場合は Issue をクローズせず、ブランチも削除せず、修正を案内して停止する
 
 6. 以下の形式で報告する：
    ```

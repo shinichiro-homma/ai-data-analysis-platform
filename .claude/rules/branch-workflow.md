@@ -71,19 +71,33 @@ EOF
 
 PR タイトルは短く（70文字以内）。詳細は body に記述する。
 
-### CI 待機 + Issue クローズ（バグ修正 PR のみ）
+### CI 待機 + dev 切り替え + ブランチ削除
 
-PR 作成後、CI の完了を待ってから Issue をクローズする。
+PR 作成後、CI の完了を待ち、dev に切り替えてローカルブランチを削除する。
+リモートブランチは GitHub の「PR マージ時に自動削除」設定で削除される。
 
 ```bash
+# 現在のブランチ名を記録
+BRANCH=$(git branch --show-current)
+
 # CI 完了を待機
 gh pr checks {PR番号} --watch
 
-# CI パス → Issue クローズ
-gh issue close {Issue番号}
+# CI パス → dev に切り替え
+git checkout dev
+git pull origin dev
+
+# ローカルブランチを削除
+git branch -d "$BRANCH"
 ```
 
-CI が失敗した場合は Issue をクローズせず、修正を案内する。
+CI が失敗した場合はブランチを削除せず、修正を案内する。
+
+バグ修正 PR の場合は、dev 切り替え前に Issue もクローズする：
+
+```bash
+gh issue close {Issue番号}
+```
 
 ### dev への統合
 
