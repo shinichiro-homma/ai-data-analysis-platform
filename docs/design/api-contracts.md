@@ -472,6 +472,38 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 }
 ```
 
+#### GET /api/custom/contents/{path}/cells
+
+ノートブックの全セル一覧を取得する。
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "path": "/analysis.ipynb",
+    "cells": [
+      {
+        "cell_index": 0,
+        "cell_type": "code",
+        "source": "import pandas as pd",
+        "outputs": [],
+        "execution_count": 1
+      },
+      {
+        "cell_index": 1,
+        "cell_type": "markdown",
+        "source": "# 分析結果"
+      }
+    ],
+    "total_cells": 2
+  }
+}
+```
+
+**エラー:**
+- `400 VALIDATION_ERROR` - ノートブック以外のファイル（.py 等）を指定した場合
+- `404 NOT_FOUND` - ファイルが存在しない場合
+
 #### PATCH /api/custom/contents/{path}/cells
 
 セルを追加・更新する。
@@ -516,6 +548,45 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
   "index": 1
 }
 ```
+
+#### POST /api/custom/contents/{path}/cells/{index}/execute
+
+指定セルのコードをカーネルで再実行し、セルの出力と実行回数を更新する。
+
+**リクエスト:**
+```json
+{
+  "kernel_id": "kernel-abc123",
+  "timeout": 30
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| kernel_id | string | Yes | 実行に使用するカーネルID |
+| timeout | number | No | タイムアウト秒数（デフォルト・最大値は `jupyter-server/extensions/custom_api/base.py` の `validate_timeout()` を参照） |
+
+**レスポンス（成功時）:**
+```json
+{
+  "data": {
+    "cell_index": 2,
+    "source": "print('Hello')",
+    "execution_count": 5,
+    "outputs": [
+      {
+        "type": "stdout",
+        "text": "Hello\n"
+      }
+    ],
+    "execution_time_ms": 150
+  }
+}
+```
+
+**エラー:**
+- `400 VALIDATION_ERROR` - ノートブック以外のファイル、コードセル以外のセル、または範囲外のインデックスを指定した場合
+- `404 NOT_FOUND` - ファイルまたはカーネルが存在しない場合
 
 ### SQL実行
 

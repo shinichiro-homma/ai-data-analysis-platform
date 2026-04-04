@@ -129,6 +129,10 @@ Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下�
 | `get_dataframe_info` | DataFrame情報取得 |
 | `notebook_create` | ノートブック作成 |
 | `notebook_add_cell` | セル追加 |
+| `notebook_list_cells` | セル一覧取得 |
+| `notebook_edit_cell` | セル編集 |
+| `notebook_delete_cell` | セル削除 |
+| `notebook_execute_cell` | セル再実行 |
 | `file_list` | ファイル一覧取得 |
 | `execute_sql` | SQL実行・結果確認 |
 | `export_sql` | SQLデータエクスポート |

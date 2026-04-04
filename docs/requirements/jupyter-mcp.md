@@ -61,11 +61,13 @@
 - 同名のファイルが既に存在する場合、サーバー側の自動連番により別名で作成される
 - 戻り値には実際に作成されたノートブックのパス、ワークスペースID、作成日時を含む
 
-#### F3.2: セル操作 【未実装】
-- セルの追加（code/markdown）
-- セルの編集
+#### F3.2: セル操作
+- セルの追加（code/markdown） ✓ notebook_add_cell で実装済み
+- セルの一覧取得（ソース・出力・実行回数を含む）
+- セルの編集（既存セルのソースコードを更新）
 - セルの削除
-- セルの並び替え
+- セルの再実行（指定セルのコードをカーネルで実行し、出力を更新）
+- セルの並び替え 【未実装】
 
 #### F3.3: ノートブック取得 【未実装】
 - ノートブックの内容を取得
@@ -115,6 +117,7 @@
 #### F6.3: AI操作のリアルタイム同期
 - `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
 - `notebook_add_cell`実行時、jupyter-mcp がセル追加イベントを `POST /api/ai/events/broadcast` でリアルタイム配信する
+- `notebook_edit_cell`、`notebook_delete_cell`、`notebook_execute_cell` 実行時も同様にリアルタイム配信する
 - JupyterLab上のノートブックUIにAIの操作がリアルタイムに反映される
 
 ### F7: 画像出力
@@ -569,6 +572,114 @@ DataFrameの詳細情報を取得する。
 
 **戻り値:** `jupyter-mcp/src/tools/notebook-add-cell.ts` を参照。`cell_index` は追加されたセルの実際のインデックス（0-indexed）で、`execute_code` の `cell_index` パラメータに渡して実行できる。
 
+### notebook_list_cells
+
+ノートブックの全セル一覧を取得する。各セルのソースコード、出力、実行回数を含む。過去に書いたコードを確認し、重複を避けるために使用する。
+
+```typescript
+{
+  name: "notebook_list_cells",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      }
+    },
+    required: ["notebook_path"]
+  }
+}
+```
+
+**戻り値:** `jupyter-mcp/src/tools/notebook-list-cells.ts` を参照。
+
+### notebook_edit_cell
+
+ノートブックの既存セルのソースコードを編集する。
+
+```typescript
+{
+  name: "notebook_edit_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      },
+      cell_index: {
+        type: "number",
+        description: "編集対象のセルインデックス（0-indexed）"
+      },
+      source: {
+        type: "string",
+        description: "新しいセルの内容"
+      }
+    },
+    required: ["notebook_path", "cell_index", "source"]
+  }
+}
+```
+
+**戻り値:** `jupyter-mcp/src/tools/notebook-edit-cell.ts` を参照。
+
+### notebook_delete_cell
+
+ノートブックのセルを削除する。
+
+```typescript
+{
+  name: "notebook_delete_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      },
+      cell_index: {
+        type: "number",
+        description: "削除対象のセルインデックス（0-indexed）"
+      }
+    },
+    required: ["notebook_path", "cell_index"]
+  }
+}
+```
+
+**戻り値:** `jupyter-mcp/src/tools/notebook-delete-cell.ts` を参照。
+
+### notebook_execute_cell
+
+ノートブックの指定セルをカーネルで再実行する。セルのソースコードを取得してカーネルで実行し、セルの出力と実行回数を更新する。
+
+```typescript
+{
+  name: "notebook_execute_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      },
+      session_id: {
+        type: "string",
+        description: "セッションID（カーネルでの実行に必要）"
+      },
+      cell_index: {
+        type: "number",
+        description: "実行対象のセルインデックス（0-indexed）"
+      }
+    },
+    required: ["notebook_path", "session_id", "cell_index"]
+  }
+}
+```
+
+**戻り値:** `jupyter-mcp/src/tools/notebook-execute-cell.ts` を参照。
+
 ### file_list
 
 ワークスペース内のファイル一覧を取得する。
@@ -814,6 +925,11 @@ npm run build && npm start
 - [ ] notebook_create で同名ファイルが存在する場合、自動連番（`_2`, `_3`, ...）で作成される
 - [ ] 自動連番で作成された場合、戻り値に実際のファイルパスが含まれる
 - [ ] notebook_add_cell でセルが追加される
+- [ ] notebook_list_cells でセル一覧が取得でき、各セルのソース・出力・実行回数が含まれる
+- [ ] notebook_edit_cell で既存セルのソースコードが更新される
+- [ ] notebook_delete_cell でセルが削除され、後続セルのインデックスが正しく更新される
+- [ ] notebook_execute_cell で指定セルがカーネルで再実行され、出力と実行回数が更新される
+- [ ] 範囲外のセルインデックスを指定した場合にエラーが返る
 
 ### AC5: 画像参照
 - [ ] matplotlibでグラフを描画すると、execute_codeの結果にImageReference（file_path, mime_type, description）が含まれる

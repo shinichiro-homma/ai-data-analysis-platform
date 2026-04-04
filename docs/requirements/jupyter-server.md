@@ -55,6 +55,8 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - セルの追加/編集/削除ができる
 - セルの実行ができる
 - セルの出力を取得できる
+- セルの一覧を取得できる（各セルのソース、出力、実行回数を含む）
+- 指定セルのコードをカーネルで再実行し、出力と実行回数を更新できる
 
 ### F4: AI同期イベント配信
 
@@ -266,7 +268,9 @@ Jupyter Server標準APIとカスタム拡張APIを使用:
 | `GET /api/custom/contents/{path}` | ファイル取得 |
 | `PUT /api/custom/contents/{path}` | ファイル更新 |
 | `DELETE /api/custom/contents/{path}` | ファイル削除 |
+| `GET /api/custom/contents/{path}/cells` | セル一覧取得 |
 | `PATCH /api/custom/contents/{path}/cells` | セル操作 |
+| `POST /api/custom/contents/{path}/cells/{index}/execute` | セル再実行 |
 
 **ワークスペース・セッション管理:**
 
@@ -342,6 +346,10 @@ Jupyter Server標準APIとカスタム拡張APIを使用:
 - [ ] 自動連番時に元のノートブックのセルが保全される
 - [ ] セルを追加・実行・削除できる
 - [ ] ノートブックを保存・再読み込みできる
+- [ ] セル一覧を取得でき、各セルのソース・出力・実行回数が含まれる
+- [ ] 既存セルのソースコードを編集できる
+- [ ] 指定セルをカーネルで再実行し、出力と実行回数が更新される
+- [ ] 範囲外のセルインデックスを指定した場合にエラーが返る
 
 ### AC5: AI同期イベント
 - [ ] `/api/ai/events` WebSocketエンドポイントに接続できる
