@@ -626,7 +626,47 @@ class ContentsHandler(BaseCustomHandler):
 
 
 class ContentsCellsHandler(BaseCustomHandler):
-    """PATCH /api/custom/contents/{path}/cells"""
+    """GET/PATCH /api/custom/contents/{path}/cells"""
+
+    @web.authenticated
+    async def get(self, path: str):
+        """ノートブックのセル一覧を取得"""
+        try:
+            # パストラバーサル対策
+            path = validate_path(path)
+            if not path.endswith(".ipynb"):
+                self.write_error_response("VALIDATION_ERROR", "Not a notebook: path must end with .ipynb", 400)
+                return
+            model = await self.contents_manager.get(path, content=True)
+            if model["type"] != "notebook":
+                self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
+                return
+
+            cells = model["content"].get("cells", [])
+            cell_list = []
+            for i, cell in enumerate(cells):
+                cell_info = {
+                    "cell_index": i,
+                    "cell_type": cell.get("cell_type", "code"),
+                    "source": cell.get("source", ""),
+                }
+                if cell.get("cell_type") == "code":
+                    cell_info["outputs"] = cell.get("outputs", [])
+                    cell_info["execution_count"] = cell.get("execution_count")
+                cell_list.append(cell_info)
+
+            self.write_success(
+                {
+                    "path": "/" + path,
+                    "total_cells": len(cell_list),
+                    "cells": cell_list,
+                }
+            )
+        except FileNotFoundError:
+            self.write_error_response("NOT_FOUND", f"Not found: {path}", 404)
+        except Exception as e:
+            log.error("Failed to get cells '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to get cells", 500)
 
     @web.authenticated
     async def patch(self, path: str):

@@ -62,10 +62,19 @@ vi.mock('../../../src/tools/export-sql.js', () => ({
 vi.mock('../../../src/tools/get-image.js', () => ({
   executeGetImage: vi.fn(async () => mockResponse('get_image')),
 }));
+vi.mock('../../../src/tools/notebook-list-cells.js', () => ({
+  executeNotebookListCells: vi.fn(async () => mockResponse('notebook_list_cells')),
+}));
+vi.mock('../../../src/tools/notebook-edit-cell.js', () => ({
+  executeNotebookEditCell: vi.fn(async () => mockResponse('notebook_edit_cell')),
+}));
+vi.mock('../../../src/tools/notebook-delete-cell.js', () => ({
+  executeNotebookDeleteCell: vi.fn(async () => mockResponse('notebook_delete_cell')),
+}));
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(19);
+    expect(tools).toHaveLength(22);
 
     const expectedToolNames = [
       'workspace_create',
@@ -74,6 +83,9 @@ describe('registerTools', () => {
       'workspace_summarize',
       'notebook_create',
       'notebook_add_cell',
+      'notebook_list_cells',
+      'notebook_edit_cell',
+      'notebook_delete_cell',
       'session_create',
       'session_list',
       'session_delete',
@@ -127,6 +139,9 @@ describe('handleToolCall', () => {
       toolName: 'notebook_add_cell',
       args: { notebook_path: 'test.ipynb', cell_type: 'code', source: 'print("hello")' },
     },
+    { toolName: 'notebook_list_cells', args: { notebook_path: 'test.ipynb' } },
+    { toolName: 'notebook_edit_cell', args: { notebook_path: 'test.ipynb', cell_index: 0, source: 'print("hi")' } },
+    { toolName: 'notebook_delete_cell', args: { notebook_path: 'test.ipynb', cell_index: 0 } },
     { toolName: 'session_create', args: {} },
     { toolName: 'session_list', args: {} },
     { toolName: 'session_delete', args: { session_id: 'session-1' } },
