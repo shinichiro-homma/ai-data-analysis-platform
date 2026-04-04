@@ -45,14 +45,15 @@ def _validate_workspace_metadata(summary, status, *, summary_required=False, sta
         if len(summary) > 200:
             return "summary exceeds maximum length (200 characters)"
 
-    if status is not None:
-        if status not in _VALID_STATUSES:
-            return f"status must be one of: {', '.join(sorted(_VALID_STATUSES))}"
+    if status is not None and status not in _VALID_STATUSES:
+        return f"status must be one of: {', '.join(sorted(_VALID_STATUSES))}"
 
     return None
 
 
-def _format_workspace_info(workspace_id: str, name: str, created_at: str, summary: str = "", status: str = "not_started") -> dict:
+def _format_workspace_info(
+    workspace_id: str, name: str, created_at: str, summary: str = "", status: str = "not_started"
+) -> dict:
     """ワークスペース情報の基本レスポンス形式を返す"""
     ws_path = workspace_contents_path(workspace_id)
     return {
@@ -80,7 +81,9 @@ def _read_workspace(workspace_dir: Path) -> dict | None:
         # 後方互換: 既存ワークスペースに summary/status がない場合はデフォルト値を使用
         summary = metadata.get("summary", "")
         status = metadata.get("status", "not_started")
-        info = _format_workspace_info(metadata["workspace_id"], metadata["name"], metadata["created_at"], summary, status)
+        info = _format_workspace_info(
+            metadata["workspace_id"], metadata["name"], metadata["created_at"], summary, status
+        )
         return {**info, "file_count": file_count}
     except (json.JSONDecodeError, KeyError, OSError):
         return None
@@ -211,13 +214,15 @@ class WorkspaceHandler(BaseCustomHandler):
             with open(metadata_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, ensure_ascii=False)
 
-            self.write_success(_format_workspace_info(
-                metadata["workspace_id"],
-                metadata["name"],
-                metadata["created_at"],
-                metadata.get("summary", ""),
-                metadata.get("status", "not_started"),
-            ))
+            self.write_success(
+                _format_workspace_info(
+                    metadata["workspace_id"],
+                    metadata["name"],
+                    metadata["created_at"],
+                    metadata.get("summary", ""),
+                    metadata.get("status", "not_started"),
+                )
+            )
         except json.JSONDecodeError:
             log.error("Corrupted metadata.json for workspace %s", workspace_id)
             self.write_error_response("INTERNAL_ERROR", "Workspace metadata is corrupted", 500)
@@ -272,9 +277,11 @@ class WorkspaceSummarizeHandler(BaseCustomHandler):
             "6. 完成したサマリーを SUMMARY.md としてワークスペースに保存する"
         )
 
-        self.write_success({
-            "workspace_id": workspace_id,
-            "template": template,
-            "verification_criteria": verification_criteria,
-            "instructions": instructions,
-        })
+        self.write_success(
+            {
+                "workspace_id": workspace_id,
+                "template": template,
+                "verification_criteria": verification_criteria,
+                "instructions": instructions,
+            }
+        )

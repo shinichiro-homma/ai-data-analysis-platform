@@ -194,12 +194,16 @@ def _check_call(node: ast.Call) -> CodeValidationResult | None:
         attr = node.func.attr
         value = node.func.value
         # get_ipython().xxx()
-        if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-            if value.func.id == "get_ipython" and attr in BLOCKED_IPYTHON_METHODS:
-                return _block_result(
-                    f"Blocked IPython method: get_ipython().{attr}()",
-                    f"get_ipython().{attr}",
-                )
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "get_ipython"
+            and attr in BLOCKED_IPYTHON_METHODS
+        ):
+            return _block_result(
+                f"Blocked IPython method: get_ipython().{attr}()",
+                f"get_ipython().{attr}",
+            )
 
     return None
 
@@ -214,9 +218,8 @@ def _check_attribute(node: ast.Attribute) -> CodeValidationResult | None:
 
     # os.system, os.popen, os.exec*, os.spawn*, os.remove, os.unlink, os.rmdir の検出
     # 値が ast.Name で 'os' の場合
-    if isinstance(node.value, ast.Name) and node.value.id == "os":
-        if _is_blocked_os_attr(attr):
-            return _block_result(f"Blocked os function: os.{attr}", f"os.{attr}")
+    if isinstance(node.value, ast.Name) and node.value.id == "os" and _is_blocked_os_attr(attr):
+        return _block_result(f"Blocked os function: os.{attr}", f"os.{attr}")
 
     return None
 

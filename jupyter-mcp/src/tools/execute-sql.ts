@@ -96,4 +96,3 @@ export async function executeExecuteSql(args: Record<string, unknown>): Promise<
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
-

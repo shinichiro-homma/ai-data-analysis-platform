@@ -6,12 +6,18 @@ SQL を実行する。SELECT 系は結果 CSV をワークスペースの data/ 
 ブラックリスト方式で危険な操作を拒否する。
 """
 
+from __future__ import annotations
+
 import asyncio
 import csv
 import logging
 import os
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pyarrow as pa
 
 import pandas as pd
 import sqlalchemy
@@ -312,7 +318,7 @@ def _handle_sql_error(handler, e, timeout: int, timeout_error_code: str, generic
         )
 
 
-def _normalize_parquet_schema(schema: "pa.Schema") -> "pa.Schema":
+def _normalize_parquet_schema(schema: pa.Schema) -> pa.Schema:
     """decimal128 を float64 に正規化したスキーマを返す。
 
     PostgreSQL の NUMERIC 型は精度が可変で、チャンクごとに pandas/PyArrow が推論する
@@ -789,9 +795,7 @@ class SqlExportHandler(BaseCustomHandler):
         try:
             loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None, _export_sql_sync, database_url, sql, timeout, output_path, export_format
-                ),
+                loop.run_in_executor(None, _export_sql_sync, database_url, sql, timeout, output_path, export_format),
                 timeout=timeout + 5,
             )
         except Exception as e:

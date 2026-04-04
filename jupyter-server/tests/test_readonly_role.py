@@ -28,16 +28,12 @@ class TestRolesScriptExists:
 
     def test_roles_script_exists(self):
         """ロール作成スクリプトが存在する"""
-        assert _roles_script_path.exists(), (
-            f"ロール作成スクリプトが見つかりません: {_roles_script_path}"
-        )
+        assert _roles_script_path.exists(), f"ロール作成スクリプトが見つかりません: {_roles_script_path}"
 
     def test_roles_script_creates_jupyter_readonly(self):
         """スクリプトが jupyter_readonly ロールを作成する"""
         content = _roles_script_path.read_text(encoding="utf-8")
-        assert "jupyter_readonly" in content, (
-            "00-create-roles.sh に jupyter_readonly ロールの作成が見つかりません"
-        )
+        assert "jupyter_readonly" in content, "00-create-roles.sh に jupyter_readonly ロールの作成が見つかりません"
 
     def test_roles_script_grants_login(self):
         """jupyter_readonly ロールに LOGIN 権限がある"""
@@ -51,14 +47,12 @@ class TestRolesScriptExists:
         """jupyter_readonly ロールに SUPERUSER 権限がない"""
         content = _roles_script_path.read_text(encoding="utf-8")
         # NOSUPERUSER が含まれるか、SUPERUSER が含まれない
-        has_superuser = re.search(
-            r"(?i)CREATE\s+ROLE.*jupyter_readonly.*\bSUPERUSER\b", content
-        )
+        has_superuser = re.search(r"(?i)CREATE\s+ROLE.*jupyter_readonly.*\bSUPERUSER\b", content)
         if has_superuser:
             # NOSUPERUSER なら OK
-            assert re.search(
-                r"(?i)CREATE\s+ROLE.*jupyter_readonly.*NOSUPERUSER", content
-            ), "jupyter_readonly ロールに SUPERUSER 権限が設定されています"
+            assert re.search(r"(?i)CREATE\s+ROLE.*jupyter_readonly.*NOSUPERUSER", content), (
+                "jupyter_readonly ロールに SUPERUSER 権限が設定されています"
+            )
 
 
 class TestDockerComposeReadonly:
@@ -68,9 +62,7 @@ class TestDockerComposeReadonly:
         """DATABASE_URL が jupyter_readonly ユーザーを含む"""
         content = _docker_compose_path.read_text(encoding="utf-8")
         # DATABASE_URL=postgresql://jupyter_readonly:... のパターン
-        assert re.search(
-            r"DATABASE_URL=postgresql://.*jupyter_readonly", content
-        ), (
+        assert re.search(r"DATABASE_URL=postgresql://.*jupyter_readonly", content), (
             "docker-compose.yml の DATABASE_URL が jupyter_readonly ユーザーを使用していません"
         )
 
@@ -88,9 +80,7 @@ class TestInitDbGrantSelect:
     def test_grant_select_present(self):
         """GRANT SELECT 文が存在する"""
         content = _init_db_path.read_text(encoding="utf-8")
-        assert re.search(r"(?i)GRANT\s+SELECT", content), (
-            "01-init-db.sh に GRANT SELECT が見つかりません"
-        )
+        assert re.search(r"(?i)GRANT\s+SELECT", content), "01-init-db.sh に GRANT SELECT が見つかりません"
 
     def test_grant_to_jupyter_readonly(self):
         """GRANT が jupyter_readonly ロールに対して行われる"""
@@ -102,9 +92,7 @@ class TestInitDbGrantSelect:
     def test_grant_create_temp(self):
         """CREATE TEMP TABLE 権限が付与される（一時テーブル用）"""
         content = _init_db_path.read_text(encoding="utf-8")
-        assert re.search(r"(?i)GRANT.*TEMP", content) or re.search(
-            r"(?i)GRANT.*TEMPORARY", content
-        ), (
+        assert re.search(r"(?i)GRANT.*TEMP", content) or re.search(r"(?i)GRANT.*TEMPORARY", content), (
             "01-init-db.sh に TEMP/TEMPORARY テーブル作成権限の GRANT が見つかりません"
         )
 
@@ -122,9 +110,7 @@ class TestGenerateInitGrantSelect:
     def test_generate_init_references_jupyter_readonly(self):
         """generate_init.py が jupyter_readonly を参照している"""
         content = _generate_init_path.read_text(encoding="utf-8")
-        assert "jupyter_readonly" in content, (
-            "generate_init.py に jupyter_readonly の参照が見つかりません"
-        )
+        assert "jupyter_readonly" in content, "generate_init.py に jupyter_readonly の参照が見つかりません"
 
 
 class TestEnvExampleReadonlyPassword:
@@ -133,6 +119,4 @@ class TestEnvExampleReadonlyPassword:
     def test_readonly_password_in_env_example(self):
         """POSTGRES_READONLY_PASSWORD が .env.example に存在する"""
         content = _env_example_path.read_text(encoding="utf-8")
-        assert "POSTGRES_READONLY_PASSWORD" in content, (
-            ".env.example に POSTGRES_READONLY_PASSWORD が見つかりません"
-        )
+        assert "POSTGRES_READONLY_PASSWORD" in content, ".env.example に POSTGRES_READONLY_PASSWORD が見つかりません"
