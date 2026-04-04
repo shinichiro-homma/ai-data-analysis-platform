@@ -41,6 +41,7 @@ import {
   CellExecuteResponse,
   DataPreviewResponse,
   DataPreviewOptions,
+  TextFileResponse,
 } from './types.js';
 import {
   JupyterClientError,
@@ -468,6 +469,29 @@ export class JupyterClient {
     const response = await this.request<ApiResponse<DataPreviewResponse>>(
       'GET',
       `/api/custom/contents/${encodeContentsPath(path)}/preview${query}`,
+      undefined,
+      { path },
+    );
+    return response.data;
+  }
+
+  // ===========================================================================
+  // テキストファイル読み取り
+  // ===========================================================================
+
+  /**
+   * テキストファイルの内容を取得する。
+   *
+   * カスタム Contents API (`/api/custom/contents/{path}`) を使用する。
+   * 標準 Jupyter Contents API をラップする `getFileContent`（`GET /api/contents/{path}`）とは異なり、
+   * このメソッドはサーバー側のカスタムエンドポイントを通じてテキストファイルを取得する。
+   * `getFileContent` がバイナリファイルを base64 で返すのに対して、
+   * このメソッドはテキストファイル専用であり、構造化されたレスポンス（TextFileResponse 型）を返す。
+   */
+  async getTextFileContent(path: string): Promise<TextFileResponse> {
+    const response = await this.request<ApiResponse<TextFileResponse>>(
+      'GET',
+      `/api/custom/contents/${encodeContentsPath(path)}`,
       undefined,
       { path },
     );

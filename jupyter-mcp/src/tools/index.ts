@@ -41,6 +41,7 @@ import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
 import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
 import { executeDataPreview } from './data-preview.js';
+import { executeFileRead } from './file-read.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -623,6 +624,28 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeDataPreview,
+  },
+  {
+    definition: {
+      name: 'file_read',
+      description:
+        'Reads the content of a text file (e.g., .py, .sql, .md, .txt) in the workspace. Cannot read .ipynb files (use notebook_list_cells instead) or binary files.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace_id: {
+            type: 'string',
+            description: 'Workspace ID',
+          },
+          file_path: {
+            type: 'string',
+            description: 'File path relative to workspace (e.g., scripts/analysis.py)',
+          },
+        },
+        required: ['workspace_id', 'file_path'],
+      },
+    },
+    execute: executeFileRead,
   },
 ];
 

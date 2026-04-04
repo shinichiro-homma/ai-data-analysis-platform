@@ -80,10 +80,13 @@ vi.mock('../../../src/tools/notebook-reorder-cell.js', () => ({
 vi.mock('../../../src/tools/data-preview.js', () => ({
   executeDataPreview: vi.fn(async () => mockResponse('data_preview')),
 }));
+vi.mock('../../../src/tools/file-read.js', () => ({
+  executeFileRead: vi.fn(async () => mockResponse('file_read')),
+}));
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(25);
+    expect(tools).toHaveLength(26);
 
     const expectedToolNames = [
       'workspace_create',
@@ -111,6 +114,7 @@ describe('registerTools', () => {
       'export_sql',
       'get_image',
       'data_preview',
+      'file_read',
     ];
 
     const toolNames = tools.map((t) => t.name);
