@@ -123,7 +123,7 @@ git push -u origin {ブランチ名}
 2. PR を作成:
 
 ```bash
-gh pr create --base dev --title "{タイトル}" --body "$(cat tmp/pr-body.md)"
+gh pr create --base dev --title "{タイトル}" --body-file tmp/pr-body.md
 ```
 
 PR タイトルは短く（70文字以内）。詳細は body に記述する。

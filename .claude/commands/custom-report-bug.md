@@ -131,7 +131,7 @@ Issue 本文は `tmp/issue-body.md` に書き出してから `gh issue create` �
 2. Issue を起票:
 
 ```bash
-gh issue create --title "bug: {バグの概要}" --body "$(cat tmp/issue-body.md)"
+gh issue create --title "bug: {バグの概要}" --body-file tmp/issue-body.md
 ```
 
 `tmp/issue-body.md` は起票後に削除する。

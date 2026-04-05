@@ -47,7 +47,7 @@ tmp/ は .gitignore 済みなのでコミットされません。
 
 例外: git commit のヒアドキュメントのみ許可されています。
 gh pr create / gh issue create の本文は tmp/ ファイルに書き出し、
-$(cat tmp/pr-body.md) で渡してください。
+--body-file tmp/pr-body.md で渡してください。
 
 詳細: .claude/rules/adhoc-script-execution.md
 ========================================
