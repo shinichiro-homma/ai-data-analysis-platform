@@ -100,8 +100,11 @@ scripts/create-test-issue.sh \
 
 以下のコマンドで Issue を起票してください：
 
-```bash
-gh issue create --title "bug: {バグの概要}" --body "$(cat <<'EOF'
+Issue 本文は `tmp/issue-body.md` に書き出してから `gh issue create` に渡す（heredoc 禁止）。
+
+1. Write ツールで `tmp/issue-body.md` を作成:
+
+```markdown
 ## 症状
 
 {バグの症状を記述}
@@ -123,9 +126,15 @@ gh issue create --title "bug: {バグの概要}" --body "$(cat <<'EOF'
 ## 関連タスク
 
 - {PLAN.md のタスク番号。不明な場合は「不明」}
-EOF
-)"
 ```
+
+2. Issue を起票:
+
+```bash
+gh issue create --title "bug: {バグの概要}" --body "$(cat tmp/issue-body.md)"
+```
+
+`tmp/issue-body.md` は起票後に削除する。
 
 起票された Issue 番号を控えてください。
 
