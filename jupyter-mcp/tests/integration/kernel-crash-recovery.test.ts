@@ -177,12 +177,7 @@ describe('カーネル自動復旧の結合テスト', () => {
     expect(error.code).toBe('NameError');
   }, 180000);
 
-  // NOTE: autorestart パス（KernelRestarter が直接 kernel_manager.restart_kernel を呼ぶ）では
-  // _wrap_restart_kernel フックが現時点では機能しておらず、sandbox が再注入されない。
-  // MappingKernelManager.restart_kernel のラップは明示的な restartKernel 呼び出しには有効だが、
-  // AsyncIOLoopKernelRestarter 経由の自動復旧パスには未対応。
-  // 追跡 Issue: #9 (https://github.com/shinichiro-homma/ai-data-analysis-platform/issues/9)
-  test.skip('3. 復旧後に sandbox が再注入されワークスペース外アクセスが拒否される', async () => {
+  test('3. 復旧後に sandbox が再注入されワークスペース外アクセスが拒否される', async () => {
     const { sessionId, kernelId } = await createTestSession('sandbox-reinjection');
 
     // 別のワークスペースを作成（アクセス制限のターゲット）
