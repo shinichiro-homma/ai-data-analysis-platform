@@ -27,11 +27,6 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+commit'; then
   exit 0
 fi
 
-# gh pr create / gh issue create のヒアドキュメントも例外
-if echo "$COMMAND" | grep -qE '^[[:space:]]*gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|edit)'; then
-  exit 0
-fi
-
 # それ以外の heredoc はブロックし、修正手順を Claude に返す
 cat >&2 <<'EOF'
 ========================================
@@ -50,7 +45,9 @@ cat >&2 <<'EOF'
 使い終わった tmp/ スクリプトは削除してください。
 tmp/ は .gitignore 済みなのでコミットされません。
 
-例外: git commit / gh pr create のヒアドキュメントは許可されています。
+例外: git commit のヒアドキュメントのみ許可されています。
+gh pr create / gh issue create の本文は tmp/ ファイルに書き出し、
+--body-file tmp/pr-body.md で渡してください。
 
 詳細: .claude/rules/adhoc-script-execution.md
 ========================================

@@ -102,9 +102,15 @@ git checkout {ブランチ名}
 
 ### PR 作成（feature/fix → dev）
 
+PR 本文は `tmp/pr-body.md` に書き出してから `gh pr create` に渡す（heredoc 禁止）。
+
 ```bash
 git push -u origin {ブランチ名}
-gh pr create --base dev --title "{タイトル}" --body "$(cat <<'EOF'
+```
+
+1. Write ツールで `tmp/pr-body.md` を作成:
+
+```markdown
 ## Summary
 {箇条書きで変更内容}
 
@@ -112,11 +118,16 @@ gh pr create --base dev --title "{タイトル}" --body "$(cat <<'EOF'
 {テスト計画}
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
+```
+
+2. PR を作成:
+
+```bash
+gh pr create --base dev --title "{タイトル}" --body-file tmp/pr-body.md
 ```
 
 PR タイトルは短く（70文字以内）。詳細は body に記述する。
+`tmp/pr-body.md` は PR 作成後に削除する。
 
 ### マージ後のクリーンアップ（ユーザー依頼時のみ）
 
