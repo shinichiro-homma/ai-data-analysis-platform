@@ -185,6 +185,7 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 | 変数名 | 説明 |
 |--------|------|
 | `DOCUMENT_SERVER_URL` | document-serverのURL |
+| `DOCUMENT_SERVER_TOKEN` | document-serverへのアクセストークン（必須） |
 | `LOG_LEVEL` | ログレベル |
 
 > デフォルト値は `document-mcp/CLAUDE.md` を参照。

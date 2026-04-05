@@ -10,8 +10,12 @@
 const DOCUMENT_SERVER_URL = process.env.DOCUMENT_SERVER_URL || 'http://localhost:3002';
 const JUPYTER_SERVER_URL = process.env.JUPYTER_SERVER_URL || 'http://localhost:8888';
 const JUPYTER_TOKEN = process.env.JUPYTER_TOKEN || '';
+const DOCUMENT_SERVER_TOKEN = process.env.DOCUMENT_SERVER_TOKEN || '';
 if (!JUPYTER_TOKEN) {
   console.warn('[api-client] JUPYTER_TOKEN is not set. Requests will be sent without authentication.');
+}
+if (!DOCUMENT_SERVER_TOKEN) {
+  console.warn('[api-client] DOCUMENT_SERVER_TOKEN is not set. Requests will be sent without authentication.');
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -24,6 +28,11 @@ const JUPYTER_HEADERS: Record<string, string> = {
 
 const JSON_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
+};
+
+const DOCUMENT_HEADERS: Record<string, string> = {
+  'Content-Type': 'application/json',
+  ...(DOCUMENT_SERVER_TOKEN ? { Authorization: `Bearer ${DOCUMENT_SERVER_TOKEN}` } : {}),
 };
 
 // --- 共通ヘルパー ---
@@ -52,7 +61,7 @@ async function baseFetch(
 }
 
 async function docFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await baseFetch(DOCUMENT_SERVER_URL, path, JSON_HEADERS, options);
+  const res = await baseFetch(DOCUMENT_SERVER_URL, path, DOCUMENT_HEADERS, options);
   return res.json() as Promise<T>;
 }
 
@@ -376,6 +385,6 @@ export async function checkServices(): Promise<{
 
 // --- エラーレスポンス検証用 ---
 
-export const docPost = (path: string, body: unknown) => rawPost(DOCUMENT_SERVER_URL, path, JSON_HEADERS, body);
+export const docPost = (path: string, body: unknown) => rawPost(DOCUMENT_SERVER_URL, path, DOCUMENT_HEADERS, body);
 
 export const jupyterPost = (path: string, body: unknown) => rawPost(JUPYTER_SERVER_URL, path, JUPYTER_HEADERS, body);

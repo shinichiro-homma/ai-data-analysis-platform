@@ -5,9 +5,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRouter
 
+from .auth import verify_token
 from .catalog_loader import CatalogStore
 from .config import CORS_ORIGINS, DATA_DIR, DATA_ENV
 from .routers import admin, logic, tables, terms
@@ -49,12 +51,8 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-app.include_router(tables.router)
-app.include_router(terms.router)
-app.include_router(logic.router)
-app.include_router(admin.router)
 
-
+# /health is exempt from authentication (used by Docker healthcheck).
 @app.get("/health")
 def health() -> dict:
     store: CatalogStore = app.state.catalog_store
@@ -68,3 +66,13 @@ def health() -> dict:
             "last_reload": app.state.last_reload,
         },
     }
+
+
+# All other routes require Bearer token authentication.
+protected_router = APIRouter(dependencies=[Depends(verify_token)])
+protected_router.include_router(tables.router)
+protected_router.include_router(terms.router)
+protected_router.include_router(logic.router)
+protected_router.include_router(admin.router)
+
+app.include_router(protected_router)
