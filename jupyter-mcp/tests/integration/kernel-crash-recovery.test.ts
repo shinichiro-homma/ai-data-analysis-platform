@@ -181,7 +181,7 @@ describe('カーネル自動復旧の結合テスト', () => {
   // _wrap_restart_kernel フックが現時点では機能しておらず、sandbox が再注入されない。
   // MappingKernelManager.restart_kernel のラップは明示的な restartKernel 呼び出しには有効だが、
   // AsyncIOLoopKernelRestarter 経由の自動復旧パスには未対応。
-  // この動作修正は別タスクで対応予定。
+  // 追跡 Issue: #9 (https://github.com/shinichiro-homma/ai-data-analysis-platform/issues/9)
   test.skip('3. 復旧後に sandbox が再注入されワークスペース外アクセスが拒否される', async () => {
     const { sessionId, kernelId } = await createTestSession('sandbox-reinjection');
 
