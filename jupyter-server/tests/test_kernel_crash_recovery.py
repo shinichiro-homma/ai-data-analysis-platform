@@ -100,11 +100,11 @@ _load_module("custom_api.workspace_sandbox", "workspace_sandbox.py")
 # 6. session_handlers モジュールをロード
 _load_module("custom_api.session_handlers", "session_handlers.py")
 
-from custom_api.session_handlers import (
+from custom_api.session_handlers import (  # noqa: E402
     register_kernel_workspace,
     unregister_kernel,
 )
-from custom_api.workspace_sandbox import generate_sandbox_code
+from custom_api.workspace_sandbox import generate_sandbox_code  # noqa: E402
 
 # =============================================================================
 # 1. restart_kernel ラッパーのテスト
@@ -320,7 +320,7 @@ class TestSandboxAfterReinjection:
         """sandbox 再注入後に他ワークスペースへのアクセスが PermissionError"""
 
         with pytest.raises(PermissionError, match="another workspace"):
-            open(str(self.other_ws / "secret.txt"))
+            open(str(self.other_ws / "secret.txt"))  # noqa: SIM115
 
     def test_own_workspace_access_allowed_after_reinjection(self):
         """sandbox 再注入後に自ワークスペースのファイルは読める"""
