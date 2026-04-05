@@ -104,8 +104,5 @@ class TestProtectedEndpoints:
 
     def test_all_protected_endpoints_require_auth(self, unauthed_client: TestClient) -> None:
         for method, path, body in PROTECTED_ENDPOINTS:
-            if method == "GET":
-                resp = unauthed_client.get(path)
-            else:
-                resp = unauthed_client.post(path, json=body)
+            resp = unauthed_client.get(path) if method == "GET" else unauthed_client.post(path, json=body)
             assert resp.status_code == 401, f"{method} {path} should require auth"

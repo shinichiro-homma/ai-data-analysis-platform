@@ -49,7 +49,7 @@ async def verify_token(authorization: str | None = Header(default=None)) -> None
             status_code=401,
             detail="Invalid token",
             headers=_WWW_AUTHENTICATE,
-        )
+        ) from None
 
     if not secrets.compare_digest(token_bytes, expected_bytes):
         raise HTTPException(
