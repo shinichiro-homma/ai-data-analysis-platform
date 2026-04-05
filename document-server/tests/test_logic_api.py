@@ -141,6 +141,7 @@ def test_get_logic_code_file_missing(tmp_path: Path) -> None:
     app.state.catalog_store = store
     app.state.last_reload = "2024-01-01T00:00:00+00:00"
     test_client = TestClient(app)
+    test_client.headers.update({"Authorization": "Bearer test-token"})
 
     resp = test_client.get("/logic/code/member_id_remapping")
     assert resp.status_code == 404

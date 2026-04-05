@@ -32,3 +32,17 @@ PORT: int = _parse_port()
 CORS_ORIGINS: list[str] = [
     origin.strip() for origin in os.environ.get("CORS_ORIGINS", "http://localhost:8888").split(",") if origin.strip()
 ]
+
+
+def _load_token() -> str:
+    """Load DOCUMENT_SERVER_TOKEN from environment. Raise ValueError if not set."""
+    token = os.environ.get("DOCUMENT_SERVER_TOKEN", "")
+    if not token:
+        raise ValueError(
+            "DOCUMENT_SERVER_TOKEN environment variable is not set. "
+            "Set it to a secret token to enable Bearer authentication."
+        )
+    return token
+
+
+DOCUMENT_SERVER_TOKEN: str = _load_token()

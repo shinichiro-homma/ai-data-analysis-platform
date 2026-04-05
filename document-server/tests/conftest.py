@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+# Set DOCUMENT_SERVER_TOKEN before importing src modules (config.py reads it at import time).
+os.environ.setdefault("DOCUMENT_SERVER_TOKEN", "test-token")
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.catalog_loader import CatalogStore
 from src.main import app
+
+TEST_TOKEN = os.environ["DOCUMENT_SERVER_TOKEN"]
+AUTH_HEADERS = {"Authorization": f"Bearer {TEST_TOKEN}"}
 
 SAMPLE_INDEX_YAML = """\
 tables_index:
@@ -293,7 +300,9 @@ def client(sample_data_dir: Path) -> TestClient:
     store.load_logic(sample_data_dir)
     app.state.catalog_store = store
     app.state.last_reload = "2024-01-01T00:00:00+00:00"
-    return TestClient(app)
+    test_client = TestClient(app)
+    test_client.headers.update(AUTH_HEADERS)
+    return test_client
 
 
 @pytest.fixture()
@@ -302,6 +311,20 @@ def client_full(full_data_dir: Path) -> TestClient:
     store.load_tables(full_data_dir)
     store.load_terms(full_data_dir)
     store.load_logic(full_data_dir)
+    app.state.catalog_store = store
+    app.state.last_reload = "2024-01-01T00:00:00+00:00"
+    test_client = TestClient(app)
+    test_client.headers.update(AUTH_HEADERS)
+    return test_client
+
+
+@pytest.fixture()
+def unauthed_client(sample_data_dir: Path) -> TestClient:
+    """Client without auth headers for testing 401 responses."""
+    store = CatalogStore()
+    store.load_tables(sample_data_dir)
+    store.load_terms(sample_data_dir)
+    store.load_logic(sample_data_dir)
     app.state.catalog_store = store
     app.state.last_reload = "2024-01-01T00:00:00+00:00"
     return TestClient(app)

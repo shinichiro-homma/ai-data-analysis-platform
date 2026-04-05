@@ -58,6 +58,7 @@ services:
     environment:
       - DATA_ENV=${DATA_ENV}
       - PORT=3002
+      - DOCUMENT_SERVER_TOKEN=${DOCUMENT_SERVER_TOKEN}
     volumes:
       - ./document-server/data:/app/data
     healthcheck:
