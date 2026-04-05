@@ -68,3 +68,6 @@ postgres/init/production/*
 # Debug files
 *.debug
 
+# Ad-hoc scripts (see .claude/rules/adhoc-script-execution.md)
+tmp/
+
