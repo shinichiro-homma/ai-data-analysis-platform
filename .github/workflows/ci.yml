@@ -128,6 +128,7 @@ jobs:
       POSTGRES_PASSWORD: ci-test-password
       POSTGRES_READONLY_PASSWORD: ci-readonly-password
       JUPYTER_TOKEN: ci-test-token
+      DOCUMENT_SERVER_TOKEN: ci-document-token
     steps:
       - uses: actions/checkout@v4
 
@@ -186,6 +187,7 @@ jobs:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
           JUPYTER_TOKEN: ci-test-token
+          DOCUMENT_SERVER_TOKEN: ci-document-token
         run: |
           npx -w jupyter-mcp vitest run --config vitest.config.integration.ts --exclude '**/performance.test.ts'
           npx -w document-mcp vitest run --config vitest.config.integration.ts --exclude '**/performance.test.ts'
@@ -195,6 +197,7 @@ jobs:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
           JUPYTER_TOKEN: ci-test-token
+          DOCUMENT_SERVER_TOKEN: ci-document-token
         run: npx -w tests/e2e vitest run --exclude '**/performance.test.ts'
 
       - name: Show logs on failure
@@ -216,6 +219,7 @@ jobs:
       POSTGRES_PASSWORD: ci-test-password
       POSTGRES_READONLY_PASSWORD: ci-readonly-password
       JUPYTER_TOKEN: ci-test-token
+      DOCUMENT_SERVER_TOKEN: ci-document-token
     steps:
       - uses: actions/checkout@v4
 
@@ -274,6 +278,7 @@ jobs:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
           JUPYTER_TOKEN: ci-test-token
+          DOCUMENT_SERVER_TOKEN: ci-document-token
         run: |
           npx -w jupyter-mcp vitest run --config vitest.config.integration.ts tests/integration/performance.test.ts || true
           npx -w document-mcp vitest run --config vitest.config.integration.ts tests/integration/performance.test.ts || true

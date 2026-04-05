@@ -26,6 +26,7 @@ mypy src/                                           # 型チェック
 
 | 変数 | 説明 |
 |------|------|
+| `DOCUMENT_SERVER_TOKEN` | Bearer 認証トークン（必須、未設定時は起動中止） |
 | `DATA_DIR` | データディレクトリパス（`DATA_ENV` より優先） |
 | `DATA_ENV` | データセット環境（`sample` / `production`） |
 | `PORT` | サーバーポート |

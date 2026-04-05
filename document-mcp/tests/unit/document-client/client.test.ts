@@ -24,9 +24,32 @@ describe('DocumentServerClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.DOCUMENT_SERVER_TOKEN = 'test-token';
     client = new DocumentServerClient();
     // axios.create が返すモックインスタンスを取得
     mockAxiosInstance = (axios.create as ReturnType<typeof vi.fn>).mock.results[0].value;
+  });
+
+  describe('認証トークン', () => {
+    it('DOCUMENT_SERVER_TOKEN が設定されている場合、axios.create の headers.Authorization に Bearer トークンが含まれる', () => {
+      process.env.DOCUMENT_SERVER_TOKEN = 'my-secret-token';
+      vi.clearAllMocks();
+      new DocumentServerClient();
+
+      const createCall = (axios.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(createCall.headers).toBeDefined();
+      expect(createCall.headers.Authorization).toBe('Bearer my-secret-token');
+    });
+
+    it('DOCUMENT_SERVER_TOKEN が未設定の場合、コンストラクタが Error を投げる', () => {
+      delete process.env.DOCUMENT_SERVER_TOKEN;
+      expect(() => new DocumentServerClient()).toThrow(/DOCUMENT_SERVER_TOKEN/);
+    });
+
+    it('DOCUMENT_SERVER_TOKEN が空文字の場合、コンストラクタが Error を投げる', () => {
+      process.env.DOCUMENT_SERVER_TOKEN = '';
+      expect(() => new DocumentServerClient()).toThrow(/DOCUMENT_SERVER_TOKEN/);
+    });
   });
 
   describe('getTableIndex', () => {
