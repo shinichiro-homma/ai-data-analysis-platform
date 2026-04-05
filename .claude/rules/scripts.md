@@ -24,7 +24,7 @@
 | `scripts/convert-csv-to-parquet.py [ENV]` | CSV→Parquet変換（既存Parquetはスキップ、`--force`で再変換） | `scripts/convert-csv-to-parquet.py production` |
 | `scripts/clean-rebuild.sh` | 全削除→クリーンビルド→動作確認 | `scripts/clean-rebuild.sh --env sample -y` |
 | `scripts/promote-to-main.sh` | dev → main プロモーション PR 作成 | `scripts/promote-to-main.sh` |
-| `scripts/cleanup-merged-branches.sh` | dev にマージ済みのローカル feature/fix ブランチを削除 | `scripts/cleanup-merged-branches.sh` |
+| `scripts/cleanup-merged-branches.sh` | 不要ブランチの一括掃除（prune + ローカル + promote） | `scripts/cleanup-merged-branches.sh --all` |
 
 ## よく使うパターン
 
@@ -109,6 +109,11 @@ scripts/clean-rebuild.sh --env production   # production 環境で実行
 scripts/clean-rebuild.sh --keep-volumes     # DB データを保持してリビルド
 scripts/clean-rebuild.sh --skip-smoke       # スモークテストなし
 scripts/clean-rebuild.sh --skip-mcp        # MCP ビルドをスキップ（Docker のみ再構築）
+
+# 不要ブランチの掃除（prune + ローカル + promote + リモート）
+scripts/cleanup-merged-branches.sh --all --dry-run  # 削除対象の確認のみ
+scripts/cleanup-merged-branches.sh --all             # 全掃除（リモート含む）
+scripts/cleanup-merged-branches.sh                   # ローカルのみ（リモートは除外）
 ```
 
 ## Docker ゴミ溜まり対策
