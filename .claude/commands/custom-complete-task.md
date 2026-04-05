@@ -143,11 +143,7 @@ dev ブランチ上にいる場合は、対象タスクの feature ブランチ�
 
 `.claude/rules/branch-workflow.md` の「PR 作成」に従い、feature → dev の PR を作成してください。
 
-### 6c. CI 待機 + ブランチクリーンアップ
-
-`.claude/rules/branch-workflow.md` の「CI 待機 + dev 切り替え + ブランチ削除」に従い、CI パスを待ってから dev に切り替え、ローカルブランチを削除してください。
-
-CI が失敗した場合はブランチを削除せず、修正を案内して停止してください。
+PR 作成後は PR URL を報告して停止します。CI 待機・マージ・ブランチ削除は**ユーザーの判断に委ねる**（`.claude/rules/branch-workflow.md` の「PR のマージ判断はユーザーが行う」を参照）。
 
 ## 7. 次のタスクの提案
 
