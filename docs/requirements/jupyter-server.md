@@ -214,6 +214,7 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - カーネルクラッシュ時、自動的に新しいカーネルを起動可能（実装済み: Phase 18.1）
   - `restart_dead_kernels = True` で Jupyter Server の自動復旧を有効化
   - `_wrap_restart_kernel` によりカーネル再起動後に workspace sandbox を再注入
+  - autorestart 経路（`KernelRestarter` による dead カーネルの自動復旧）でも sandbox を再注入する（`_register_autorestart_callback` が `_restarter` の `'restart'` イベントにフック）
 - 長時間アイドル状態のカーネルは自動シャットダウン（`KERNEL_TIMEOUT` 秒、デフォルト1800秒=30分）
   - Jupyter Server 標準の `MappingKernelManager.cull_idle_timeout` を使用
   - WebSocket 接続中のカーネルは対象外（`cull_connected=False`）
