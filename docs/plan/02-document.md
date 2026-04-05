@@ -85,5 +85,5 @@ document-server の REST API に認証を追加する。現在は信頼された
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
 | 7.1 | document-server: Bearer トークン認証の実装 | [x] | 認証トークンなしのリクエストが 401 で拒否され、正しいトークン付きリクエストが成功する | jupyter-server の既存トークン認証を参考に実装 |
-| 7.2 | document-mcp: 認証トークン付与 | [ ] | document-mcp から document-server への全リクエストに Authorization ヘッダーが付与される | 環境変数でトークンを設定 |
+| 7.2 | document-mcp: 認証トークン付与 | [x] | document-mcp から document-server への全リクエストに Authorization ヘッダーが付与される | 環境変数でトークンを設定 |
 | 7.3 | REST API 認証の結合テスト | [ ] | document-mcp 経由でカタログ・用語集・ロジックの取得が認証付きで正常動作する | 認証なしアクセスの拒否も確認 |

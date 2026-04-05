@@ -48,11 +48,17 @@ export class DocumentServerClient {
       throw new Error(`Invalid DOCUMENT_SERVER_URL: サポートされないプロトコル ${parsed.protocol}`);
     }
 
+    const token = process.env.DOCUMENT_SERVER_TOKEN;
+    if (!token || token.trim() === '') {
+      throw new Error('DOCUMENT_SERVER_TOKEN 環境変数が設定されていません');
+    }
+
     this.httpClient = axios.create({
       baseURL,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token.trim()}`,
       },
     });
 
