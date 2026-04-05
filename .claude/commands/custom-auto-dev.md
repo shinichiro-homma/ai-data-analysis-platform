@@ -366,12 +366,9 @@ Agent ツールでサブエージェントを起動してください。
 
 ---
 
-## 3. PR 作成
+## 3. PR 作成と CI 待機
 
-すべてのタスクが完了したら：
-
-1. `.claude/rules/branch-workflow.md` の「PR 作成」に従い、feature → dev の PR を作成する
-2. PR URL を報告して停止する。CI 待機・マージ・ブランチ削除は**ユーザーの判断に委ねる**（`.claude/rules/branch-workflow.md` の「PR のマージ判断はユーザーが行う」を参照）
+すべてのタスクが完了したら、`.claude/rules/branch-workflow.md` の「PR 作成」および「PR 作成後の CI 待機と自動修正」セクションに従って、feature → dev の PR 作成から CI グリーン化までを実施してください。
 
 ## 4. 全タスク完了報告
 

@@ -139,11 +139,9 @@ dev ブランチ上にいる場合は、対象タスクの feature ブランチ�
 - push: true
 - agent: none
 
-### 6b. PR 作成
+### 6b. PR 作成と CI 待機
 
-`.claude/rules/branch-workflow.md` の「PR 作成」に従い、feature → dev の PR を作成してください。
-
-PR 作成後は PR URL を報告して停止します。CI 待機・マージ・ブランチ削除は**ユーザーの判断に委ねる**（`.claude/rules/branch-workflow.md` の「PR のマージ判断はユーザーが行う」を参照）。
+`.claude/rules/branch-workflow.md` の「PR 作成」および「PR 作成後の CI 待機と自動修正」セクションに従って、feature → dev の PR 作成から CI グリーン化までを実施してください。
 
 ## 7. 次のタスクの提案
 

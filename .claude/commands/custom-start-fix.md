@@ -92,11 +92,9 @@ git status
    scripts/manage-known-failures.sh remove --id {kf-XXX}
    ```
 
-4. `.claude/rules/branch-workflow.md` の「PR 作成」に従い、fix → dev の PR を作成する
+4. `.claude/rules/branch-workflow.md` の「PR 作成」および「PR 作成後の CI 待機と自動修正」セクションに従って、fix → dev の PR 作成から CI グリーン化までを実施する
 
-5. PR URL を報告して停止する。CI 待機・マージ・Issue クローズ・ブランチ削除は**ユーザーの判断に委ねる**（`.claude/rules/branch-workflow.md` の「PR のマージ判断はユーザーが行う」を参照）
-
-6. 以下の形式で報告する：
+5. 以下の形式で報告する：
    ```
    ## 修正完了
 
