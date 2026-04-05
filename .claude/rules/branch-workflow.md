@@ -15,7 +15,18 @@ main (公開・リリース済み、直接 push 禁止)
 - **すべての変更は `feature/*` または `fix/*` ブランチで行い、PR 経由で `dev` にマージする**（ドキュメントのみの変更も含む）
 - `dev` / `main` への直接 push は GitHub ブランチ保護で拒否される
 - PR マージには CI（4 ジョブ）のパスが必須
+- **PR のマージ判断はユーザーが行う**（Claude は PR 作成までで停止する）
 - `main` への反映は `scripts/promote-to-main.sh` 経由で PR を作成する
+
+### PR のマージ判断はユーザーが行う
+
+Claude は feature/fix → dev の PR を**作成するまで**を担当し、マージは実行しない。
+
+- CI 待機・`gh pr merge`・dev 切り替え・ローカルブランチ削除・Issue クローズは、**ユーザーが実施する**か、**ユーザーから明示的に依頼を受けた時のみ** Claude が実行する
+- Claude は `gh pr checks --watch` 等でバックグラウンド CI 監視を起動しない
+- PR 作成後は PR URL を報告してコマンドを終了する
+
+理由: dev に何を入れるかはユーザーが判断する。複数の open PR から採用するものを選ぶ運用のため、自動マージしない。
 
 ### ドキュメントのみの変更
 
@@ -75,19 +86,18 @@ EOF
 
 PR タイトルは短く（70文字以内）。詳細は body に記述する。
 
-### CI 待機 + dev 切り替え + ブランチ削除
+### マージ後のクリーンアップ（ユーザー依頼時のみ）
 
-PR 作成後、CI の完了を待ち、dev に切り替えてローカルブランチを削除する。
-リモートブランチは GitHub の「PR マージ時に自動削除」設定で削除される。
+ユーザーから明示的に依頼された場合のみ実行する。PR 作成直後に自動実行してはならない。
 
 ```bash
 # 現在のブランチ名を記録
 BRANCH=$(git branch --show-current)
 
-# CI 完了を待機
-gh pr checks {PR番号} --watch
+# PR をマージ（merge commit 方式 + リモートブランチ削除）
+gh pr merge {PR番号} --merge --delete-branch
 
-# CI パス → dev に切り替え
+# dev に切り替え
 git checkout dev
 git pull origin dev
 
@@ -95,9 +105,9 @@ git pull origin dev
 git branch -d "$BRANCH"
 ```
 
-CI が失敗した場合はブランチを削除せず、修正を案内する。
+リモートブランチは `--delete-branch` オプションで削除される。
 
-バグ修正 PR の場合は、dev 切り替え前に Issue もクローズする：
+バグ修正 PR の場合は、マージ前に Issue もクローズする：
 
 ```bash
 gh issue close {Issue番号}
@@ -116,3 +126,5 @@ PR 経由で `feature/*` または `fix/*` → `dev` にマージ。
 - `main` ブランチで `git commit` を実行すること（フックでブロックされる）
 - `main` / `dev` ブランチに直接 `git push` すること（GitHub ブランチ保護で拒否される）
 - 変更を `dev` ブランチで直接行うこと（ドキュメント変更も含め feature/fix ブランチを使う）
+- Claude が PR を自動マージすること（ユーザーの明示的な依頼がない限り実行しない）
+- Claude が `gh pr checks --watch` 等でバックグラウンド CI 監視を起動すること
