@@ -220,6 +220,48 @@ class TestRestartKernelWrapper:
 
 
 # =============================================================================
+# 1b. autorestart コールバック登録のテスト（Issue #9）
+# =============================================================================
+
+
+class TestRegisterAutorestartCallback:
+    """_register_autorestart_callback が KernelRestarter に sandbox 再注入を登録することをテスト"""
+
+    def test_callback_registered_on_restarter(self):
+        """_restarter.add_callback が 'restart' イベントで呼び出される"""
+        from custom_api import __init__ as init_module
+
+        assert hasattr(init_module, "_register_autorestart_callback"), (
+            "_register_autorestart_callback is not yet implemented in __init__.py"
+        )
+
+        kernel_id = "test-kernel-autorestart"
+        mock_restarter = MagicMock()
+        mock_kernel = MagicMock()
+        mock_kernel._restarter = mock_restarter
+
+        mock_km = MagicMock()
+        mock_km._kernels = {kernel_id: mock_kernel}
+
+        init_module._register_autorestart_callback(mock_km, kernel_id)
+
+        mock_restarter.add_callback.assert_called_once()
+        # event='restart' が kwargs または 2番目の位置引数で渡されている
+        call = mock_restarter.add_callback.call_args
+        event = call.kwargs.get("event") or (call.args[1] if len(call.args) > 1 else None)
+        assert event == "restart"
+
+    def test_callback_not_registered_when_kernel_missing(self):
+        """カーネルが見つからない場合は例外を投げずスキップする"""
+        from custom_api import __init__ as init_module
+
+        mock_km = MagicMock()
+        mock_km._kernels = {}
+        # 例外なく完了すること
+        init_module._register_autorestart_callback(mock_km, "nonexistent-kernel")
+
+
+# =============================================================================
 # 2. KernelRestartHandler のテスト
 # =============================================================================
 
