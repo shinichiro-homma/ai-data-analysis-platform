@@ -90,7 +90,7 @@ describe('データエクスポートの統合テスト（export_sql）', () => 
 
       const result = await handleToolCall('export_sql', {
         session_id: sessionId,
-        sql: 'SELECT 1 AS id, \'test\' AS name',
+        sql: "SELECT 1 AS id, 'test' AS name",
         filename: 'export_test.parquet',
       });
       const data = parseToolCallResult(result);
@@ -111,7 +111,7 @@ describe('データエクスポートの統合テスト（export_sql）', () => 
 
       const result = await handleToolCall('export_sql', {
         session_id: sessionId,
-        sql: 'SELECT 1 AS id, \'hello\' AS message',
+        sql: "SELECT 1 AS id, 'hello' AS message",
         filename: 'export_test.csv',
         format: 'csv',
       });
@@ -256,45 +256,39 @@ print(f"label={df['label'].iloc[0]}")
   // ========================================
 
   describe('C. 大量データのメモリ効率テスト', () => {
-    test(
-      'C-1: generate_series で10万行以上のParquetエクスポート、行数一致確認',
-      async () => {
-        const { sessionId } = await createTestEnvironment('large-data-parquet');
-        const targetRows = 100000;
+    test('C-1: generate_series で10万行以上のParquetエクスポート、行数一致確認', async () => {
+      const { sessionId } = await createTestEnvironment('large-data-parquet');
+      const targetRows = 100000;
 
-        const exportResult = await handleToolCall('export_sql', {
-          session_id: sessionId,
-          sql: `SELECT generate_series AS id, 'row_' || generate_series AS label FROM generate_series(1, ${targetRows})`,
-          filename: 'large_data.parquet',
-        });
-        const exportData = parseToolCallResult(exportResult);
-        expect(exportData.success).toBe(true);
-        expect(exportData.row_count).toBe(targetRows);
-        expect(exportData.file_size_bytes as number).toBeGreaterThan(0);
-      },
-      60000,
-    );
+      const exportResult = await handleToolCall('export_sql', {
+        session_id: sessionId,
+        sql: `SELECT generate_series AS id, 'row_' || generate_series AS label FROM generate_series(1, ${targetRows})`,
+        filename: 'large_data.parquet',
+      });
+      const exportData = parseToolCallResult(exportResult);
+      expect(exportData.success).toBe(true);
+      expect(exportData.row_count).toBe(targetRows);
+      expect(exportData.file_size_bytes as number).toBeGreaterThan(0);
+    }, 60000);
 
-    test(
-      'C-2: エクスポート後に pd.read_parquet で読み込み、データ整合性検証',
-      async () => {
-        const { sessionId } = await createTestEnvironment('large-data-verify');
-        const targetRows = 100000;
+    test('C-2: エクスポート後に pd.read_parquet で読み込み、データ整合性検証', async () => {
+      const { sessionId } = await createTestEnvironment('large-data-verify');
+      const targetRows = 100000;
 
-        // エクスポート
-        const exportResult = await handleToolCall('export_sql', {
-          session_id: sessionId,
-          sql: `SELECT generate_series AS id, (generate_series * 2) AS double_id FROM generate_series(1, ${targetRows})`,
-          filename: 'large_verify.parquet',
-        });
-        const exportData = parseToolCallResult(exportResult);
-        expect(exportData.success).toBe(true);
-        expect(exportData.row_count).toBe(targetRows);
+      // エクスポート
+      const exportResult = await handleToolCall('export_sql', {
+        session_id: sessionId,
+        sql: `SELECT generate_series AS id, (generate_series * 2) AS double_id FROM generate_series(1, ${targetRows})`,
+        filename: 'large_verify.parquet',
+      });
+      const exportData = parseToolCallResult(exportResult);
+      expect(exportData.success).toBe(true);
+      expect(exportData.row_count).toBe(targetRows);
 
-        // pd.read_parquet で読み込み、行数と先頭・末尾データを検証
-        const readResult = await handleToolCall('execute_code', {
-          session_id: sessionId,
-          code: `
+      // pd.read_parquet で読み込み、行数と先頭・末尾データを検証
+      const readResult = await handleToolCall('execute_code', {
+        session_id: sessionId,
+        code: `
 import pandas as pd
 df = pd.read_parquet('data/large_verify.parquet')
 print(f"rows={len(df)}")
@@ -303,19 +297,17 @@ print(f"last_id={df['id'].iloc[-1]}")
 print(f"first_double={df['double_id'].iloc[0]}")
 print(f"last_double={df['double_id'].iloc[-1]}")
 `,
-        });
-        const readData = parseToolCallResult(readResult);
-        expect(readData.success).toBe(true);
+      });
+      const readData = parseToolCallResult(readResult);
+      expect(readData.success).toBe(true);
 
-        const stdout = readData.stdout as string;
-        expect(stdout).toContain(`rows=${targetRows}`);
-        expect(stdout).toContain('first_id=1');
-        expect(stdout).toContain(`last_id=${targetRows}`);
-        expect(stdout).toContain('first_double=2');
-        expect(stdout).toContain(`last_double=${targetRows * 2}`);
-      },
-      60000,
-    );
+      const stdout = readData.stdout as string;
+      expect(stdout).toContain(`rows=${targetRows}`);
+      expect(stdout).toContain('first_id=1');
+      expect(stdout).toContain(`last_id=${targetRows}`);
+      expect(stdout).toContain('first_double=2');
+      expect(stdout).toContain(`last_double=${targetRows * 2}`);
+    }, 60000);
   });
 
   // ========================================
@@ -330,9 +322,17 @@ print(f"last_double={df['double_id'].iloc[-1]}")
       }
 
       // 1. document-server からテーブル定義を取得
-      const catalogResponse = await axios.post(`${DOCUMENT_SERVER_URL}/catalog/tables`, {
-        table_names: ['customer_master'],
-      });
+      const catalogResponse = await axios.post(
+        `${DOCUMENT_SERVER_URL}/catalog/tables`,
+        {
+          table_names: ['customer_master'],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.DOCUMENT_SERVER_TOKEN ?? ''}`,
+          },
+        },
+      );
       expect(catalogResponse.status).toBe(200);
 
       const tables = catalogResponse.data.data.tables as Array<{
