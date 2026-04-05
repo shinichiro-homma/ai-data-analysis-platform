@@ -23,6 +23,18 @@ npm run dev        # MCPサーバー
 jupyter lab        # jupyter-server
 ```
 
+## 初回セットアップ
+
+clone 後に 1 度だけ実行する：
+
+```bash
+# git hooks を有効化（dev pull 時にマージ済みローカルブランチを自動削除）
+git config core.hooksPath .githooks
+
+# fetch 時に削除済みリモートブランチの追跡参照を自動削除
+git config fetch.prune true
+```
+
 ## ブランチ運用
 
 ```

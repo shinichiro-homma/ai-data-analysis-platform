@@ -24,6 +24,7 @@
 | `scripts/convert-csv-to-parquet.py [ENV]` | CSV→Parquet変換（既存Parquetはスキップ、`--force`で再変換） | `scripts/convert-csv-to-parquet.py production` |
 | `scripts/clean-rebuild.sh` | 全削除→クリーンビルド→動作確認 | `scripts/clean-rebuild.sh --env sample -y` |
 | `scripts/promote-to-main.sh` | dev → main プロモーション PR 作成 | `scripts/promote-to-main.sh` |
+| `scripts/cleanup-merged-branches.sh` | dev にマージ済みのローカル feature/fix ブランチを削除 | `scripts/cleanup-merged-branches.sh` |
 
 ## よく使うパターン
 

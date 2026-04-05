@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# post-merge: dev で git pull / git merge 完了後、
+#             dev にマージ済みのローカル feature/fix ブランチを掃除する
+
+current_branch=$(git branch --show-current)
+if [[ "$current_branch" != "dev" ]]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CLEANUP="$REPO_ROOT/scripts/cleanup-merged-branches.sh"
+
+if [[ -x "$CLEANUP" ]]; then
+  "$CLEANUP"
+fi
