@@ -64,6 +64,7 @@
 |------|-----------|------|
 | データセットの作成・保存 | **`export_sql`** | 行数制限なし、Parquet保存、ストリーミング処理 |
 | 少量データの確認・探索 | `execute_sql` | max_rows制約あり、CSV保存、結果プレビュー向き |
+| 保存済み Parquet/CSV の構造確認 | `data_preview` | スキーマ・先頭行を軽量に確認（カーネル不要） |
 
 - **データ準備には `export_sql` を使うこと。`execute_sql` はデータの中身を確認する用途に限定する**
 - **`export_sql` は再利用可能なベースデータを保存するためのツールであり、分析結果を保存するものではない。** 最小粒度のデータを保存し、同じ Parquet を複数の分析に使い回せるようにすること。特定の分析目的に応じた集計・フィルタ・加工はすべて `execute_code` の pandas で行うこと
@@ -86,6 +87,7 @@
    - `data_source.description`（データの説明）
    - カラム定義（期待されるスキーマ）
 3. カタログの定義に基づいて、アップロードされたデータの内容・カラムの意味を正しく理解してから分析に進むこと
+4. カタログ確認後、`data_preview`（CSV/Parquet の場合）または `file_read`（テキストファイルの場合）で実ファイルの中身を確認し、カタログ定義と一致しているか検証する
 
 **ユーザーから受け取ったファイルをカタログで確認せずに分析に使ってはならない。**
 
@@ -104,6 +106,10 @@
 ### Excel ファイルの読み込み
 
 `import openpyxl` は直接実行できない。`pd.read_excel()` 経由で読み込むこと。
+
+### テキストファイルの中身確認
+
+設定ファイル・小さな JSON/YAML/TXT・小さな CSV などのテキストファイルは、`pd.read_*` で読み込む前に `file_read` で内容を確認すること（カーネル不要、軽量）。CSV/Parquet のスキーマ・先頭行確認は `data_preview` を使うこと。
 
 ---
 
@@ -219,10 +225,13 @@ gc.collect()
 
 カタログ参照のみのステップ（`execute_code` や `notebook_add_cell` を含まない）では `ai_edit_start` / `ai_edit_end` は不要。
 
+セルの並び替え（`notebook_reorder_cell`）もノートブック編集操作であり、`ai_edit_start` / `ai_edit_end` で囲んだステップ内で実行すること。
+
 ### 1応答で複数回呼び出してよいもの
 
 - ステップ内でのデータ確認（数行程度の `execute_code` や `execute_sql`）
 - カタログ参照（`get_term_index`、`get_term_detail`、`get_table_detail`、`get_logic_index`、`get_logic_detail`、`get_logic_code`）
+- ファイル内容の確認（`file_list`、`file_read`、`data_preview`）
 - ワークスペース管理（`workspace_create`、`session_create`、`notebook_create`）
 
 ### エラー時
