@@ -133,7 +133,10 @@ Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下�
 | `notebook_edit_cell` | セル編集 |
 | `notebook_delete_cell` | セル削除 |
 | `notebook_execute_cell` | セル再実行 |
+| `notebook_reorder_cell` | セル並び替え |
 | `file_list` | ファイル一覧取得 |
+| `file_read` | ファイル読み取り |
+| `data_preview` | データプレビュー |
 | `execute_sql` | SQL実行・結果確認 |
 | `export_sql` | SQLデータエクスポート |
 | `get_image` | 画像取得 |

@@ -47,7 +47,7 @@ docker-compose down
 
 ## API一覧
 
-`/health`, `/api/kernels`, `/api/kernels/{id}`, `/api/kernels/{id}/execute`, `/api/kernels/{id}/interrupt`, `/api/kernels/{id}/restart`, `/api/kernels/{id}/variables`, `/api/kernels/{id}/variables/{name}`, `/api/custom/contents`, `/api/custom/contents/{path}`, `/api/custom/contents/{path}/cells`, `/api/custom/contents/{path}/cells/{index}/execute`, `/api/workspaces`, `/api/workspaces/{workspace_id}`, `/api/workspaces/{workspace_id}/summarize`, `/api/custom/sessions`, `/api/sql/execute`, `/api/sql/export`, `WS /api/ai/events`, `/api/ai/events/broadcast`
+`/health`, `/api/kernels`, `/api/kernels/{id}`, `/api/kernels/{id}/execute`, `/api/kernels/{id}/interrupt`, `/api/kernels/{id}/restart`, `/api/kernels/{id}/variables`, `/api/kernels/{id}/variables/{name}`, `/api/custom/contents`, `/api/custom/contents/{path}`, `/api/custom/contents/{path}/preview`, `/api/custom/contents/{path}/cells`, `/api/custom/contents/{path}/cells/{index}/execute`, `/api/workspaces`, `/api/workspaces/{workspace_id}`, `/api/workspaces/{workspace_id}/summarize`, `/api/custom/sessions`, `/api/sql/execute`, `/api/sql/export`, `WS /api/ai/events`, `/api/ai/events/broadcast`
 
 > 各エンドポイントの詳細は [docs/design/api-contracts.md](../docs/design/api-contracts.md) を参照。
 

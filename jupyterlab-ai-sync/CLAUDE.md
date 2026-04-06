@@ -7,8 +7,7 @@ JupyterLabのフロントエンド拡張。AIの操作をノートブック上�
 - jupyter-serverのWebSocket `/api/ai/events` からAI操作イベントを受信
 - ノートブックUIにセル追加・実行結果をリアルタイム反映
 - AI編集中のノートブックロック/アンロック制御
-- WebSocket切断時は全ノートブックのロックを自動解除
-- 切断後5秒間隔で自動再接続
+- WebSocket切断時は全ノートブックのロックを自動解除し、自動再接続を試行
 
 ## 技術スタック
 
@@ -36,6 +35,9 @@ pip install .
 |---------|------|
 | `ai_edit_start` | ノートブックをロック（ミドルウェアが自動配信） |
 | `cell_added` | セルをUIに追加 |
+| `cell_edited` | セルの内容を更新 |
+| `cell_deleted` | セルをUIから削除 |
+| `cell_reordered` | セルの並び順を変更 |
 | `cell_execute_start` | セルを実行中状態にする |
 | `cell_output` | セルに出力を追加（ストリーミング） |
 | `cell_execute_end` | セルの実行中状態を解除 |
