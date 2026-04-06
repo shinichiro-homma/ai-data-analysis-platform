@@ -64,6 +64,14 @@ export async function executeNotebookEditCell(args: Record<string, unknown>): Pr
       },
     });
 
+    // AI同期イベントを配信（ブラウザにリアルタイム反映）
+    await jupyterClient.postAiEvent({
+      type: 'cell_edited',
+      notebook_path: validatedPath,
+      cell_index: cellIndex,
+      source,
+    });
+
     return createSuccessResponse({
       notebook_path: validatedPath,
       cell_index: cellIndex,

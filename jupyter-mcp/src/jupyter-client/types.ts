@@ -276,7 +276,16 @@ export interface ApiError {
  * AI同期イベントの基底型
  */
 export interface AiEventBase {
-  type: 'cell_added' | 'cell_execute_start' | 'cell_output' | 'cell_execute_end' | 'ai_edit_start' | 'ai_edit_end';
+  type:
+    | 'cell_added'
+    | 'cell_edited'
+    | 'cell_deleted'
+    | 'cell_reordered'
+    | 'cell_execute_start'
+    | 'cell_output'
+    | 'cell_execute_end'
+    | 'ai_edit_start'
+    | 'ai_edit_end';
 }
 
 /**
@@ -341,6 +350,38 @@ export interface CellExecuteEndEvent extends AiEventBase {
 }
 
 /**
+ * セル編集イベント
+ * AIが notebook_edit_cell ツールを実行した際に配信される
+ */
+export interface CellEditedEvent extends AiEventBase {
+  type: 'cell_edited';
+  notebook_path: string;
+  cell_index: number;
+  source: string;
+}
+
+/**
+ * セル削除イベント
+ * AIが notebook_delete_cell ツールを実行した際に配信される
+ */
+export interface CellDeletedEvent extends AiEventBase {
+  type: 'cell_deleted';
+  notebook_path: string;
+  cell_index: number;
+}
+
+/**
+ * セル並び替えイベント
+ * AIが notebook_reorder_cell ツールを実行した際に配信される
+ */
+export interface CellReorderedEvent extends AiEventBase {
+  type: 'cell_reordered';
+  notebook_path: string;
+  cell_index: number;
+  to_index: number;
+}
+
+/**
  * AI編集モード開始イベント
  * handleToolCall ミドルウェアがノートブック編集系ツール実行前に自動配信する
  */
@@ -363,6 +404,9 @@ export interface AiEditEndEvent extends AiEventBase {
  */
 export type AiEvent =
   | CellAddedEvent
+  | CellEditedEvent
+  | CellDeletedEvent
+  | CellReorderedEvent
   | CellExecuteStartEvent
   | CellOutputEvent
   | CellExecuteEndEvent

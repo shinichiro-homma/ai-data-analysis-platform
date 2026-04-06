@@ -50,6 +50,13 @@ export async function executeNotebookDeleteCell(args: Record<string, unknown>): 
       index: cellIndex,
     });
 
+    // AI同期イベントを配信（ブラウザにリアルタイム反映）
+    await jupyterClient.postAiEvent({
+      type: 'cell_deleted',
+      notebook_path: validatedPath,
+      cell_index: cellIndex,
+    });
+
     return createSuccessResponse({
       notebook_path: validatedPath,
       cell_index: cellIndex,

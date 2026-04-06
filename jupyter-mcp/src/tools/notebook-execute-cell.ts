@@ -69,11 +69,49 @@ export async function executeNotebookExecuteCell(args: Record<string, unknown>):
     // session_id から kernel_id を解決
     const { kernelId } = await resolveSession(sessionId);
 
+    // cell_execute_start イベント配信（fire-and-forget: 失敗しても続行）
+    try {
+      await jupyterClient.postAiEvent({
+        type: 'cell_execute_start',
+        notebook_path: validatedPath,
+        cell_index: cellIndex,
+      });
+    } catch {
+      // イベント配信失敗は無視して実行を続行
+    }
+
     // セルを実行
     const result = await jupyterClient.executeCellInNotebook(validatedPath, cellIndex, {
       kernel_id: kernelId,
       timeout,
     });
+
+    // cell_output イベント配信（各出力をブラウザに配信）
+    for (const output of result.outputs) {
+      try {
+        await jupyterClient.postAiEvent({
+          type: 'cell_output',
+          notebook_path: validatedPath,
+          cell_index: cellIndex,
+          output,
+        });
+      } catch {
+        // イベント配信失敗は無視して続行
+      }
+    }
+
+    // cell_execute_end イベント配信
+    try {
+      await jupyterClient.postAiEvent({
+        type: 'cell_execute_end',
+        notebook_path: validatedPath,
+        cell_index: cellIndex,
+        execution_count: result.execution_count,
+        success: true,
+      });
+    } catch {
+      // イベント配信失敗は無視して続行
+    }
 
     // stdout と stderr を抽出（output_type === 'stream' でナローイング）
     const stdout = result.outputs

@@ -58,6 +58,14 @@ export async function executeNotebookReorderCell(args: Record<string, unknown>):
       to_index: toIndex,
     });
 
+    // AI同期イベントを配信（ブラウザにリアルタイム反映）
+    await jupyterClient.postAiEvent({
+      type: 'cell_reordered',
+      notebook_path: validatedPath,
+      cell_index: cellIndex,
+      to_index: toIndex,
+    });
+
     return createSuccessResponse({
       notebook_path: validatedPath,
       cell_index: cellIndex,

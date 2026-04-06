@@ -20,6 +20,26 @@ export interface CellAddedEvent extends AiEvent {
   index: number;
 }
 
+export interface CellEditedEvent extends AiEvent {
+  type: 'cell_edited';
+  notebook_path: string;
+  cell_index: number;
+  source: string;
+}
+
+export interface CellDeletedEvent extends AiEvent {
+  type: 'cell_deleted';
+  notebook_path: string;
+  cell_index: number;
+}
+
+export interface CellReorderedEvent extends AiEvent {
+  type: 'cell_reordered';
+  notebook_path: string;
+  cell_index: number;
+  to_index: number;
+}
+
 export interface CellExecuteStartEvent extends AiEvent {
   type: 'cell_execute_start';
   notebook_path: string;
@@ -73,6 +93,15 @@ export class NotebookUpdater {
     switch (event.type) {
       case 'cell_added':
         this.handleCellAdded(event as CellAddedEvent);
+        break;
+      case 'cell_edited':
+        this.handleCellEdited(event as CellEditedEvent);
+        break;
+      case 'cell_deleted':
+        this.handleCellDeleted(event as CellDeletedEvent);
+        break;
+      case 'cell_reordered':
+        this.handleCellReordered(event as CellReorderedEvent);
         break;
       case 'cell_execute_start':
         this.handleCellExecuteStart(event as CellExecuteStartEvent);
@@ -152,6 +181,84 @@ export class NotebookUpdater {
     } catch (error) {
       // セル追加失敗時もエラー通知はせず、ログのみ（ノートブックをリロードすればセルは反映される）
       console.error('[NotebookUpdater] Failed to add cell:', error);
+    }
+  }
+
+  /**
+   * セル編集イベントを処理
+   */
+  private handleCellEdited(event: CellEditedEvent): void {
+    console.log('[NotebookUpdater] Handling cell_edited event:', event);
+
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const cell = context.model.sharedModel.getCell(event.cell_index);
+      if (!cell) {
+        console.error(`[NotebookUpdater] Cell not found at index ${event.cell_index}`);
+        return;
+      }
+
+      cell.source = event.source;
+      console.log(`[NotebookUpdater] Cell edited at index ${event.cell_index}`);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to edit cell:', error);
+    }
+  }
+
+  /**
+   * セル削除イベントを処理
+   */
+  private handleCellDeleted(event: CellDeletedEvent): void {
+    console.log('[NotebookUpdater] Handling cell_deleted event:', event);
+
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const sharedModel = context.model.sharedModel;
+      if (event.cell_index >= sharedModel.cells.length) {
+        console.error(`[NotebookUpdater] Cell index ${event.cell_index} out of range`);
+        return;
+      }
+
+      sharedModel.deleteCell(event.cell_index);
+      console.log(`[NotebookUpdater] Cell deleted at index ${event.cell_index}`);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to delete cell:', error);
+    }
+  }
+
+  /**
+   * セル並び替えイベントを処理
+   */
+  private handleCellReordered(event: CellReorderedEvent): void {
+    console.log('[NotebookUpdater] Handling cell_reordered event:', event);
+
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const sharedModel = context.model.sharedModel;
+      if (event.cell_index >= sharedModel.cells.length || event.to_index >= sharedModel.cells.length) {
+        console.error(`[NotebookUpdater] Cell index out of range: ${event.cell_index} -> ${event.to_index}`);
+        return;
+      }
+
+      sharedModel.moveCell(event.cell_index, event.to_index);
+      console.log(`[NotebookUpdater] Cell moved from ${event.cell_index} to ${event.to_index}`);
+
+      // 移動先のセルにスクロール
+      this.activateAndScrollToCell(context.notebook, event.to_index);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to reorder cell:', error);
     }
   }
 
