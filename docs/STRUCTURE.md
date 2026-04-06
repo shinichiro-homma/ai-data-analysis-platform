@@ -48,10 +48,7 @@ README.md                           ← GitHub 向け README（概要、セッ�
 │   ├── guides/                     ← 運用ガイド
 │   │   └── add-table.md            ← テーブル追加手順
 │   │
-│   ├── PLAN.md                     ← リダイレクト（→ plan/README.md）
-│   ├── MIGRATION_PLAN.md            ← 開発環境移行計画
-│   ├── RULES.md                    ← ルール一覧（人間向け説明）
-│   └── COMMANDS.md                 ← カスタムコマンド説明
+│   └── PLAN.md                     ← リダイレクト（→ plan/README.md）
 │
 ├── .mainignore                     ← main ブランチに含めないファイルの一覧
 ├── scripts/
