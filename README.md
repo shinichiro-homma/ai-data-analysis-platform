@@ -136,8 +136,6 @@ Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下�
 | `file_list` | ファイル一覧取得 |
 | `execute_sql` | SQL実行・結果確認 |
 | `export_sql` | SQLデータエクスポート |
-| `ai_edit_start` | AI編集モード開始 |
-| `ai_edit_end` | AI編集モード終了 |
 | `get_image` | 画像取得 |
 
 > 詳細は [docs/requirements/jupyter-mcp.md](docs/requirements/jupyter-mcp.md) を参照。

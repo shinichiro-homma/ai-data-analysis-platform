@@ -32,12 +32,12 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 
 #### F1.2: イベント処理
 - 以下のイベントタイプを受信・処理する:
-  - `ai_edit_start` - AI編集開始
+  - `ai_edit_start` - AI編集開始（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
   - `cell_added` - セル追加
   - `cell_execute_start` - セル実行開始
   - `cell_output` - セル出力（ストリーミング）
   - `cell_execute_end` - セル実行完了
-  - `ai_edit_end` - AI編集終了
+  - `ai_edit_end` - AI編集終了（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
 
 ### F2: ノートブックUIのリアルタイム更新
 
@@ -58,12 +58,12 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 ### F3: ノートブックロック機能
 
 #### F3.1: ロック開始
-- `ai_edit_start`イベントを受信したら、対象ノートブックをread-onlyモードにする
+- `ai_edit_start`イベント（ノートブック編集系ツール実行時にミドルウェアが自動配信）を受信したら、対象ノートブックをread-onlyモードにする
 - ユーザーのキーボード入力、セル編集、セル実行を無効化する
 - ロック中であることを示すUIインジケータを表示する（例: ツールバーにバナー表示）
 
 #### F3.2: ロック解除
-- `ai_edit_end`イベントを受信したら、ノートブックのread-onlyモードを解除する
+- `ai_edit_end`イベント（ツール実行完了時にミドルウェアが自動配信）を受信したら、ノートブックのread-onlyモードを解除する
 - ユーザーの入力を再度有効化する
 - UIインジケータを非表示にする
 
@@ -152,10 +152,10 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - [ ] SharedModelの`cell.outputs`に出力が正しく書き戻される（ファイル保存時の整合性）
 
 ### AC3: ノートブックロック
-- [ ] AIが`ai_edit_start`を呼ぶと、ノートブックがread-onlyになる
-- [ ] ロック中はキーボード入力・セル編集ができない
-- [ ] ロック中であることを示すインジケータが表示される
-- [ ] AIが`ai_edit_end`を呼ぶと、ロックが解除される
+- [ ] ノートブック編集系ツール実行時に `ai_edit_start` イベントが自動配信され��ノートブックがread-onlyにな���
+- [ ] ロッ���中はキーボード入力・セル��集ができない
+- [ ] ロック中であることを示すインジケータが表示され��
+- [ ] ツール実行完了後に `ai_edit_end` イ��ントが自動配信され、ロックが解除される
 - [ ] ロック解除後、通常通り編集できる
 
 ### AC4: WebSocket接続
