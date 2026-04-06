@@ -400,32 +400,33 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/custom/contents/{path}
 
-指定パスにファイルまたはノートブックを作成する。既存ファイルがある場合は上書きする。
+指定パス配下にファイルまたはノートブックを作成する。`POST /api/custom/contents` と同じ動作で、URLパスがデフォルトの作成先となる。同名ファイルが存在する場合は自動連番で回避する。
 
-**リクエスト（ノートブック）:**
+**リクエスト:**
 ```json
 {
-  "content": {
-    "cells": [
-      {
-        "cell_type": "code",
-        "source": "import pandas as pd"
-      }
-    ]
-  }
+  "type": "notebook",
+  "path": "subdir/analysis.ipynb"
 }
 ```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| type | string | No | ファイル種別（デフォルト: "notebook"） |
+| path | string | No | 作成先パス（省略時はURLの `{path}` を使用） |
 
 **レスポンス:**
 ```json
 {
   "data": {
-    "path": "/analysis.ipynb",
+    "path": "/subdir/analysis.ipynb",
     "type": "notebook",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
 ```
+
+> **注:** レスポンスの `path` は実際に作成されたファイルのパスを返す。同名ファイルが存在した場合、連番付きパスになることがある。
 
 #### GET /api/custom/contents/{path}
 
