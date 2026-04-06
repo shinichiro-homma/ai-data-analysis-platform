@@ -47,9 +47,6 @@ docs/plan/
 docs/tasks/
 docs/issues/
 docs/PLAN.md
-docs/MIGRATION_PLAN.md
-docs/COMMANDS.md
-docs/RULES.md
 
 # Dev scripts
 scripts/manage-known-failures.sh
@@ -57,9 +54,6 @@ scripts/create-test-issue.sh
 
 # Dev testing
 tests/known-failures.json
-
-# Cleanup
-analysis-policy-mcp/
 
 # This file itself (only exists in dev)
 .mainignore
