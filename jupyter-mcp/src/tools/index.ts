@@ -22,6 +22,10 @@ import { executeWorkspaceUpdate } from './workspace-update.js';
 import { executeWorkspaceSummarize } from './workspace-summarize.js';
 import { executeNotebookCreate } from './notebook-create.js';
 import { executeNotebookAddCell } from './notebook-add-cell.js';
+import { executeNotebookListCells } from './notebook-list-cells.js';
+import { executeNotebookEditCell } from './notebook-edit-cell.js';
+import { executeNotebookDeleteCell } from './notebook-delete-cell.js';
+import { executeNotebookReorderCell } from './notebook-reorder-cell.js';
 import { executeSessionCreate } from './session-create.js';
 import { executeSessionList } from './session-list.js';
 import { executeSessionDelete } from './session-delete.js';
@@ -35,6 +39,9 @@ import { executeAiEditEnd } from './ai-edit-end.js';
 import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
+import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
+import { executeDataPreview } from './data-preview.js';
+import { executeFileRead } from './file-read.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -174,6 +181,123 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeNotebookAddCell,
+  },
+  {
+    definition: {
+      name: 'notebook_list_cells',
+      description: 'Retrieves the list of cells in a notebook with their index, type, source, and outputs.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+        },
+        required: ['notebook_path'],
+      },
+    },
+    execute: executeNotebookListCells,
+  },
+  {
+    definition: {
+      name: 'notebook_edit_cell',
+      description: 'Edits the source code of an existing cell in a notebook.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to edit (0-indexed)',
+          },
+          source: {
+            type: 'string',
+            description: 'New source code for the cell',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'source'],
+      },
+    },
+    execute: executeNotebookEditCell,
+  },
+  {
+    definition: {
+      name: 'notebook_delete_cell',
+      description: 'Deletes a cell from a notebook at the specified index.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to delete (0-indexed)',
+          },
+        },
+        required: ['notebook_path', 'cell_index'],
+      },
+    },
+    execute: executeNotebookDeleteCell,
+  },
+  {
+    definition: {
+      name: 'notebook_reorder_cell',
+      description: 'Moves a cell from one position to another within a notebook.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to move (0-indexed, source position)',
+          },
+          to_index: {
+            type: 'number',
+            description: 'Target position to move the cell to (0-indexed)',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'to_index'],
+      },
+    },
+    execute: executeNotebookReorderCell,
+  },
+  {
+    definition: {
+      name: 'notebook_execute_cell',
+      description: 'Re-executes an existing cell in a notebook at the specified index using the given session.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to execute (0-indexed)',
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in seconds (default: 30, max: 300)',
+          },
+        },
+        required: ['notebook_path', 'session_id', 'cell_index'],
+      },
+    },
+    execute: executeNotebookExecuteCell,
   },
   {
     definition: {
@@ -472,6 +596,56 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeGetImage,
+  },
+  {
+    definition: {
+      name: 'data_preview',
+      description:
+        'Retrieves the structure (column names, types, head rows, total row count) of a CSV or Parquet file in the workspace without requiring a kernel. Use to inspect data before analysis.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace_id: {
+            type: 'string',
+            description: 'Workspace ID',
+          },
+          file_path: {
+            type: 'string',
+            description: 'File path relative to workspace (e.g., data/sales.csv)',
+          },
+          head_rows: {
+            type: 'number',
+            description: 'Number of head rows to retrieve (default: 5, max: 50)',
+            minimum: 0,
+            maximum: 50,
+          },
+        },
+        required: ['workspace_id', 'file_path'],
+      },
+    },
+    execute: executeDataPreview,
+  },
+  {
+    definition: {
+      name: 'file_read',
+      description:
+        'Reads the content of a text file (e.g., .py, .sql, .md, .txt) in the workspace. Cannot read .ipynb files (use notebook_list_cells instead) or binary files.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workspace_id: {
+            type: 'string',
+            description: 'Workspace ID',
+          },
+          file_path: {
+            type: 'string',
+            description: 'File path relative to workspace (e.g., scripts/analysis.py)',
+          },
+        },
+        required: ['workspace_id', 'file_path'],
+      },
+    },
+    execute: executeFileRead,
   },
 ];
 

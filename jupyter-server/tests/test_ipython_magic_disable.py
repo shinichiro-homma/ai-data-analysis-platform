@@ -40,6 +40,11 @@ if "custom_api.base" not in sys.modules:
     _base_mock.validate_timeout = lambda *a, **kw: (30, None)
     _base_mock.validate_workspace_id = lambda *a, **kw: None
     _base_mock.workspace_contents_path = lambda *a, **kw: ""
+    _base_mock.utc_now_iso = lambda: "2026-01-01T00:00:00Z"
+    _base_mock.WORKSPACE_ROOT_DIR = "/home/jovyan/work/workspaces/sample"
+    _base_mock.WORKSPACE_PATH_PREFIX = "workspaces/sample"
+    _base_mock.JUPYTER_ROOT_DIR = "/home/jovyan/work"
+    _base_mock.validate_kernel_name = lambda *a, **kw: None
     sys.modules["custom_api.base"] = _base_mock
 
 # workspace_sandbox モジュールをロード

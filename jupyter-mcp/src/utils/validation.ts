@@ -16,6 +16,26 @@ export {
 import { validateStringParameter, type ValidationResult } from '@ai-data-analysis/mcp-shared';
 
 /**
+ * cell_index パラメータのバリデーション
+ *
+ * @param value - 検証する値
+ * @param paramName - パラメータ名（デフォルト: 'cell_index'）
+ * @returns バリデーション結果
+ */
+export function validateCellIndex(value: unknown, paramName: string = 'cell_index'): ValidationResult {
+  if (value === undefined || value === null) {
+    return { isValid: false, errorMessage: `${paramName} パラメータは必須です` };
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    return {
+      isValid: false,
+      errorMessage: `${paramName} パラメータは 0 以上の整数である必要があります`,
+    };
+  }
+  return { isValid: true };
+}
+
+/**
  * workspace_id パラメータのバリデーション（パストラバーサル防止を含む）
  *
  * @param value - 検証する値

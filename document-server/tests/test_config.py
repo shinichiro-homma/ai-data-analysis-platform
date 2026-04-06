@@ -102,6 +102,7 @@ class TestStartupValidation:
             from src.main import app
 
             with TestClient(app) as client:
+                client.headers.update({"Authorization": "Bearer test-token"})
                 resp = client.get("/health")
                 assert resp.status_code == 200
                 data = resp.json()

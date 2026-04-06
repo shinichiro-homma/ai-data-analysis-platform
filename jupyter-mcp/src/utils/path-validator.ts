@@ -72,7 +72,11 @@ export function normalizePath(
  * @throws ValidationError - パスが不正な場合
  */
 export function normalizeNotebookPath(path: string): string {
-  return normalizePath(path, { allowEmpty: false, allowRoot: false });
+  const normalized = normalizePath(path, { allowEmpty: false, allowRoot: false });
+  if (!normalized.endsWith('.ipynb')) {
+    throw new ValidationError("ノートブックパスは '.ipynb' で終わる必要があります");
+  }
+  return normalized;
 }
 
 /**

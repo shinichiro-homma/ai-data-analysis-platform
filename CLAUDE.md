@@ -23,17 +23,33 @@ npm run dev        # MCPサーバー
 jupyter lab        # jupyter-server
 ```
 
+## 初回セットアップ
+
+clone 後に 1 度だけ実行する：
+
+```bash
+# git hooks を有効化（dev pull 時にマージ済みローカルブランチを自動削除）
+git config core.hooksPath .githooks
+
+# fetch 時に削除済みリモートブランチの追跡参照を自動削除
+git config fetch.prune true
+```
+
 ## ブランチ運用
 
 ```
-main (公開、直接 push 禁止)
- └── dev (統合・検証用、日常の作業はここ)
+main (公開・リリース済み、直接 push 禁止)
+ └── dev (統合・検証用、直接 push 禁止)
       └── feature/xxx ← dev から切る
 ```
 
-- 作業は `dev` または `feature/*` ブランチで行う
-- `main` への直接コミットはフック（`block-main-commit.sh`）でブロックされる
+- すべての作業は `feature/*` または `fix/*` ブランチで行う（ドキュメントのみの変更も含む）
+- `main` / `dev` への直接 push は GitHub ブランチ保護で拒否される
+- `main` への直接コミットはローカルフック（`block-main-commit.sh`）でもブロックされる
+- PR マージには CI（4 ジョブ）のパスが必須
 - main へのリリース: `scripts/promote-to-main.sh`（dev ブランチで実行）
+
+詳細は `.claude/rules/branch-workflow.md` を参照。
 
 ## ドキュメント
 

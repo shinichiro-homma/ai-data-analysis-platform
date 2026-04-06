@@ -4,11 +4,17 @@
 api-contracts.md に定義された仕様に従った API を提供する。
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from tornado import web
 
@@ -626,15 +632,56 @@ class ContentsHandler(BaseCustomHandler):
 
 
 class ContentsCellsHandler(BaseCustomHandler):
-    """PATCH /api/custom/contents/{path}/cells"""
+    """GET/PATCH /api/custom/contents/{path}/cells"""
+
+    @web.authenticated
+    async def get(self, path: str):
+        """ノートブックのセル一覧を取得"""
+        try:
+            # パストラバーサル対策
+            path = validate_path(path)
+            if not path.endswith(".ipynb"):
+                self.write_error_response("VALIDATION_ERROR", "Not a notebook: path must end with .ipynb", 400)
+                return
+            model = await self.contents_manager.get(path, content=True)
+            if model["type"] != "notebook":
+                self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
+                return
+
+            cells = model["content"].get("cells", [])
+            cell_list = []
+            for i, cell in enumerate(cells):
+                cell_info = {
+                    "cell_index": i,
+                    "cell_type": cell.get("cell_type", "code"),
+                    "source": cell.get("source", ""),
+                }
+                if cell.get("cell_type") == "code":
+                    cell_info["outputs"] = cell.get("outputs", [])
+                    cell_info["execution_count"] = cell.get("execution_count")
+                cell_list.append(cell_info)
+
+            self.write_success(
+                {
+                    "path": "/" + path,
+                    "total_cells": len(cell_list),
+                    "cells": cell_list,
+                }
+            )
+        except FileNotFoundError:
+            self.write_error_response("NOT_FOUND", f"Not found: {path}", 404)
+        except Exception as e:
+            log.error("Failed to get cells '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to get cells", 500)
 
     @web.authenticated
     async def patch(self, path: str):
-        """セルを追加・更新・削除"""
+        """セルを追加・更新・削除・並び替え"""
         body = self.get_json_body()
         action = body.get("action")
         cell = body.get("cell")
         index = body.get("index")
+        to_index = body.get("to_index")
 
         try:
             # パストラバーサル対策
@@ -684,6 +731,18 @@ class ContentsCellsHandler(BaseCustomHandler):
                     return
                 cells.pop(index)
 
+            elif action == "reorder":
+                if index is None or index < 0 or index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {index}", 400)
+                    return
+                if not isinstance(to_index, int) or to_index < 0 or to_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid to_index: {to_index}", 400)
+                    return
+                cell_to_move = cells.pop(index)
+                # to_index を pop 後のリストに対して挿入
+                insert_index = min(to_index, len(cells))
+                cells.insert(insert_index, cell_to_move)
+
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)
                 return
@@ -697,6 +756,301 @@ class ContentsCellsHandler(BaseCustomHandler):
         except Exception as e:
             log.error("Failed to update cells '%s': %s", path, e, exc_info=True)
             self.write_error_response("INTERNAL_ERROR", "Failed to update cells", 500)
+
+
+# =============================================================================
+# データプレビュー
+# =============================================================================
+
+_MAX_HEAD_ROWS = 50
+_DEFAULT_HEAD_ROWS = 5
+
+
+def _serialize_value(val):
+    """pandas/numpy 値を JSON 直列化可能な Python 型に変換する"""
+    import math
+
+    import numpy as np
+
+    if val is None:
+        return None
+    if isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    if isinstance(val, np.integer):
+        return int(val)
+    if isinstance(val, np.floating):
+        v = float(val)
+        if math.isnan(v) or math.isinf(v):
+            return None
+        return v
+    if isinstance(val, np.bool_):
+        return bool(val)
+    # datetime 系は str() で ISO 8601 風に変換
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return val
+
+
+def _df_to_records(df: pd.DataFrame) -> list[dict]:
+    """DataFrame を JSON 直列化可能なレコードのリストに変換する"""
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({col: _serialize_value(row[col]) for col in df.columns})
+    return rows
+
+
+class ContentsPreviewHandler(BaseCustomHandler):
+    """GET /api/custom/contents/{path}/preview"""
+
+    @web.authenticated
+    def get(self, path: str):
+        """CSV/Parquetファイルの先頭行・カラム情報・行数を返す"""
+        import pandas as pd
+        import pyarrow.parquet as pq
+
+        try:
+            path = validate_path(path)
+        except ValueError as e:
+            self.write_error_response("VALIDATION_ERROR", str(e), 400)
+            return
+
+        # head_rows クエリパラメータ
+        head_rows_str = self.get_argument("head_rows", str(_DEFAULT_HEAD_ROWS))
+        try:
+            head_rows = int(head_rows_str)
+        except ValueError:
+            self.write_error_response("VALIDATION_ERROR", "head_rows must be an integer", 400)
+            return
+
+        if head_rows < 0:
+            self.write_error_response("VALIDATION_ERROR", "head_rows must be >= 0", 400)
+            return
+        if head_rows > _MAX_HEAD_ROWS:
+            self.write_error_response("VALIDATION_ERROR", f"head_rows must be <= {_MAX_HEAD_ROWS}", 400)
+            return
+
+        # 拡張子チェック
+        if path.endswith(".csv"):
+            file_format = "csv"
+        elif path.endswith(".parquet"):
+            file_format = "parquet"
+        else:
+            self.write_error_response("UNSUPPORTED_FORMAT", "Only .csv and .parquet files are supported", 400)
+            return
+
+        # 絶対パスを解決
+        abs_path = Path(JUPYTER_ROOT_DIR) / path
+
+        if not abs_path.exists():
+            self.write_error_response("NOT_FOUND", f"File not found: {path}", 404)
+            return
+
+        try:
+            file_size_bytes = abs_path.stat().st_size
+
+            if file_format == "csv":
+                head_df = pd.read_csv(abs_path, nrows=head_rows)
+                # ヘッダー行を除いた全行数をカウント
+                with open(abs_path, encoding="utf-8") as f:
+                    row_count = sum(1 for _ in f) - 1
+                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+                head_records = _df_to_records(head_df)
+
+            else:  # parquet
+                pf = pq.ParquetFile(abs_path)
+                row_count = pf.metadata.num_rows
+                head_df = pf.read_row_group(0).to_pandas().head(head_rows)
+                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+                head_records = _df_to_records(head_df)
+
+            self.write_success(
+                {
+                    "path": "/" + path,
+                    "format": file_format,
+                    "columns": columns,
+                    "row_count": row_count,
+                    "head": head_records,
+                    "file_size_bytes": file_size_bytes,
+                }
+            )
+        except Exception as e:
+            log.error("Failed to preview file '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to preview file", 500)
+
+
+# =============================================================================
+# セル再実行
+# =============================================================================
+
+
+class ContentsCellExecuteHandler(BaseCustomHandler):
+    """POST /api/custom/contents/{path}/cells/{index}/execute"""
+
+    @web.authenticated
+    async def post(self, path: str, index: str):
+        """指定セルを再実行する"""
+        try:
+            # パストラバーサル対策
+            path = validate_path(path)
+        except ValueError as e:
+            self.write_error_response("VALIDATION_ERROR", str(e), 400)
+            return
+
+        if not path.endswith(".ipynb"):
+            self.write_error_response("VALIDATION_ERROR", "Not a notebook: path must end with .ipynb", 400)
+            return
+
+        # セルインデックスの解析
+        try:
+            cell_index = int(index)
+        except ValueError:
+            self.write_error_response("VALIDATION_ERROR", f"Invalid cell index: {index}", 400)
+            return
+
+        # リクエストボディの取得
+        body = self.get_json_body() or {}
+        kernel_id = body.get("kernel_id")
+        timeout = body.get("timeout", 30)
+
+        if not kernel_id:
+            self.write_error_response("VALIDATION_ERROR", "kernel_id is required", 400)
+            return
+
+        if not self.check_kernel_exists(kernel_id):
+            return
+
+        # ノートブックを読み込む
+        try:
+            model = await self.contents_manager.get(path, content=True)
+        except FileNotFoundError:
+            self.write_error_response("NOT_FOUND", f"Not found: {path}", 404)
+            return
+        except Exception as e:
+            log.error("Failed to get notebook '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to get notebook", 500)
+            return
+
+        if model["type"] != "notebook":
+            self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
+            return
+
+        cells = model["content"].get("cells", [])
+
+        # セルインデックスの範囲チェック
+        if cell_index < 0 or cell_index >= len(cells):
+            self.write_error_response("INVALID_CELL_INDEX", f"Invalid cell index: {cell_index}", 400)
+            return
+
+        cell = cells[cell_index]
+
+        # コードセルかどうかの検証
+        if cell.get("cell_type") != "code":
+            self.write_error_response("VALIDATION_ERROR", "Cell is not a code cell", 400)
+            return
+
+        source = cell.get("source", "")
+
+        # AST解析によるコード検証（危険なモジュール・関数の使用をブロック）
+        validation = validate_code(source)
+        if not validation.valid:
+            self.write_error_response(
+                "CODE_NOT_ALLOWED",
+                validation.error,
+                400,
+            )
+            return
+
+        # timeout の検証
+        validated_timeout, timeout_error = validate_timeout(timeout)
+        if timeout_error:
+            self.write_error_response("VALIDATION_ERROR", timeout_error, 400)
+            return
+
+        # ワークスペース解決（画像保存先）
+        output_dir, workspace_rel_path = await _resolve_workspace_for_kernel(self, kernel_id)
+
+        executor = KernelExecutor(kernel_id, self.kernel_manager)
+        start_time = time.time()
+
+        try:
+            result = await executor.execute(
+                source,
+                timeout=validated_timeout,
+                output_dir=output_dir,
+                workspace_rel_path=workspace_rel_path,
+            )
+            execution_time_ms = int((time.time() - start_time) * 1000)
+        except TimeoutError:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            self.write_success(
+                {
+                    "success": False,
+                    "execution_count": 0,
+                    "error": {
+                        "type": "TimeoutError",
+                        "message": f"Execution timed out after {validated_timeout} seconds",
+                        "traceback": [],
+                    },
+                    "execution_time_ms": execution_time_ms,
+                }
+            )
+            return
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            log.error("Execution error in kernel %s: %s", kernel_id, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to execute cell", 500)
+            return
+
+        # 実行結果から Jupyter Notebook の outputs 形式に変換
+        nb_outputs = []
+        for output in result.get("outputs", []):
+            nb_outputs.append(
+                {
+                    "output_type": "stream",
+                    "name": output.get("type", "stdout"),
+                    "text": output.get("text", ""),
+                }
+            )
+        if result.get("result") is not None:
+            nb_outputs.append(
+                {
+                    "output_type": "execute_result",
+                    "execution_count": result.get("execution_count", 0),
+                    "data": {"text/plain": str(result["result"])},
+                    "metadata": {},
+                }
+            )
+        if result.get("error"):
+            nb_outputs.append(
+                {
+                    "output_type": "error",
+                    "ename": result["error"].get("type", "Error"),
+                    "evalue": result["error"].get("message", ""),
+                    "traceback": result["error"].get("traceback", []),
+                }
+            )
+
+        cells[cell_index]["outputs"] = nb_outputs
+        cells[cell_index]["execution_count"] = result.get("execution_count", 0)
+        model["content"]["cells"] = cells
+
+        try:
+            await self.contents_manager.save(model, path)
+        except Exception as e:
+            log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
+            # 保存失敗は無視して実行結果を返す
+
+        self.write_success(
+            {
+                "cell_index": cell_index,
+                "source": source,
+                "execution_count": result.get("execution_count", 0),
+                "outputs": nb_outputs,
+                "execution_time_ms": execution_time_ms,
+            }
+        )
 
 
 # =============================================================================
@@ -717,7 +1071,9 @@ def get_handlers(base_url: str = ""):
         (f"{base_url}/api/kernels/([^/]+)/variables/([^/]+)", KernelVariableHandler),
         # /api/contents の代わりに /api/custom/contents を使用（JupyterLab フロントエンドとの競合を回避）
         (f"{base_url}/api/custom/contents", ContentsListHandler),
+        (f"{base_url}/api/custom/contents/(.*)/cells/([0-9]+)/execute", ContentsCellExecuteHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells", ContentsCellsHandler),
+        (f"{base_url}/api/custom/contents/(.*)/preview", ContentsPreviewHandler),
         (f"{base_url}/api/custom/contents/(.*)", ContentsHandler),
         # AI同期イベント
         (f"{base_url}/api/ai/events", AiEventsWebSocketHandler),

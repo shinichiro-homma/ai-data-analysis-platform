@@ -30,6 +30,7 @@ npm run typecheck  # 型チェック
 | 変数 | 説明 |
 |------|------|
 | `DOCUMENT_SERVER_URL` | document-serverのURL |
+| `DOCUMENT_SERVER_TOKEN` | document-serverへのアクセストークン（必須） |
 | `LOG_LEVEL` | ログレベル |
 
 ## MCPツール一覧

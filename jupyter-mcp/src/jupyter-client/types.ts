@@ -180,12 +180,13 @@ export interface UpdateNotebookRequest {
   content: NotebookContent;
 }
 
-export type CellAction = 'add' | 'update' | 'delete';
+export type CellAction = 'add' | 'update' | 'delete' | 'reorder';
 
 export interface CellOperationRequest {
   action: CellAction;
   cell?: Partial<Cell>;
   index?: number;
+  to_index?: number;
 }
 
 // =============================================================================
@@ -374,6 +375,23 @@ export interface BroadcastEventResponse {
 }
 
 // =============================================================================
+// セル再実行関連
+// =============================================================================
+
+export interface CellExecuteRequest {
+  kernel_id: string;
+  timeout?: number;
+}
+
+export interface CellExecuteResponse {
+  cell_index: number;
+  source: string;
+  execution_count: number;
+  outputs: CellOutputData[];
+  execution_time_ms: number;
+}
+
+// =============================================================================
 // SQL実行関連
 // =============================================================================
 
@@ -426,6 +444,39 @@ export interface SqlExportResponse {
 export interface FileContent {
   content: string; // base64 encoded for binary files
   mimetype: string;
+}
+
+// =============================================================================
+// データプレビュー関連
+// =============================================================================
+
+export interface DataPreviewColumn {
+  name: string;
+  dtype: string;
+}
+
+export interface DataPreviewResponse {
+  path: string;
+  format: 'csv' | 'parquet';
+  row_count: number;
+  columns: DataPreviewColumn[];
+  head: Record<string, unknown>[];
+  file_size_bytes: number;
+}
+
+export interface DataPreviewOptions {
+  head_rows?: number;
+}
+
+// =============================================================================
+// テキストファイル読み取り関連
+// =============================================================================
+
+export interface TextFileResponse {
+  path: string;
+  type: 'file';
+  content: string;
+  modified_at: string;
 }
 
 // =============================================================================

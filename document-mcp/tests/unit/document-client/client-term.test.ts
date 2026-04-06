@@ -24,6 +24,7 @@ describe('DocumentServerClient - Term methods', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.DOCUMENT_SERVER_TOKEN = 'test-token';
     client = new DocumentServerClient();
     // axios.create が返すモックインスタンスを取得
     mockAxiosInstance = (axios.create as ReturnType<typeof vi.fn>).mock.results[0].value;
