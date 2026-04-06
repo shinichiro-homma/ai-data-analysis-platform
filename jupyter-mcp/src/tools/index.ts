@@ -9,6 +9,7 @@ import {
   handleToolCall as sharedHandleToolCall,
 } from '@ai-data-analysis/mcp-shared';
 import { type McpToolResult } from '../utils/response-formatter.js';
+import { emitAiEditStart, emitAiEditEnd } from '../utils/ai-edit-helpers.js';
 import { VALID_WORKSPACE_STATUSES } from '../utils/validation.js';
 
 /** workspace status フィールドの JSON Schema（ツール定義で共用） */
@@ -34,8 +35,6 @@ import { executeExecuteCode } from './execute-code.js';
 import { executeGetVariables } from './get-variables.js';
 import { executeGetDataframeInfo } from './get-dataframe-info.js';
 import { executeFileList } from './file-list.js';
-import { executeAiEditStart } from './ai-edit-start.js';
-import { executeAiEditEnd } from './ai-edit-end.js';
 import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
@@ -476,42 +475,6 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   },
   {
     definition: {
-      name: 'ai_edit_start',
-      description:
-        'Starts AI edit mode and locks the notebook (read-only). Disables user keyboard input and cell editing until AI operations are complete.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          session_id: {
-            type: 'string',
-            description: 'Session ID (session created with notebook_path)',
-          },
-        },
-        required: ['session_id'],
-      },
-    },
-    execute: executeAiEditStart,
-  },
-  {
-    definition: {
-      name: 'ai_edit_end',
-      description:
-        'Ends AI edit mode and unlocks the notebook. Call after editing is complete to allow user editing again. Releases the lock started by ai_edit_start.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          session_id: {
-            type: 'string',
-            description: 'Session ID (session created with notebook_path)',
-          },
-        },
-        required: ['session_id'],
-      },
-    },
-    execute: executeAiEditEnd,
-  },
-  {
-    definition: {
       name: 'execute_sql',
       description: `Executes a SQL query and saves results as CSV in the workspace's data/ directory. Queries are auto-saved as .sql files in data/queries/.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure. Use key_type/domain in the response to identify JOIN keys\n(2) Call get_logic_index to check for reusable existing logic (SQL templates, etc.)\n\nJOIN rule: JOIN columns that share the same key_type. domain.master_table/master_column indicates FK references.\n\nResponse (SELECT):\n{\n  "file_path": "CSV path (loadable via pd.read_csv)",\n  "row_count": "number of rows",\n  "columns": "array of column names",\n  "truncated": "whether max_rows truncation occurred",\n  "query_file_path": "path to saved SQL file"\n}`,
       inputSchema: {
@@ -649,6 +612,16 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   },
 ];
 
+/** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する */
+const NOTEBOOK_EDIT_TOOLS = new Set([
+  'execute_code',
+  'notebook_add_cell',
+  'notebook_edit_cell',
+  'notebook_delete_cell',
+  'notebook_execute_cell',
+  'notebook_reorder_cell',
+]);
+
 /**
  * ツール定義一覧を返す
  */
@@ -658,7 +631,17 @@ export function registerTools(): Tool[] {
 
 /**
  * ツール名から実装関数へルーティング
+ * NOTEBOOK_EDIT_TOOLS に含まれるツールは前後に ai_edit_start/end イベントを自動配信する
  */
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
-  return sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
+  const execute = () => sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
+
+  if (!NOTEBOOK_EDIT_TOOLS.has(name)) return execute();
+
+  try {
+    await emitAiEditStart(args);
+    return await execute();
+  } finally {
+    await emitAiEditEnd(args);
+  }
 }

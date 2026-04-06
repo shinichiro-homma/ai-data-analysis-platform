@@ -163,6 +163,32 @@ export class WsEventClient {
   }
 
   /**
+   * 指定数のイベントが溜まるまで待機する
+   *
+   * @param count 期待するイベント数
+   * @param timeoutMs タイムアウト（ミリ秒）
+   * @returns 受信したイベントの配列
+   * @throws タイムアウトした場合
+   */
+  async waitForEventCount(count: number, timeoutMs = 10000): Promise<AiEvent[]> {
+    const startTime = Date.now();
+    let pollInterval = 50;
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (this.events.length >= count) {
+        return [...this.events];
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      pollInterval = Math.min(pollInterval + 25, 200);
+    }
+
+    throw new Error(
+      `Timeout waiting for ${count} events after ${Date.now() - startTime}ms. ` +
+        `Got ${this.events.length} events: [${this.events.map((e) => e.type).join(', ')}]`,
+    );
+  }
+
+  /**
    * 接続状態を取得する
    */
   isConnected(): boolean {

@@ -68,12 +68,12 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 #### F4.2: イベント配信
 - jupyter-mcpからのAPI呼び出し時に、対応するイベントをWebSocket経由で配信する
 - 以下のイベントタイプを配信する:
-  - `ai_edit_start` - AI編集開始（ノートブックロック指示）
+  - `ai_edit_start` - AI編集開始（ノートブックロック指示。jupyter-mcp の handleToolCall ミドルウ���アが自動配信）
   - `cell_added` - セル追加完了
   - `cell_execute_start` - セル実行開始
   - `cell_output` - セル出力（ストリーミング、stdout/stderr/display_data/execute_result/error）
   - `cell_execute_end` - セル実行完了
-  - `ai_edit_end` - AI編集終了（ノートブックアンロック指示）
+  - `ai_edit_end` - AI編集終了（ノートブックアンロック指示。jupyter-mcp の handleToolCall ミドルウェアが自動配信）
 
 #### F4.3: コード実行時のイベント配信
 

@@ -95,14 +95,12 @@
 
 ### F6: AI編集制御
 
-#### F6.1: AI編集開始
-- ノートブックのAI編集モードを開始できる
-- 編集開始を通知し、JupyterLab上でノートブックをロック（read-only）にする
+#### F6.1: AI編集モードの自動制御
+- ノートブック編集系ツール（`NOTEBOOK_EDIT_TOOLS`）の実行時に、`handleToolCall` ミドルウェアが自動的に `ai_edit_start` イベントを配信し、ノートブックをロック（read-only）する
+- ツール実行完了後、ミドルウェアが自動的に `ai_edit_end` イベントを配信し、ロックを解除する
 - ロック中はユーザーのキーボード入力・セル編集・セル実行を無効化する
-
-#### F6.2: AI編集終了
-- ノートブックのAI編集モードを終了できる
-- 編集終了を通知し、JupyterLab上のノートブックロックを解除する
+- 対象ツールは `jupyter-mcp/src/tools/index.ts` の `NOTEBOOK_EDIT_TOOLS` Set で管理し、新しいノートブック操作ツール追加時は Set に追加するだけで自動対応される
+- `ai_edit_start` / `ai_edit_end` は独立した MCP ツールとしては提供しない（内部自動処理のみ）
 
 #### F6.3: AI操作のリアルタイム同期
 - `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
@@ -777,50 +775,6 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 
 > 画像ファイルパス形式・対応画像形式・生成フローの詳細は `jupyter-mcp/src/tools/execute-code.ts` および `jupyter-mcp/src/tools/get-image.ts` を参照。
 
-### ai_edit_start
-
-ノートブックのAI編集モードを開始する。JupyterLab上でノートブックがロック（read-only）になり、ユーザーの入力が無効化される。
-
-```typescript
-{
-  name: "ai_edit_start",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID（notebook_path 付きで作成されたセッション）"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/ai-edit-start.ts` を参照。
-
-### ai_edit_end
-
-ノートブックのAI編集モードを終了する。JupyterLab上のノートブックロックが解除され、ユーザーの入力が再度有効になる。
-
-```typescript
-{
-  name: "ai_edit_end",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID（notebook_path 付きで作成されたセッション）"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/ai-edit-end.ts` を参照。
-
 ### get_image
 
 `execute_code` のレスポンスに含まれる画像の `file_path` を指定して、画像データを取得する。レスポンスは MCP の image content type で返し、AIクライアントのビジョン機能で画像を分析できる。
@@ -941,10 +895,11 @@ npm run build && npm start
 - [ ] 共有セッションでAIがコードを実行すると、ブラウザ側のノートブックに反映される
 
 ### AC8: AI編集制御
-- [ ] ai_edit_start でブラウザ上のノートブックがロックされる
-- [ ] ai_edit_end でロックが解除される
-- [ ] ロック中にexecute_codeを実行すると、ブラウザ上のセルに実行結果がリアルタイムに表示される
-- [ ] ロック中にnotebook_add_cellを実行すると、ブラウザ上にセルがリアルタイムに追加される
+- [ ] ノートブック編集系ツール（execute_code, notebook_add_cell 等）を実行すると、自動的にノートブックがロックされる
+- [ ] ツール実行完了後、自動的にロックが解除される
+- [ ] ロック中にブラウザ上のセルに実行結果がリアルタイムに表示される
+- [ ] ロック中にブラウザ上にセルがリアルタイムに追加される
+- [ ] 新しいノートブック操作ツールを NOTEBOOK_EDIT_TOOLS に追加するだけで自動ロック制御が適用される
 
 ### AC10: SQL実行・データ取得
 - [x] execute_sql でSELECTクエリを実行し、結果がワークスペースの `data/` にCSVファイルとして保存される
@@ -1045,11 +1000,9 @@ npm run build && npm start
 ```
 1. workspace_create でワークスペースを作成（または workspace_list で既存を選択）
 2. session_create(workspace_id=..., notebook_path="analysis.ipynb") でセッション作成
-3. ai_edit_start でノートブックをロック
-4. notebook_add_cell でセル追加（ブラウザにリアルタイム反映）
-5. execute_code でコード実行（ブラウザにリアルタイム反映）
-6. 必要に応じて 4-5 を繰り返す
-7. ai_edit_end でロック解除
+3. notebook_add_cell でセル追加（自動ロック → ブラウザにリアルタイム反映 → 自動アンロック）
+4. execute_code でコード実行（自動ロック → ブラウザにリアルタイム反映 → 自動アンロック）
+5. 必要に応じて 3-4 を繰り返す
 ```
 
 ### 画像確認のベストプラクティス

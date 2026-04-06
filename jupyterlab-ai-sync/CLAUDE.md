@@ -34,12 +34,12 @@ pip install .
 
 | イベント | 説明 |
 |---------|------|
-| `ai_edit_start` | ノートブックをロック |
+| `ai_edit_start` | ノートブックをロック（ミドルウェアが自動配信） |
 | `cell_added` | セルをUIに追加 |
 | `cell_execute_start` | セルを実行中状態にする |
 | `cell_output` | セルに出力を追加（ストリーミング） |
 | `cell_execute_end` | セルの実行中状態を解除 |
-| `ai_edit_end` | ノートブックのロックを解除 |
+| `ai_edit_end` | ノートブックのロックを解除（ミドルウェアが自動配信） |
 
 ペイロードの詳細は `src/websocket-client.ts` のメッセージハンドリングを参照。
 
