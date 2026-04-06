@@ -50,6 +50,12 @@ export async function validateAndResolveNotebookPath(
  * バリデーション付きは validateAndResolveNotebookPath を使うこと。
  */
 async function resolveNotebookPathFromArgs(args: Record<string, unknown>): Promise<string | null> {
+  // notebook_path が直接指定されている場合はそのまま使う
+  const notebookPath = args.notebook_path;
+  if (typeof notebookPath === 'string' && notebookPath.length > 0) {
+    return notebookPath;
+  }
+  // session_id から解決
   const sessionId = args.session_id;
   if (typeof sessionId === 'string' && sessionId.length > 0) {
     return resolveNotebookPath(sessionId);

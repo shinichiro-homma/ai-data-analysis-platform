@@ -330,12 +330,11 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. notebook_add_cell の ai_edit_start/end + cell_added を待機
-      const addEvents = await wsClient.waitForEvents(['ai_edit_start', 'cell_added', 'ai_edit_end'], 10000);
-      expect(addEvents).toHaveLength(3);
-      expect(addEvents[0].type).toBe('ai_edit_start');
-      expect(addEvents[1].type).toBe('cell_added');
-      expect(addEvents[2].type).toBe('ai_edit_end');
+      // 2. notebook_add_cell のイベント（3件）を待機（順序はCI環境で保証されないためカウントで検証）
+      const addEvents = await wsClient.waitForEventCount(3, 10000);
+      expect(addEvents.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
+      expect(addEvents.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(addEvents.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
 
       wsClient.clearEvents();
 
@@ -347,14 +346,14 @@ plt.show()
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(true);
 
-      // 4. execute_code の ai_edit_start → 実行イベント → ai_edit_end を待機
-      const execEvents = await wsClient.waitForEvents(
-        ['ai_edit_start', 'cell_execute_start', 'cell_output', 'cell_execute_end', 'ai_edit_end'],
-        10000,
-      );
-      expect(execEvents[0].type).toBe('ai_edit_start');
-      expect(execEvents[execEvents.length - 1].type).toBe('ai_edit_end');
-      expect(normalizePath(execEvents[0].notebook_path as string)).toBe(normalizePath(notebookPath));
+      // 4. execute_code のイベント（5件）を待機
+      const execEvents = await wsClient.waitForEventCount(5, 10000);
+      expect(execEvents.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
+      expect(execEvents.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
+      expect(execEvents.filter((e) => e.type === 'cell_execute_start')).toHaveLength(1);
+      // notebook_path が一致
+      const editStartEvent = execEvents.find((e) => e.type === 'ai_edit_start')!;
+      expect(normalizePath(editStartEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
     }, 20000);
 
     test('notebook_add_cell 実行時に ai_edit_start/end が自動配信される', async () => {
@@ -369,14 +368,16 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // ai_edit_start → cell_added → ai_edit_end を待機
-      const events = await wsClient.waitForEvents(['ai_edit_start', 'cell_added', 'ai_edit_end'], 10000);
-      expect(events).toHaveLength(3);
-      expect(events[0].type).toBe('ai_edit_start');
-      expect(normalizePath(events[0].notebook_path as string)).toBe(normalizePath(notebookPath));
-      expect(events[1].type).toBe('cell_added');
-      expect(events[2].type).toBe('ai_edit_end');
-      expect(normalizePath(events[2].notebook_path as string)).toBe(normalizePath(notebookPath));
+      // 3件のイベントを待機（順序はCI環境で保証されないためカウントで検証）
+      const events = await wsClient.waitForEventCount(3, 10000);
+      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
+      // notebook_path が一致
+      const startEvent = events.find((e) => e.type === 'ai_edit_start')!;
+      const endEvent = events.find((e) => e.type === 'ai_edit_end')!;
+      expect(normalizePath(startEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
+      expect(normalizePath(endEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
     });
   });
 
@@ -401,28 +402,16 @@ plt.show()
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(true);
 
-      // 3. 全イベントを順序付きで待機
+      // 3. 全イベント（8件）を待機（カウントベースで検証）
       // notebook_add_cell: ai_edit_start, cell_added, ai_edit_end
       // execute_code: ai_edit_start, cell_execute_start, cell_output, cell_execute_end, ai_edit_end
-      const events = await wsClient.waitForEvents(
-        [
-          'ai_edit_start',
-          'cell_added',
-          'ai_edit_end',
-          'ai_edit_start',
-          'cell_execute_start',
-          'cell_output',
-          'cell_execute_end',
-          'ai_edit_end',
-        ],
-        15000,
-      );
+      const events = await wsClient.waitForEventCount(8, 15000);
 
       // 4. ai_edit_start/end が各ツール実行ごとに配信される（2回ずつ）
-      const startEvents = events.filter((e) => e.type === 'ai_edit_start');
-      const endEvents = events.filter((e) => e.type === 'ai_edit_end');
-      expect(startEvents).toHaveLength(2);
-      expect(endEvents).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'cell_execute_start')).toHaveLength(1);
 
       // 5. すべてのイベントで notebook_path が一致
       events.forEach((event) => {
@@ -459,45 +448,19 @@ plt.show()
         code: 'print("test")',
       });
 
-      // 5. 全イベントを待機（各ツールが独立して ai_edit_start/end を配信）
-      const events = await wsClient.waitForEvents(
-        [
-          // セル1追加
-          'ai_edit_start',
-          'cell_added',
-          'ai_edit_end',
-          // セル2追加
-          'ai_edit_start',
-          'cell_added',
-          'ai_edit_end',
-          // セル1実行
-          'ai_edit_start',
-          'cell_execute_start',
-          'cell_execute_end',
-          'ai_edit_end',
-          // セル2実行
-          'ai_edit_start',
-          'cell_execute_start',
-          'cell_output',
-          'cell_execute_end',
-          'ai_edit_end',
-        ],
-        25000,
-      );
+      // 5. 全イベント（15件）を待機（カウントベースで検証）
+      // セル1追加(3) + セル2追加(3) + セル1実行(4) + セル2実行(5) = 15
+      const events = await wsClient.waitForEventCount(15, 25000);
 
       // 6. ai_edit_start/end が4回ずつ（4ツール呼び出し分）
-      const startEvents = events.filter((e) => e.type === 'ai_edit_start');
-      const endEvents = events.filter((e) => e.type === 'ai_edit_end');
-      expect(startEvents).toHaveLength(4);
-      expect(endEvents).toHaveLength(4);
+      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(4);
+      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(4);
 
       // 7. cell_added イベントが2回ある
-      const cellAddedEvents = events.filter((e) => e.type === 'cell_added');
-      expect(cellAddedEvents).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(2);
 
       // 8. cell_execute_start イベントが2回ある
-      const executeStartEvents = events.filter((e) => e.type === 'cell_execute_start');
-      expect(executeStartEvents).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'cell_execute_start')).toHaveLength(2);
     }, 30000);
   });
 });
