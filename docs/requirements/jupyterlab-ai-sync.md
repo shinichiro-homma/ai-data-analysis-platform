@@ -121,7 +121,7 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - JupyterLab Extension API (`@jupyterlab/application`, `@jupyterlab/notebook`)
 - `@jupyterlab/services`（ServerConnection）
 - `@jupyterlab/coreutils`（PageConfig — トークン取得）
-- `@jupyterlab/filebrowser`（IFileBrowserFactory — ファイルブラウザUI操作）
+- `@jupyterlab/filebrowser`（IDefaultFileBrowser — ファイルブラウザUI操作）
 - `@lumino/widgets`（Widget — UIコンポーネント）
 - `@jupyter/ydoc`（ISharedCodeCell — セルモデル操作）
 - WebSocket（ネイティブブラウザAPI）

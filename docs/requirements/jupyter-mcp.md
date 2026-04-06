@@ -171,7 +171,7 @@
 - execute_sql の F9.3 と同じ共通ユーティリティ（`saveQueryFile`）を使用する
 - レスポンスに `query_file_path` を含める
 
-### F10: 外部データアップロード
+### F10: 外部データアップロード 【未実装】
 
 #### F10.1: 外部データのアップロード
 - チャットから提供されたファイル（CSV、Excel等）をワークスペースの `data/` ディレクトリにアップロードできる
@@ -659,6 +659,10 @@ DataFrameの詳細情報を取得する。
       cell_index: {
         type: "number",
         description: "実行対象のセルインデックス（0-indexed）"
+      },
+      timeout: {
+        type: "number",
+        description: "タイムアウト秒数（デフォルト値は jupyter-mcp/src/tools/notebook-execute-cell.ts を参照）"
       }
     },
     required: ["notebook_path", "session_id", "cell_index"]
