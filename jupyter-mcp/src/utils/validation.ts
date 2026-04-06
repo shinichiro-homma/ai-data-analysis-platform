@@ -3,6 +3,7 @@
  */
 
 import type { WorkspaceStatus } from '../jupyter-client/types.js';
+import { normalizeNotebookPath } from './path-validator.js';
 
 // 共通関数・型を re-export
 export {
@@ -14,6 +15,41 @@ export {
 
 // 以下、共通パッケージから import して使用
 import { validateStringParameter, type ValidationResult } from '@ai-data-analysis/mcp-shared';
+
+/**
+ * notebook_path パラメータを検証し、正規化済みパスを返す
+ *
+ * notebook_path の文字列バリデーション + パストラバーサル対策の正規化を一括で行う。
+ */
+export function validateAndNormalizeNotebookPath(value: unknown): { path: string } | { error: string } {
+  const validation = validateStringParameter(value, 'notebook_path', {
+    required: true,
+    maxLength: 500,
+    allowEmpty: false,
+  });
+  if (!validation.isValid) {
+    return { error: validation.errorMessage! };
+  }
+  try {
+    return { path: normalizeNotebookPath(value as string) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * cell_index パラメータを検証し、数値を返す
+ */
+export function validateCellIndexParam(
+  value: unknown,
+  paramName: string = 'cell_index',
+): { index: number } | { error: string } {
+  const validation = validateCellIndex(value, paramName);
+  if (!validation.isValid) {
+    return { error: validation.errorMessage! };
+  }
+  return { index: value as number };
+}
 
 /**
  * cell_index パラメータのバリデーション
