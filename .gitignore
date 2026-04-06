@@ -55,6 +55,9 @@ jupyter-server/jupyter-server/
 # Playwright MCP
 .playwright-mcp/
 
+# MCP config (personal)
+.mcp.json
+
 # Production data (user-specific, not committed)
 document-server/data/production/*
 !document-server/data/production/.gitkeep
