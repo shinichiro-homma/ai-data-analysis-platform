@@ -1,8 +1,17 @@
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { registerTools, handleToolCall } from '../../../src/tools/index.js';
 
 // ヘルパー: モックレスポンスを生成する関数
 const mockResponse = (toolName: string) => ({ content: [{ type: 'text', text: toolName }] });
+
+// emitAiEditStart / emitAiEditEnd のモック
+const mockEmitAiEditStart = vi.fn(async () => {});
+const mockEmitAiEditEnd = vi.fn(async () => {});
+vi.mock('../../../src/utils/ai-edit-helpers.js', () => ({
+  validateAndResolveNotebookPath: vi.fn(),
+  emitAiEditStart: (...args: unknown[]) => mockEmitAiEditStart(...args),
+  emitAiEditEnd: (...args: unknown[]) => mockEmitAiEditEnd(...args),
+}));
 
 // 各ツール実装をモック
 vi.mock('../../../src/tools/workspace-create.js', () => ({
@@ -47,12 +56,6 @@ vi.mock('../../../src/tools/get-dataframe-info.js', () => ({
 vi.mock('../../../src/tools/file-list.js', () => ({
   executeFileList: vi.fn(async () => mockResponse('file_list')),
 }));
-vi.mock('../../../src/tools/ai-edit-start.js', () => ({
-  executeAiEditStart: vi.fn(async () => mockResponse('ai_edit_start')),
-}));
-vi.mock('../../../src/tools/ai-edit-end.js', () => ({
-  executeAiEditEnd: vi.fn(async () => mockResponse('ai_edit_end')),
-}));
 vi.mock('../../../src/tools/execute-sql.js', () => ({
   executeExecuteSql: vi.fn(async () => mockResponse('execute_sql')),
 }));
@@ -83,10 +86,16 @@ vi.mock('../../../src/tools/data-preview.js', () => ({
 vi.mock('../../../src/tools/file-read.js', () => ({
   executeFileRead: vi.fn(async () => mockResponse('file_read')),
 }));
+
+beforeEach(() => {
+  mockEmitAiEditStart.mockClear();
+  mockEmitAiEditEnd.mockClear();
+});
+
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(26);
+    expect(tools).toHaveLength(24);
 
     const expectedToolNames = [
       'workspace_create',
@@ -108,8 +117,6 @@ describe('registerTools', () => {
       'get_variables',
       'get_dataframe_info',
       'file_list',
-      'ai_edit_start',
-      'ai_edit_end',
       'execute_sql',
       'export_sql',
       'get_image',
@@ -121,6 +128,13 @@ describe('registerTools', () => {
     expectedToolNames.forEach((name) => {
       expect(toolNames).toContain(name);
     });
+  });
+
+  test('ai_edit_start, ai_edit_end がツール一覧に含まれない', () => {
+    const tools = registerTools();
+    const toolNames = tools.map((t) => t.name);
+    expect(toolNames).not.toContain('ai_edit_start');
+    expect(toolNames).not.toContain('ai_edit_end');
   });
 
   test('各ツールにdescriptionがある', () => {
@@ -171,8 +185,6 @@ describe('handleToolCall', () => {
     { toolName: 'get_variables', args: { session_id: 'session-1' } },
     { toolName: 'get_dataframe_info', args: { session_id: 'session-1', variable_name: 'df' } },
     { toolName: 'file_list', args: { session_id: 'session-1' } },
-    { toolName: 'ai_edit_start', args: { session_id: 'session-1' } },
-    { toolName: 'ai_edit_end', args: { session_id: 'session-1' } },
     { toolName: 'execute_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'test.csv' } },
     { toolName: 'export_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'export.parquet' } },
     { toolName: 'get_image', args: { file_path: 'workspaces/ws-123/output/exec-1-img-001.png' } },
@@ -191,5 +203,68 @@ describe('handleToolCall', () => {
     expect(parsed.success).toBe(false);
     expect(parsed.error.code).toBe('UNKNOWN_TOOL');
     expect(parsed.error.message).toContain('Unknown tool: unknown_tool');
+  });
+});
+
+describe('handleToolCall ミドルウェア（自動AI編集モード）', () => {
+  const NOTEBOOK_EDIT_TOOLS = [
+    'execute_code',
+    'notebook_add_cell',
+    'notebook_edit_cell',
+    'notebook_delete_cell',
+    'notebook_execute_cell',
+    'notebook_reorder_cell',
+  ];
+
+  NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {
+    test(`${toolName} 実行時に emitAiEditStart が呼ばれる`, async () => {
+      const args = {
+        session_id: 'session-1',
+        notebook_path: 'test.ipynb',
+        cell_type: 'code',
+        source: 'x=1',
+        cell_index: 0,
+        to_index: 1,
+        code: 'x=1',
+      };
+      await handleToolCall(toolName, args);
+      expect(mockEmitAiEditStart).toHaveBeenCalledTimes(1);
+      expect(mockEmitAiEditStart).toHaveBeenCalledWith(args);
+    });
+  });
+
+  NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {
+    test(`${toolName} 実行完了後に emitAiEditEnd が呼ばれる`, async () => {
+      const args = {
+        session_id: 'session-1',
+        notebook_path: 'test.ipynb',
+        cell_type: 'code',
+        source: 'x=1',
+        cell_index: 0,
+        to_index: 1,
+        code: 'x=1',
+      };
+      await handleToolCall(toolName, args);
+      expect(mockEmitAiEditEnd).toHaveBeenCalledTimes(1);
+      expect(mockEmitAiEditEnd).toHaveBeenCalledWith(args);
+    });
+  });
+
+  test('NOTEBOOK_EDIT_TOOLS に含まれないツール（session_list）は emitAiEditStart/End が呼ばれない', async () => {
+    await handleToolCall('session_list', {});
+    expect(mockEmitAiEditStart).not.toHaveBeenCalled();
+    expect(mockEmitAiEditEnd).not.toHaveBeenCalled();
+  });
+
+  test('ツール実行がエラーでも emitAiEditEnd が呼ばれる（try...finally）', async () => {
+    // execute_code のモックをエラーに変更
+    const { executeExecuteCode } = await import('../../../src/tools/execute-code.js');
+    (executeExecuteCode as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('execution failed'));
+
+    // sharedHandleToolCall 内で catch されてエラーレスポンスが返る
+    await handleToolCall('execute_code', { session_id: 'session-1', code: 'bad code' });
+
+    expect(mockEmitAiEditStart).toHaveBeenCalledTimes(1);
+    expect(mockEmitAiEditEnd).toHaveBeenCalledTimes(1);
   });
 });

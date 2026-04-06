@@ -317,77 +317,74 @@ plt.show()
     }, 15000); // matplotlib の初期化に時間がかかる可能性があるため、タイムアウトを延長
   });
 
-  describe('AI編集モード（ロック制御）', () => {
-    test('ai_edit_start → ai_edit_start イベントが配信される', async () => {
-      const { sessionId, notebookPath } = await createTestNotebook('lock-start');
+  describe('AI編集モード（自動ロック制御）', () => {
+    test('execute_code 実行時に ai_edit_start → ... → ai_edit_end が自動配信される', async () => {
+      const { sessionId, notebookPath } = await createTestNotebook('auto-lock-exec');
 
-      // 1. AI編集開始
-      const editStartResult = await handleToolCall('ai_edit_start', {
-        session_id: sessionId,
+      // 1. セル追加（ai_edit_start/end が自動配信される）
+      const addCellResult = await handleToolCall('notebook_add_cell', {
+        notebook_path: notebookPath,
+        cell_type: 'code',
+        source: 'print("auto-lock")',
       });
-      const editStartData = parseToolCallResult(editStartResult);
-      expect(editStartData.success).toBe(true);
+      const addCellData = parseToolCallResult(addCellResult);
+      expect(addCellData.success).toBe(true);
 
-      // 2. ai_edit_start イベント待機
-      const event = await wsClient.waitForEvent('ai_edit_start', 5000);
+      // 2. notebook_add_cell の ai_edit_start/end + cell_added を待機
+      const addEvents = await wsClient.waitForEvents(['ai_edit_start', 'cell_added', 'ai_edit_end'], 10000);
+      expect(addEvents).toHaveLength(3);
+      expect(addEvents[0].type).toBe('ai_edit_start');
+      expect(addEvents[1].type).toBe('cell_added');
+      expect(addEvents[2].type).toBe('ai_edit_end');
 
-      expect(event.type).toBe('ai_edit_start');
-      expect(normalizePath(event.notebook_path as string)).toBe(normalizePath(notebookPath));
-    });
-
-    test('ai_edit_end → ai_edit_end イベントが配信される', async () => {
-      const { sessionId, notebookPath } = await createTestNotebook('lock-end');
-
-      // 1. AI編集開始
-      const editStartResult = await handleToolCall('ai_edit_start', {
-        session_id: sessionId,
-      });
-      const editStartData = parseToolCallResult(editStartResult);
-      expect(editStartData.success).toBe(true);
-
-      await wsClient.waitForEvent('ai_edit_start', 5000);
       wsClient.clearEvents();
 
-      // 2. AI編集終了
-      const editEndResult = await handleToolCall('ai_edit_end', {
+      // 3. コード実行（ai_edit_start/end が自動配信される）
+      const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
+        code: 'print("auto-lock")',
       });
-      const editEndData = parseToolCallResult(editEndResult);
-      expect(editEndData.success).toBe(true);
+      const executeData = parseToolCallResult(executeResult);
+      expect(executeData.success).toBe(true);
 
-      // 3. ai_edit_end イベント待機
-      const event = await wsClient.waitForEvent('ai_edit_end', 5000);
+      // 4. execute_code の ai_edit_start → 実行イベント → ai_edit_end を待機
+      const execEvents = await wsClient.waitForEvents(
+        ['ai_edit_start', 'cell_execute_start', 'cell_output', 'cell_execute_end', 'ai_edit_end'],
+        10000,
+      );
+      expect(execEvents[0].type).toBe('ai_edit_start');
+      expect(execEvents[execEvents.length - 1].type).toBe('ai_edit_end');
+      expect(normalizePath(execEvents[0].notebook_path as string)).toBe(normalizePath(notebookPath));
+    }, 20000);
 
-      expect(event.type).toBe('ai_edit_end');
-      expect(normalizePath(event.notebook_path as string)).toBe(normalizePath(notebookPath));
-    });
+    test('notebook_add_cell 実行時に ai_edit_start/end が自動配信される', async () => {
+      const { sessionId, notebookPath } = await createTestNotebook('auto-lock-add');
 
-    test('イベントの notebook_path が正しい', async () => {
-      const { sessionId, notebookPath } = await createTestNotebook('lock-notebook-path');
+      // セル追加
+      const addCellResult = await handleToolCall('notebook_add_cell', {
+        notebook_path: notebookPath,
+        cell_type: 'code',
+        source: 'x = 1',
+      });
+      const addCellData = parseToolCallResult(addCellResult);
+      expect(addCellData.success).toBe(true);
 
-      // 1. AI編集開始→終了
-      await handleToolCall('ai_edit_start', { session_id: sessionId });
-      const startEvent = await wsClient.waitForEvent('ai_edit_start', 5000);
-      expect(normalizePath(startEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
-
-      await handleToolCall('ai_edit_end', { session_id: sessionId });
-      const endEvent = await wsClient.waitForEvent('ai_edit_end', 5000);
-      expect(normalizePath(endEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
+      // ai_edit_start → cell_added → ai_edit_end を待機
+      const events = await wsClient.waitForEvents(['ai_edit_start', 'cell_added', 'ai_edit_end'], 10000);
+      expect(events).toHaveLength(3);
+      expect(events[0].type).toBe('ai_edit_start');
+      expect(normalizePath(events[0].notebook_path as string)).toBe(normalizePath(notebookPath));
+      expect(events[1].type).toBe('cell_added');
+      expect(events[2].type).toBe('ai_edit_end');
+      expect(normalizePath(events[2].notebook_path as string)).toBe(normalizePath(notebookPath));
     });
   });
 
-  describe('E2Eフロー: ロック→セル追加→実行→アンロック', () => {
-    test('完全フローで全イベントが正しい順序で配信される', async () => {
+  describe('E2Eフロー: セル追加→実行（各ツールが自動ロック）', () => {
+    test('セル追加・実行で各ツールが独立して自動ロック/アンロックする', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('e2e-flow');
 
-      // 1. AI編集開始
-      const editStartResult = await handleToolCall('ai_edit_start', {
-        session_id: sessionId,
-      });
-      const editStartData = parseToolCallResult(editStartResult);
-      expect(editStartData.success).toBe(true);
-
-      // 2. セル追加
+      // 1. セル追加（自動ロック: ai_edit_start → cell_added → ai_edit_end）
       const addCellResult = await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
@@ -396,7 +393,7 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 3. コード実行
+      // 2. コード実行（自動ロック: ai_edit_start → exec events → ai_edit_end）
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("hello")',
@@ -404,99 +401,103 @@ plt.show()
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(true);
 
-      // 4. AI編集終了
-      const editEndResult = await handleToolCall('ai_edit_end', {
-        session_id: sessionId,
-      });
-      const editEndData = parseToolCallResult(editEndResult);
-      expect(editEndData.success).toBe(true);
-
-      // 5. 全イベントを順序付きで待機
+      // 3. 全イベントを順序付きで待機
+      // notebook_add_cell: ai_edit_start, cell_added, ai_edit_end
+      // execute_code: ai_edit_start, cell_execute_start, cell_output, cell_execute_end, ai_edit_end
       const events = await wsClient.waitForEvents(
-        ['ai_edit_start', 'cell_added', 'cell_execute_start', 'cell_output', 'cell_execute_end', 'ai_edit_end'],
+        [
+          'ai_edit_start',
+          'cell_added',
+          'ai_edit_end',
+          'ai_edit_start',
+          'cell_execute_start',
+          'cell_output',
+          'cell_execute_end',
+          'ai_edit_end',
+        ],
         15000,
       );
 
-      // 6. イベント順序の検証
-      expect(events).toHaveLength(6);
-      expect(events[0].type).toBe('ai_edit_start');
-      expect(events[1].type).toBe('cell_added');
-      expect(events[2].type).toBe('cell_execute_start');
-      expect(events[3].type).toBe('cell_output');
-      expect(events[4].type).toBe('cell_execute_end');
-      expect(events[5].type).toBe('ai_edit_end');
+      // 4. ai_edit_start/end が各ツール実行ごとに配信される（2回ずつ）
+      const startEvents = events.filter((e) => e.type === 'ai_edit_start');
+      const endEvents = events.filter((e) => e.type === 'ai_edit_end');
+      expect(startEvents).toHaveLength(2);
+      expect(endEvents).toHaveLength(2);
 
-      // 7. すべてのイベントで notebook_path が一致
+      // 5. すべてのイベントで notebook_path が一致
       events.forEach((event) => {
         expect(normalizePath(event.notebook_path as string)).toBe(normalizePath(notebookPath));
       });
-    }, 20000); // E2Eフローは時間がかかる可能性があるため、タイムアウトを延長
+    }, 20000);
 
     test('複数セル追加・実行のフロー', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('e2e-multiple');
 
-      // 1. AI編集開始
-      await handleToolCall('ai_edit_start', { session_id: sessionId });
-
-      // 2. セル1追加
+      // 1. セル1追加（自動ロック）
       await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
         source: 'import pandas as pd',
       });
 
-      // 3. セル2追加
+      // 2. セル2追加（自動ロック）
       await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
         source: 'print("test")',
       });
 
-      // 4. セル1実行
+      // 3. セル1実行（自動ロック）
       await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'import pandas as pd',
       });
 
-      // 5. セル2実行
+      // 4. セル2実行（自動ロック）
       await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("test")',
       });
 
-      // 6. AI編集終了
-      await handleToolCall('ai_edit_end', { session_id: sessionId });
-
-      // 7. 全イベントを順序付きで待機
+      // 5. 全イベントを待機（各ツールが独立して ai_edit_start/end を配信）
       const events = await wsClient.waitForEvents(
         [
+          // セル1追加
           'ai_edit_start',
-          'cell_added', // セル1
-          'cell_added', // セル2
-          'cell_execute_start', // セル1実行開始
-          'cell_execute_end', // セル1実行完了
-          'cell_execute_start', // セル2実行開始
-          'cell_output', // セル2出力
-          'cell_execute_end', // セル2実行完了
+          'cell_added',
+          'ai_edit_end',
+          // セル2追加
+          'ai_edit_start',
+          'cell_added',
+          'ai_edit_end',
+          // セル1実行
+          'ai_edit_start',
+          'cell_execute_start',
+          'cell_execute_end',
+          'ai_edit_end',
+          // セル2実行
+          'ai_edit_start',
+          'cell_execute_start',
+          'cell_output',
+          'cell_execute_end',
           'ai_edit_end',
         ],
-        20000,
+        25000,
       );
 
-      // 8. イベント数の検証
-      expect(events.length).toBeGreaterThanOrEqual(9);
+      // 6. ai_edit_start/end が4回ずつ（4ツール呼び出し分）
+      const startEvents = events.filter((e) => e.type === 'ai_edit_start');
+      const endEvents = events.filter((e) => e.type === 'ai_edit_end');
+      expect(startEvents).toHaveLength(4);
+      expect(endEvents).toHaveLength(4);
 
-      // 9. 最初と最後のイベントを検証
-      expect(events[0].type).toBe('ai_edit_start');
-      expect(events[events.length - 1].type).toBe('ai_edit_end');
-
-      // 10. cell_added イベントが2回ある
+      // 7. cell_added イベントが2回ある
       const cellAddedEvents = events.filter((e) => e.type === 'cell_added');
       expect(cellAddedEvents).toHaveLength(2);
 
-      // 11. cell_execute_start イベントが2回ある
+      // 8. cell_execute_start イベントが2回ある
       const executeStartEvents = events.filter((e) => e.type === 'cell_execute_start');
       expect(executeStartEvents).toHaveLength(2);
-    }, 25000); // 複数セルフローは時間がかかるため、タイムアウトをさらに延長
+    }, 30000);
   });
 });

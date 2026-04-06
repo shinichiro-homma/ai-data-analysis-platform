@@ -342,7 +342,7 @@ export interface CellExecuteEndEvent extends AiEventBase {
 
 /**
  * AI編集モード開始イベント
- * AIが ai_edit_start ツールを実行した際に配信される
+ * handleToolCall ミドルウェアがノートブック編集系ツール実行前に自動配信する
  */
 export interface AiEditStartEvent extends AiEventBase {
   type: 'ai_edit_start';
@@ -351,7 +351,7 @@ export interface AiEditStartEvent extends AiEventBase {
 
 /**
  * AI編集モード終了イベント
- * AIが ai_edit_end ツールを実行した際に配信される
+ * handleToolCall ミドルウェアがツール実行完了後に自動配信する
  */
 export interface AiEditEndEvent extends AiEventBase {
   type: 'ai_edit_end';
