@@ -7,7 +7,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 ### リクエスト形式
 
 - Content-Type: `application/json`
-- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証で実装済み。document-server は認証未実装、信頼されたネットワーク内での運用を前提）
+- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証、document-server は `DOCUMENT_SERVER_TOKEN` による Bearer 認証。いずれも実装済み）
 
 ### レスポンス形式
 
@@ -170,7 +170,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | code | string | Yes | 実行するPythonコード |
-| timeout | number | No | タイムアウト秒数（デフォルト30秒、最大300秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json
@@ -400,32 +400,33 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/custom/contents/{path}
 
-指定パスにファイルまたはノートブックを作成する。既存ファイルがある場合は上書きする。
+指定パス配下にファイルまたはノートブックを作成する。`POST /api/custom/contents` と同じ動作で、URLパスがデフォルトの作成先となる。同名ファイルが存在する場合は自動連番で回避する。
 
-**リクエスト（ノートブック）:**
+**リクエスト:**
 ```json
 {
-  "content": {
-    "cells": [
-      {
-        "cell_type": "code",
-        "source": "import pandas as pd"
-      }
-    ]
-  }
+  "type": "notebook",
+  "path": "subdir/analysis.ipynb"
 }
 ```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| type | string | No | ファイル種別（デフォルト: "notebook"） |
+| path | string | No | 作成先パス（省略時はURLの `{path}` を使用） |
 
 **レスポンス:**
 ```json
 {
   "data": {
-    "path": "/analysis.ipynb",
+    "path": "/subdir/analysis.ipynb",
     "type": "notebook",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
 ```
+
+> **注:** レスポンスの `path` は実際に作成されたファイルのパスを返す。同名ファイルが存在した場合、連番付きパスになることがある。
 
 #### GET /api/custom/contents/{path}
 
@@ -606,7 +607,7 @@ CSV/Parquetファイルの構造をプレビューする。カーネル不要で
 
 | クエリパラメータ | 型 | 必須 | 説明 |
 |-----------------|-----|------|------|
-| head_rows | number | No | 先頭行数（デフォルト5、最大50） |
+| head_rows | number | No | 先頭行数（デフォルト値・最大値は `handlers.py` を参照） |
 
 **レスポンス:**
 ```json
@@ -726,7 +727,7 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 {
   "sql": "SELECT customer_id, transaction_date, amount FROM purchase_history WHERE status = 'completed'",
   "workspace_id": "ws-abc123",
-  "filename": "purchase_history.parquet",
+  "file_path": "purchase_history.parquet",
   "format": "parquet",
   "timeout": 300
 }
@@ -736,9 +737,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 |-----------|-----|------|------|
 | sql | string | Yes | 実行するSELECT文 |
 | workspace_id | string | Yes | ワークスペースID |
-| filename | string | Yes | 保存先ファイル名（data/ディレクトリ内） |
+| file_path | string | Yes | 保存先ファイル名（data/ディレクトリ内） |
 | format | string | No | 出力形式（"parquet" / "csv"、デフォルト: "parquet"） |
-| timeout | number | No | タイムアウト秒数（デフォルト300秒、最大600秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `sql_handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json
@@ -791,7 +792,7 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 }
 ```
 
-> `summary`（最大200文字）と `status`（`not_started` / `in_progress` / `completed` / `blocked`）はオプション。省略時はそれぞれ空文字列、`not_started`。
+> `summary` と `status` はオプション。制約値・許可リストは `workspace_handlers.py` を参照。省略時のデフォルトはそれぞれ空文字列、`not_started`。
 
 **レスポンス:**
 ```json
@@ -801,15 +802,15 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
     "name": "売上分析",
     "summary": "売上データのトレンド分析",
     "status": "not_started",
-    "path": "workspaces/ws-abc123",
-    "data_path": "data",
-    "output_path": "output",
+    "path": "workspaces/sample/ws-abc123",
+    "data_path": "workspaces/sample/ws-abc123/data",
+    "output_path": "workspaces/sample/ws-abc123/output",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
 ```
 
-> **パス形式:** `path` はサーバーベースディレクトリからの相対パス。`data_path` / `output_path` はカーネルの作業ディレクトリ（ワークスペースディレクトリ）からの相対パスで、カーネル内のコードでそのまま使用可能（例: `open('data/input.csv')`）。
+> **パス形式:** `path`, `data_path`, `output_path` はいずれもサーバーベースディレクトリからの相対パス（`WORKSPACE_PATH_PREFIX/{workspace_id}` 形式）。パスの構成要素は `base.py` の定数を参照。
 
 #### GET /api/workspaces
 
@@ -825,9 +826,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
         "name": "売上分析",
         "summary": "売上データのトレンド分析",
         "status": "in_progress",
-        "path": "workspaces/ws-abc123",
-        "data_path": "data",
-        "output_path": "output",
+        "path": "workspaces/sample/ws-abc123",
+        "data_path": "workspaces/sample/ws-abc123/data",
+        "output_path": "workspaces/sample/ws-abc123/output",
         "created_at": "2024-01-15T10:00:00Z",
         "file_count": 3
       },
@@ -836,9 +837,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
         "name": "顧客分析",
         "summary": "",
         "status": "not_started",
-        "path": "workspaces/ws-def456",
-        "data_path": "data",
-        "output_path": "output",
+        "path": "workspaces/sample/ws-def456",
+        "data_path": "workspaces/sample/ws-def456/data",
+        "output_path": "workspaces/sample/ws-def456/output",
         "created_at": "2024-01-16T09:00:00Z",
         "file_count": 1
       }
@@ -869,9 +870,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
     "name": "売上分析",
     "summary": "売上データのトレンド分析。前処理完了、集計中",
     "status": "in_progress",
-    "path": "workspaces/ws-abc123",
-    "data_path": "data",
-    "output_path": "output",
+    "path": "workspaces/sample/ws-abc123",
+    "data_path": "workspaces/sample/ws-abc123/data",
+    "output_path": "workspaces/sample/ws-abc123/output",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }

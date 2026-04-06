@@ -215,7 +215,7 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
   - `restart_dead_kernels = True` で Jupyter Server の自動復旧を有効化
   - `_wrap_restart_kernel` によりカーネル再起動後に workspace sandbox を再注入
   - autorestart 経路（`KernelRestarter` による dead カーネルの自動復旧）でも sandbox を再注入する（`_register_autorestart_callback` が `_restarter` の `'restart'` イベントにフック）
-- 長時間アイドル状態のカーネルは自動シャットダウン（`KERNEL_TIMEOUT` 秒、デフォルト1800秒=30分）
+- 長時間アイドル状態のカーネルは自動シャットダウン（`KERNEL_TIMEOUT` 秒、デフォルト値は `jupyter_server_config.py` を参照）
   - Jupyter Server 標準の `MappingKernelManager.cull_idle_timeout` を使用
   - WebSocket 接続中のカーネルは対象外（`cull_connected=False`）
   - busy 状態のカーネルは対象外（`cull_busy=False`）
@@ -266,10 +266,12 @@ Jupyter Server標準APIとカスタム拡張APIを使用:
 | エンドポイント | 用途 |
 |---------------|------|
 | `GET /api/custom/contents` | ルートファイル一覧 |
-| `POST /api/custom/contents` | ファイル作成 |
+| `POST /api/custom/contents` | ファイル作成（ルート） |
+| `POST /api/custom/contents/{path}` | ファイル作成（サブディレクトリ） |
 | `GET /api/custom/contents/{path}` | ファイル取得 |
 | `PUT /api/custom/contents/{path}` | ファイル更新 |
 | `DELETE /api/custom/contents/{path}` | ファイル削除 |
+| `GET /api/custom/contents/{path}/preview` | ファイルプレビュー |
 | `GET /api/custom/contents/{path}/cells` | セル一覧取得 |
 | `PATCH /api/custom/contents/{path}/cells` | セル操作 |
 | `POST /api/custom/contents/{path}/cells/{index}/execute` | セル再実行 |
