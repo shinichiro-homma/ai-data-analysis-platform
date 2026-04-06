@@ -7,7 +7,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 ### リクエスト形式
 
 - Content-Type: `application/json`
-- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証で実装済み。document-server は認証未実装、信頼されたネットワーク内での運用を前提）
+- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証、document-server は `DOCUMENT_SERVER_TOKEN` による Bearer 認証。いずれも実装済み）
 
 ### レスポンス形式
 
@@ -170,7 +170,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | code | string | Yes | 実行するPythonコード |
-| timeout | number | No | タイムアウト秒数（デフォルト30秒、最大300秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json
@@ -738,7 +738,7 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 | workspace_id | string | Yes | ワークスペースID |
 | filename | string | Yes | 保存先ファイル名（data/ディレクトリ内） |
 | format | string | No | 出力形式（"parquet" / "csv"、デフォルト: "parquet"） |
-| timeout | number | No | タイムアウト秒数（デフォルト300秒、最大600秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `sql_handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json

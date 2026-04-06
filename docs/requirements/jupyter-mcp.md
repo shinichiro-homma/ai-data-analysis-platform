@@ -64,7 +64,7 @@
 - セルの編集（既存セルのソースコードを更新）
 - セルの削除
 - セルの再実行（指定セルのコードをカーネルで実行し、出力を更新）
-- セルの並び替え 【未実装】
+- セルの並び替え
 
 ### F4: 変数・データ操作
 
@@ -80,7 +80,7 @@
   - describe（統計情報）
   - memory_bytes（メモリ使用量）
 
-#### F4.3: データプレビュー 【未実装】
+#### F4.3: データプレビュー
 - ファイルパスを指定してデータをプレビュー
 - CSV, Excel, Parquet等に対応
 
@@ -90,7 +90,7 @@
 - 指定ワークスペース内のファイル一覧を取得
 - ワークスペースIDでスコープされ、他のワークスペースのファイルは表示されない
 
-#### F5.2: ファイル読み取り 【未実装】
+#### F5.2: ファイル読み取り
 - テキストファイルの内容を取得（ノートブック以外。ノートブックは notebook_list_cells で構造化された形式で取得する）
 
 ### F6: AI編集制御
@@ -694,7 +694,7 @@ DataFrameの詳細情報を取得する。
 
 ### execute_sql
 
-SQL命令を実行する。SELECT文の場合は結果をワークスペースの `data/` ディレクトリにCSVファイルとして保存する。危険な操作（DELETE, ALTER, GRANT, REVOKE, VACUUM, ANALYZE, CREATE TABLE非TEMP, CREATE/DROP INDEX等）はブラックリスト方式で拒否する。
+SQL命令を実行する。SELECT文の場合は結果をワークスペースの `data/` ディレクトリにCSVファイルとして保存する。危険な操作はブラックリスト方式で拒否する（対象リストは `jupyter-server/extensions/custom_api/sql_handlers.py` の `BLOCKED_COMMANDS` を参照）。
 
 ```typescript
 {
@@ -708,7 +708,7 @@ SQL命令を実行する。SELECT文の場合は結果をワークスペース�
       },
       sql: {
         type: "string",
-        description: "実行するSQL文。危険な操作（DELETE, ALTER, GRANT, REVOKE, VACUUM, ANALYZE, CREATE TABLE非TEMP, CREATE/DROP INDEX等）は拒否される"
+        description: "実行するSQL文。ブロック対象の操作は拒否される（対象リストはコード参照）"
       },
       filename: {
         type: "string",
@@ -746,7 +746,7 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
       },
       sql: {
         type: "string",
-        description: "実行するSELECT文。危険な操作（DELETE, ALTER, GRANT, REVOKE等）は拒否される"
+        description: "実行するSELECT文。ブロック対象の操作は拒否される（対象リストはコード参照）"
       },
       filename: {
         type: "string",
@@ -768,6 +768,86 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 ```
 
 **戻り値・エラー時:** `jupyter-mcp/src/tools/export-sql.ts` を参照。
+
+### notebook_reorder_cell
+
+ノートブック内のセルを別の位置に移動する。
+
+```typescript
+{
+  name: "notebook_reorder_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックパス（例: analysis.ipynb）"
+      },
+      cell_index: {
+        type: "number",
+        description: "移動元のセルインデックス（0始まり）"
+      },
+      to_index: {
+        type: "number",
+        description: "移動先のインデックス（0始まり）"
+      }
+    },
+    required: ["notebook_path", "cell_index", "to_index"]
+  }
+}
+```
+
+### data_preview
+
+ワークスペース内のデータファイルをプレビューする。
+
+```typescript
+{
+  name: "data_preview",
+  inputSchema: {
+    type: "object",
+    properties: {
+      workspace_id: {
+        type: "string",
+        description: "ワークスペースID"
+      },
+      file_path: {
+        type: "string",
+        description: "ワークスペース内の相対ファイルパス（例: data/sales.csv）"
+      },
+      head_rows: {
+        type: "number",
+        description: "取得する先頭行数（デフォルト値・最大値は jupyter-mcp/src/tools/data-preview.ts を参照）"
+      }
+    },
+    required: ["workspace_id", "file_path"]
+  }
+}
+```
+
+### file_read
+
+ワークスペース内のテキストファイルの内容を取得する（ノートブック以外）。
+
+```typescript
+{
+  name: "file_read",
+  inputSchema: {
+    type: "object",
+    properties: {
+      workspace_id: {
+        type: "string",
+        description: "ワークスペースID"
+      },
+      file_path: {
+        type: "string",
+        description: "ワークスペース内の相対ファイルパス（例: scripts/analysis.py）"
+      }
+    },
+    required: ["workspace_id", "file_path"]
+  }
+}
+```
 
 ## 画像ファイル管理
 

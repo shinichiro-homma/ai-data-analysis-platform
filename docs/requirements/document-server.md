@@ -446,7 +446,7 @@ notes: |
 ### NF2: セキュリティ
 
 - DB接続情報はJupyter環境の環境変数で管理（document-serverは関与しない）
-- **認証:** 現在未実装。document-server の API にはアクセス制御がなく、信頼されたネットワーク内での運用を前提とする
+- **認証:** Bearer トークン認証を実装済み。`DOCUMENT_SERVER_TOKEN` 環境変数でトークンを設定する。`/health` エンドポイントのみ認証除外
 
 ### NF3: 運用性
 
@@ -473,6 +473,7 @@ notes: |
 | `DATA_ENV` | データセット環境（`sample` / `production`）。`DATA_DIR` 未指定時のみ有効 |
 | `PORT` | サーバーポート |
 | `CORS_ORIGINS` | CORS許可オリジンのカンマ区切りリスト |
+| `DOCUMENT_SERVER_TOKEN` | API認証トークン。未設定時は起動中止 |
 
 ### 起動コマンド
 

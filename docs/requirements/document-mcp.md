@@ -168,7 +168,7 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 - ログレベル: 呼び出し開始・完了は `info`、エラーは `error`
 - ログに含める情報: ツール名、取得対象の名前（分析改善のため）、実行時間
 - ログ出力先: stderr（MCP SDKの標準）
-- **実装方針:** MCP SDK の標準ログ機構（`console.error` → stderr）を使用。環境変数 `LOG_LEVEL` でログレベルを制御
+- **実装方針:** MCP SDK の標準ログ機構を使用（実装詳細は `packages/mcp-shared/src/logger.ts` を参照）
 
 ## 技術仕様
 

@@ -34,6 +34,9 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - 以下のイベントタイプを受信・処理する:
   - `ai_edit_start` - AI編集開始（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
   - `cell_added` - セル追加
+  - `cell_edited` - セル内容の更新
+  - `cell_deleted` - セル削除
+  - `cell_reordered` - セル並び替え
   - `cell_execute_start` - セル実行開始
   - `cell_output` - セル出力（ストリーミング）
   - `cell_execute_end` - セル実行完了
