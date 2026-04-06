@@ -969,6 +969,44 @@ AI編集モード開始。ノー���ブックをロック（read-only）に
 }
 ```
 
+##### cell_edited
+
+セル編集完了。対象セルの内容を更新する。
+
+```json
+{
+  "type": "cell_edited",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 0,
+  "source": "import pandas as pd\nprint('Updated')"
+}
+```
+
+##### cell_deleted
+
+セル削除完了。対象セルをノートブックから削除する。
+
+```json
+{
+  "type": "cell_deleted",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 2
+}
+```
+
+##### cell_reordered
+
+セル並び替え完了。対象セルを指定位置に移動する。
+
+```json
+{
+  "type": "cell_reordered",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 0,
+  "to_index": 3
+}
+```
+
 ##### cell_execute_start
 
 セル実行開始。対象セルに実行中スピナーを表示する。

@@ -51,6 +51,26 @@ describe('executeNotebookExecuteCell', () => {
         timeout: 30,
       });
 
+      // postAiEvent が実行イベントフロー（start → output → end）で呼ばれたことを確認
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_execute_start',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+      });
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_output',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+        output: { output_type: 'stream', name: 'stdout', text: 'Hello, World!\n' },
+      });
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_execute_end',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+        execution_count: 3,
+        success: true,
+      });
+
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('Hello, World!');
       expect(result.content[0].text).toContain('"execution_count": 3');

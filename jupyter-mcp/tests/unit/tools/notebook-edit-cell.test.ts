@@ -36,6 +36,14 @@ describe('executeNotebookEditCell', () => {
         },
       });
 
+      // postAiEvent が cell_edited イベントで呼ばれたことを確認
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_edited',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+        source: 'import pandas as pd\nimport numpy as np',
+      });
+
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');
       expect(result.content[0].text).toContain('"cell_index": 0');

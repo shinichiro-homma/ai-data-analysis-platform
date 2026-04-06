@@ -20,20 +20,48 @@ export interface CellAddedEvent extends AiEvent {
   index: number;
 }
 
+export interface CellEditedEvent extends AiEvent {
+  type: 'cell_edited';
+  notebook_path: string;
+  cell_index: number;
+  source: string;
+}
+
+export interface CellDeletedEvent extends AiEvent {
+  type: 'cell_deleted';
+  notebook_path: string;
+  cell_index: number;
+}
+
+export interface CellReorderedEvent extends AiEvent {
+  type: 'cell_reordered';
+  notebook_path: string;
+  cell_index: number;
+  to_index: number;
+}
+
 export interface CellExecuteStartEvent extends AiEvent {
   type: 'cell_execute_start';
   notebook_path: string;
   cell_index: number;
 }
 
+export type CellOutputData =
+  | { output_type: 'stream'; name: 'stdout' | 'stderr'; text: string | string[] }
+  | { output_type: 'display_data'; data: Record<string, string>; metadata: Record<string, unknown> }
+  | {
+      output_type: 'execute_result';
+      execution_count: number | null;
+      data: Record<string, string>;
+      metadata: Record<string, unknown>;
+    }
+  | { output_type: 'error'; ename: string; evalue: string; traceback: string[] };
+
 export interface CellOutputEvent extends AiEvent {
   type: 'cell_output';
   notebook_path: string;
   cell_index: number;
-  output: {
-    output_type: 'stream' | 'display_data' | 'execute_result' | 'error';
-    [key: string]: unknown;
-  };
+  output: CellOutputData;
 }
 
 export interface CellExecuteEndEvent extends AiEvent {
@@ -70,9 +98,21 @@ export class NotebookUpdater {
    * イベントを処理
    */
   handleEvent(event: AiEvent): void {
+    const notebookPath = (event as { notebook_path?: string }).notebook_path;
+    console.log(`[NotebookUpdater] Handling ${event.type} event for ${notebookPath ?? 'unknown'}`);
+
     switch (event.type) {
       case 'cell_added':
         this.handleCellAdded(event as CellAddedEvent);
+        break;
+      case 'cell_edited':
+        this.handleCellEdited(event as CellEditedEvent);
+        break;
+      case 'cell_deleted':
+        this.handleCellDeleted(event as CellDeletedEvent);
+        break;
+      case 'cell_reordered':
+        this.handleCellReordered(event as CellReorderedEvent);
         break;
       case 'cell_execute_start':
         this.handleCellExecuteStart(event as CellExecuteStartEvent);
@@ -98,8 +138,6 @@ export class NotebookUpdater {
    * セル追加イベントを処理
    */
   private handleCellAdded(event: CellAddedEvent): void {
-    console.log('[NotebookUpdater] Handling cell_added event:', event);
-
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -156,11 +194,81 @@ export class NotebookUpdater {
   }
 
   /**
+   * セル編集イベントを処理
+   */
+  private handleCellEdited(event: CellEditedEvent): void {
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const cell = context.model.sharedModel.getCell(event.cell_index);
+      if (!cell) {
+        console.error(`[NotebookUpdater] Cell not found at index ${event.cell_index}`);
+        return;
+      }
+
+      cell.source = event.source;
+      console.log(`[NotebookUpdater] Cell edited at index ${event.cell_index}`);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to edit cell:', error);
+    }
+  }
+
+  /**
+   * セル削除イベントを処理
+   */
+  private handleCellDeleted(event: CellDeletedEvent): void {
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const sharedModel = context.model.sharedModel;
+      if (event.cell_index >= sharedModel.cells.length) {
+        console.error(`[NotebookUpdater] Cell index ${event.cell_index} out of range`);
+        return;
+      }
+
+      sharedModel.deleteCell(event.cell_index);
+      console.log(`[NotebookUpdater] Cell deleted at index ${event.cell_index}`);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to delete cell:', error);
+    }
+  }
+
+  /**
+   * セル並び替えイベントを処理
+   */
+  private handleCellReordered(event: CellReorderedEvent): void {
+    const context = this.getNotebookAndModel(event.notebook_path);
+    if (!context) {
+      return;
+    }
+
+    try {
+      const sharedModel = context.model.sharedModel;
+      if (event.cell_index >= sharedModel.cells.length || event.to_index >= sharedModel.cells.length) {
+        console.error(`[NotebookUpdater] Cell index out of range: ${event.cell_index} -> ${event.to_index}`);
+        return;
+      }
+
+      sharedModel.moveCell(event.cell_index, event.to_index);
+      console.log(`[NotebookUpdater] Cell moved from ${event.cell_index} to ${event.to_index}`);
+
+      // 移動先のセルにスクロール
+      this.activateAndScrollToCell(context.notebook, event.to_index);
+    } catch (error) {
+      console.error('[NotebookUpdater] Failed to reorder cell:', error);
+    }
+  }
+
+  /**
    * セル実行開始イベントを処理
    */
   private handleCellExecuteStart(event: CellExecuteStartEvent): void {
-    console.log('[NotebookUpdater] Handling cell_execute_start event:', event);
-
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -194,8 +302,6 @@ export class NotebookUpdater {
    * セル出力イベントを処理
    */
   private handleCellOutput(event: CellOutputEvent): void {
-    console.log('[NotebookUpdater] Handling cell_output event:', event);
-
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -234,8 +340,6 @@ export class NotebookUpdater {
    * セル実行完了イベントを処理
    */
   private handleCellExecuteEnd(event: CellExecuteEndEvent): void {
-    console.log('[NotebookUpdater] Handling cell_execute_end event:', event);
-
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -276,33 +380,33 @@ export class NotebookUpdater {
   /**
    * イベントの出力を nbformat の IOutput 形式に変換
    */
-  private convertToNbformatOutput(output: CellOutputEvent['output']): IOutput | null {
+  private convertToNbformatOutput(output: CellOutputData): IOutput | null {
     switch (output.output_type) {
       case 'stream':
         return {
           output_type: 'stream',
-          name: output.name as 'stdout' | 'stderr',
-          text: output.text as string | string[],
+          name: output.name,
+          text: output.text,
         } as IOutput;
       case 'display_data':
         return {
           output_type: 'display_data',
-          data: (output.data ?? {}) as IMimeBundle,
-          metadata: (output.metadata ?? {}) as Record<string, unknown>,
+          data: output.data as IMimeBundle,
+          metadata: output.metadata,
         } as IOutput;
       case 'execute_result':
         return {
           output_type: 'execute_result',
-          execution_count: output.execution_count as number | null,
-          data: (output.data ?? {}) as IMimeBundle,
-          metadata: (output.metadata ?? {}) as Record<string, unknown>,
+          execution_count: output.execution_count,
+          data: output.data as IMimeBundle,
+          metadata: output.metadata,
         } as IOutput;
       case 'error':
         return {
           output_type: 'error',
-          ename: output.ename as string,
-          evalue: output.evalue as string,
-          traceback: output.traceback as string[],
+          ename: output.ename,
+          evalue: output.evalue,
+          traceback: output.traceback,
         } as IOutput;
       default:
         return null;
@@ -313,8 +417,6 @@ export class NotebookUpdater {
    * AI編集開始イベントを処理
    */
   private handleAiEditStart(event: AiEditStartEvent): void {
-    console.log('[NotebookUpdater] Handling ai_edit_start event:', event);
-
     if (!this.lockManager) {
       console.error('[NotebookUpdater] LockManager not set');
       return;
@@ -327,8 +429,6 @@ export class NotebookUpdater {
    * AI編集終了イベントを処理
    */
   private handleAiEditEnd(event: AiEditEndEvent): void {
-    console.log('[NotebookUpdater] Handling ai_edit_end event:', event);
-
     if (!this.lockManager) {
       console.error('[NotebookUpdater] LockManager not set');
       return;
@@ -341,7 +441,6 @@ export class NotebookUpdater {
    * ノートブックパネルとモデルを取得（nullチェック済み）
    */
   private getNotebookAndModel(notebookPath: string): {
-    notebookPanel: NotebookPanel;
     notebook: Notebook;
     model: INotebookModel;
   } | null {
@@ -358,7 +457,7 @@ export class NotebookUpdater {
       return null;
     }
 
-    return { notebookPanel, notebook, model };
+    return { notebook, model };
   }
 
   /**
