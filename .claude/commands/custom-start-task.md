@@ -89,6 +89,7 @@ Agent ツールでサブエージェントを起動してください。
 ## 手順
 
 `.claude/rules/tdd.md` を読み、「Red フェーズ」の手順に従ってテストを準備してください。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
 テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
 
 ## 報告
@@ -129,6 +130,7 @@ Agent ツールでサブエージェントを起動してください。
 ## 実装手順
 
 `.claude/rules/tdd.md` を読み、「Green フェーズ」の手順に従って実装してください。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
 テストが通るまで最大 5 回繰り返すこと。
 実装に関係のないファイルを変更しないこと。
 

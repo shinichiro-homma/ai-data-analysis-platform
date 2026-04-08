@@ -65,7 +65,7 @@ jobs:
 
       - name: Prettier check
         if: needs.changes.outputs.code_changed == 'true'
-        run: npx prettier --check "jupyter-mcp/src/**/*.ts" "document-mcp/src/**/*.ts" "packages/mcp-shared/src/**/*.ts"
+        run: scripts/lint.sh jupyter-mcp document-mcp mcp-shared
 
       - name: Build mcp-shared
         if: needs.changes.outputs.code_changed == 'true'
@@ -110,19 +110,9 @@ jobs:
           pip install -e "document-server[dev]" types-PyYAML
           pip install pytest pytest-asyncio sqlparse
 
-      - name: Ruff format check
+      - name: Ruff format + lint check
         if: needs.changes.outputs.code_changed == 'true'
-        run: |
-          ruff format --check document-server/src/ document-server/tests/
-          ruff format --check jupyter-server/extensions/ jupyter-server/tests/
-          ruff format --check scripts/*.py scripts/lib/*.py
-
-      - name: Ruff lint
-        if: needs.changes.outputs.code_changed == 'true'
-        run: |
-          ruff check document-server/src/ document-server/tests/
-          ruff check jupyter-server/extensions/ jupyter-server/tests/
-          ruff check scripts/*.py scripts/lib/*.py
+        run: scripts/lint.sh document-server jupyter-server scripts
 
       - name: Mypy (document-server)
         if: needs.changes.outputs.code_changed == 'true'
