@@ -28,113 +28,34 @@
 | `scripts/promote-to-main.sh` | dev → main プロモーション PR 作成 | `scripts/promote-to-main.sh` |
 | `scripts/cleanup-merged-branches.sh` | 不要ブランチの一括掃除（prune + ローカル + promote） | `scripts/cleanup-merged-branches.sh --all` |
 
-## よく使うパターン
+## 補足オプション（テーブルに含まれないもの）
 
 ```bash
-# lint / format チェック（検出のみ、CI と同じルール）
-scripts/lint.sh                           # 全対象
-scripts/lint.sh jupyter-mcp               # 特定コンポーネント
-scripts/lint.sh document-server scripts   # 複数指定
+# test.sh の追加オプション
+scripts/test.sh --typecheck jupyter-mcp          # 型チェックのみ
+scripts/test.sh --integration --rebuild jupyter-mcp  # 統合テスト + リビルド
 
-# リビルド + テスト（推奨: MCP/Docker を自動判定、lint 込み）
-scripts/test.sh --rebuild jupyter-mcp
-scripts/test.sh --rebuild document-server
+# rebuild.sh の追加オプション
+scripts/rebuild.sh postgres                      # postgres のみ再初期化
+scripts/rebuild.sh --clean                       # 常に再初期化
 
-# コード変更後のテスト（リビルドなし、lint 込み）
-scripts/test.sh jupyter-mcp
+# check-freshness.sh の追加オプション
+scripts/check-freshness.sh --strict              # 古い場合は exit 1
+scripts/check-freshness.sh --rebuild             # 古い場合は自動リビルド
 
-# MCP サーバーのリビルド（コード変更を反映）
-scripts/rebuild-mcp.sh jupyter-mcp
+# clean-rebuild.sh の追加オプション
+scripts/clean-rebuild.sh --keep-volumes          # DB データを保持してリビルド
+scripts/clean-rebuild.sh --skip-smoke            # スモークテストなし
+scripts/clean-rebuild.sh --skip-mcp              # MCP ビルドをスキップ
 
-# Docker コンテナのリビルド（Dockerfile や依存変更時）
-scripts/rebuild.sh jupyter-server
-
-# postgres データの再初期化（Parquet/YAML 変更後に自動検出）
-scripts/rebuild.sh                        # 全サービス: データが古い場合のみ再初期化
-scripts/rebuild.sh postgres               # postgres 明示指定: 常に再初期化
-scripts/rebuild.sh --clean                # --clean: 常に再初期化
-
-# 型チェックのみ
-scripts/test.sh --typecheck jupyter-mcp
-
-# 全コンポーネントのテスト
-scripts/test.sh
-
-# データ環境の切り替え（既存データがあれば確認プロンプト表示）
-scripts/switch-env.sh production
-scripts/switch-env.sh sample
-scripts/switch-env.sh -y production             # 確認なし（データがあれば再ロードしない）
-scripts/switch-env.sh --force-reload production  # 強制再ロード
-
-# 統合テスト（Docker 環境が必要）
-scripts/test.sh --integration jupyter-mcp
-
-# 統合テスト + リビルド（sample 環境に自動切り替え + 鮮度チェック）
-scripts/test.sh --integration --rebuild
-scripts/test.sh --integration --rebuild jupyter-mcp
-
-# Docker 環境のスモークテスト
-scripts/smoke-test.sh
-
-# リビルド後にスモークテスト
-scripts/rebuild.sh --verify
-
-# 環境の鮮度チェック
-scripts/check-freshness.sh
-scripts/check-freshness.sh --strict    # 古い場合は exit 1
-scripts/check-freshness.sh --rebuild   # 古い場合は自動リビルド
-
-# テスト後に既知障害と照合
-scripts/test.sh --health jupyter-mcp
-
-# 既知テスト失敗の管理
-scripts/manage-known-failures.sh list
+# manage-known-failures.sh のサブコマンド
 scripts/manage-known-failures.sh add --component jupyter-mcp --test-name "test name" --reason "理由"
 scripts/manage-known-failures.sh remove --id kf-001
-scripts/manage-known-failures.sh check jupyter-mcp
 
-# カタログYAMLからDB初期化スクリプトを自動生成
-scripts/generate-init-scripts.sh sample
-scripts/generate-init-scripts.sh production
-
-# CSV→Parquet変換（仮置きCSVからParquetを生成）
-scripts/convert-csv-to-parquet.py sample
-scripts/convert-csv-to-parquet.py production
-scripts/convert-csv-to-parquet.py --force production  # 既存Parquetも再変換
-
-# dev → main プロモーション（PR 作成）
-scripts/promote-to-main.sh
-scripts/promote-to-main.sh --dry-run   # 除外されるファイルの確認のみ
-
-# MCP + Docker 全コンポーネント一括更新（インクリメンタル、2-3分）
-scripts/rebuild-mcp.sh && scripts/rebuild.sh
-
-# 完全クリーンビルド（全削除→MCP+Docker ビルド→スモークテスト）
-scripts/clean-rebuild.sh                    # 確認あり（.env の環境を使用）
-scripts/clean-rebuild.sh --env sample -y    # sample 環境で確認なし実行
-scripts/clean-rebuild.sh --env production   # production 環境で実行
-scripts/clean-rebuild.sh --keep-volumes     # DB データを保持してリビルド
-scripts/clean-rebuild.sh --skip-smoke       # スモークテストなし
-scripts/clean-rebuild.sh --skip-mcp        # MCP ビルドをスキップ（Docker のみ再構築）
-
-# 不要ブランチの掃除（prune + ローカル + promote + リモート）
-scripts/cleanup-merged-branches.sh --all --dry-run  # 削除対象の確認のみ
-scripts/cleanup-merged-branches.sh --all             # 全掃除（リモート含む）
-scripts/cleanup-merged-branches.sh                   # ローカルのみ（リモートは除外）
+# 一括更新
+scripts/rebuild-mcp.sh && scripts/rebuild.sh     # MCP + Docker 全コンポーネント
 ```
 
-## Docker ゴミ溜まり対策
+## 禁止事項
 
-以下のスクリプトは実行時に自動で Docker のゴミ（dangling イメージ、ビルドキャッシュ、orphaned ボリューム）を削除する。
-
-| スクリプト | 対策内容 |
-|-----------|---------|
-| `scripts/clean-rebuild.sh` | `image prune` + `builder prune` + `volume prune` |
-| `scripts/rebuild.sh` | `image prune` + `builder prune` + `volume prune`（リビルド後） |
-| `scripts/switch-env.sh` | `image prune` + `volume prune`（環境切り替え時） |
-
-`.dockerignore` により、ビルドコンテキストから `node_modules/`、`dist/`、`.git/`、`docs/`、`tests/` 等を除外している。
-
-## 理由
-
-1 回のスクリプト呼び出しで完結するため、ツール呼び出し回数とトークン消費を削減できる。
+`npm run build`、`npm run typecheck`、`npm test`、`docker-compose build` 等を直接実行しない。必ず `scripts/` 配下のスクリプトを使うこと。
