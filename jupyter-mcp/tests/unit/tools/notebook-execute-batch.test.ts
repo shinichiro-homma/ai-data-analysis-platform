@@ -133,7 +133,7 @@ describe('executeNotebookExecuteBatch', () => {
 
   describe('KeyboardInterrupt 対応', () => {
     test('KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる', async () => {
-      // サーバーが返す CellExecuteBatchResponse に error 情報が含まれるように拡張が必要
+      // サーバーは KeyboardInterrupt 時に error フィールドを返す
       const mockResponse: CellExecuteBatchResponse = {
         executed_cells: 3,
         success_count: 2,
