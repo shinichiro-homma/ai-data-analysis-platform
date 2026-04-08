@@ -39,6 +39,8 @@ import {
   CellOutputData,
   CellExecuteRequest,
   CellExecuteResponse,
+  CellExecuteBatchRequest,
+  CellExecuteBatchResponse,
   DataPreviewResponse,
   DataPreviewOptions,
   TextFileResponse,
@@ -451,6 +453,22 @@ export class JupyterClient {
       `/api/custom/contents/${encodeURIComponent(path)}/cells/${cellIndex}/execute`,
       request,
       { path, index: cellIndex },
+      requestTimeoutMs,
+    );
+    return response.data;
+  }
+
+  // ===========================================================================
+  // セル一括実行
+  // ===========================================================================
+
+  async executeBatchCells(path: string, request: CellExecuteBatchRequest): Promise<CellExecuteBatchResponse> {
+    const requestTimeoutMs = this.calculateRequestTimeout(request.timeout);
+    const response = await this.request<ApiResponse<CellExecuteBatchResponse>>(
+      'POST',
+      `/api/custom/contents/${encodeURIComponent(path)}/cells/execute-batch`,
+      request,
+      { path },
       requestTimeoutMs,
     );
     return response.data;

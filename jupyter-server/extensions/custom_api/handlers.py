@@ -881,6 +881,63 @@ class ContentsPreviewHandler(BaseCustomHandler):
 
 
 # =============================================================================
+# セル実行ヘルパー
+# =============================================================================
+
+
+async def _load_notebook(handler: BaseCustomHandler, path: str):
+    """ノートブックを読み込み、(model, cells) を返す。エラー時は None を返す（レスポンスはハンドラーが送信済み）。"""
+    try:
+        model = await handler.contents_manager.get(path, content=True)
+    except FileNotFoundError:
+        handler.write_error_response("NOT_FOUND", f"Not found: {path}", 404)
+        return None
+    except Exception as e:
+        log.error("Failed to get notebook '%s': %s", path, e, exc_info=True)
+        handler.write_error_response("INTERNAL_ERROR", "Failed to get notebook", 500)
+        return None
+
+    if model["type"] != "notebook":
+        handler.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
+        return None
+
+    cells = model["content"].get("cells", [])
+    return model, cells
+
+
+def _result_to_nb_outputs(result: dict) -> list:
+    """KernelExecutor の実行結果を Jupyter Notebook の outputs 形式に変換する。"""
+    nb_outputs = []
+    for output in result.get("outputs", []):
+        nb_outputs.append(
+            {
+                "output_type": "stream",
+                "name": output.get("type", "stdout"),
+                "text": output.get("text", ""),
+            }
+        )
+    if result.get("result") is not None:
+        nb_outputs.append(
+            {
+                "output_type": "execute_result",
+                "execution_count": result.get("execution_count", 0),
+                "data": {"text/plain": str(result["result"])},
+                "metadata": {},
+            }
+        )
+    if result.get("error"):
+        nb_outputs.append(
+            {
+                "output_type": "error",
+                "ename": result["error"].get("type", "Error"),
+                "evalue": result["error"].get("message", ""),
+                "traceback": result["error"].get("traceback", []),
+            }
+        )
+    return nb_outputs
+
+
+# =============================================================================
 # セル再実行
 # =============================================================================
 
@@ -922,21 +979,10 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
             return
 
         # ノートブックを読み込む
-        try:
-            model = await self.contents_manager.get(path, content=True)
-        except FileNotFoundError:
-            self.write_error_response("NOT_FOUND", f"Not found: {path}", 404)
+        loaded = await _load_notebook(self, path)
+        if loaded is None:
             return
-        except Exception as e:
-            log.error("Failed to get notebook '%s': %s", path, e, exc_info=True)
-            self.write_error_response("INTERNAL_ERROR", "Failed to get notebook", 500)
-            return
-
-        if model["type"] != "notebook":
-            self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
-            return
-
-        cells = model["content"].get("cells", [])
+        model, cells = loaded
 
         # セルインデックスの範囲チェック
         if cell_index < 0 or cell_index >= len(cells):
@@ -1003,34 +1049,7 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
             self.write_error_response("INTERNAL_ERROR", "Failed to execute cell", 500)
             return
 
-        # 実行結果から Jupyter Notebook の outputs 形式に変換
-        nb_outputs = []
-        for output in result.get("outputs", []):
-            nb_outputs.append(
-                {
-                    "output_type": "stream",
-                    "name": output.get("type", "stdout"),
-                    "text": output.get("text", ""),
-                }
-            )
-        if result.get("result") is not None:
-            nb_outputs.append(
-                {
-                    "output_type": "execute_result",
-                    "execution_count": result.get("execution_count", 0),
-                    "data": {"text/plain": str(result["result"])},
-                    "metadata": {},
-                }
-            )
-        if result.get("error"):
-            nb_outputs.append(
-                {
-                    "output_type": "error",
-                    "ename": result["error"].get("type", "Error"),
-                    "evalue": result["error"].get("message", ""),
-                    "traceback": result["error"].get("traceback", []),
-                }
-            )
+        nb_outputs = _result_to_nb_outputs(result)
 
         cells[cell_index]["outputs"] = nb_outputs
         cells[cell_index]["execution_count"] = result.get("execution_count", 0)
@@ -1049,6 +1068,180 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
                 "execution_count": result.get("execution_count", 0),
                 "outputs": nb_outputs,
                 "execution_time_ms": execution_time_ms,
+            }
+        )
+
+
+class ContentsCellExecuteBatchHandler(BaseCustomHandler):
+    """POST /api/custom/contents/{path}/cells/execute-batch"""
+
+    @web.authenticated
+    async def post(self, path: str):
+        """指定範囲のセルを一括実行する"""
+        try:
+            # パストラバーサル対策
+            path = validate_path(path)
+        except ValueError as e:
+            self.write_error_response("VALIDATION_ERROR", str(e), 400)
+            return
+
+        if not path.endswith(".ipynb"):
+            self.write_error_response("VALIDATION_ERROR", "Not a notebook: path must end with .ipynb", 400)
+            return
+
+        # リクエストボディの取得
+        body = self.get_json_body() or {}
+        kernel_id = body.get("kernel_id")
+        mode = body.get("mode")
+        cell_index = body.get("cell_index")
+        timeout = body.get("timeout", 30)
+
+        if not kernel_id:
+            self.write_error_response("VALIDATION_ERROR", "kernel_id is required", 400)
+            return
+
+        if not mode:
+            self.write_error_response("VALIDATION_ERROR", "mode is required", 400)
+            return
+
+        valid_modes = ("all", "up_to", "from")
+        if mode not in valid_modes:
+            self.write_error_response(
+                "VALIDATION_ERROR",
+                f"mode must be one of: {', '.join(valid_modes)}. Got: {mode}",
+                400,
+            )
+            return
+
+        if mode in ("up_to", "from"):
+            if cell_index is None:
+                self.write_error_response(
+                    "VALIDATION_ERROR",
+                    f"cell_index is required when mode is '{mode}'",
+                    400,
+                )
+                return
+            if not isinstance(cell_index, int):
+                self.write_error_response(
+                    "VALIDATION_ERROR",
+                    f"cell_index must be an integer. Got: {type(cell_index).__name__}",
+                    400,
+                )
+                return
+
+        if not self.check_kernel_exists(kernel_id):
+            return
+
+        # ノートブックを読み込む
+        loaded = await _load_notebook(self, path)
+        if loaded is None:
+            return
+        model, cells = loaded
+
+        # 実行範囲の決定
+        if mode == "all":
+            start_idx = 0
+            end_idx = len(cells) - 1
+        elif mode == "up_to":
+            if cell_index < 0 or cell_index >= len(cells):
+                self.write_error_response(
+                    "VALIDATION_ERROR",
+                    f"cell_index {cell_index} is out of range (0-{len(cells) - 1})",
+                    400,
+                )
+                return
+            start_idx = 0
+            end_idx = cell_index
+        else:  # from
+            if cell_index < 0 or cell_index >= len(cells):
+                self.write_error_response(
+                    "VALIDATION_ERROR",
+                    f"cell_index {cell_index} is out of range (0-{len(cells) - 1})",
+                    400,
+                )
+                return
+            start_idx = cell_index
+            end_idx = len(cells) - 1
+
+        # timeout の検証
+        validated_timeout, timeout_error = validate_timeout(timeout)
+        if timeout_error:
+            self.write_error_response("VALIDATION_ERROR", timeout_error, 400)
+            return
+
+        # ワークスペース解決（画像保存先）
+        output_dir, workspace_rel_path = await _resolve_workspace_for_kernel(self, kernel_id)
+
+        executor = KernelExecutor(kernel_id, self.kernel_manager)
+
+        executed_cells = 0
+        success_count = 0
+        failed_cell = None
+
+        for i in range(start_idx, end_idx + 1):
+            cell = cells[i]
+            if cell.get("cell_type") != "code":
+                # Markdown セルはスキップ
+                continue
+
+            source = cell.get("source", "")
+
+            # AST解析によるコード検証
+            validation = validate_code(source)
+            if not validation.valid:
+                failed_cell = i
+                break
+
+            executed_cells += 1
+
+            try:
+                result = await executor.execute(
+                    source,
+                    timeout=validated_timeout,
+                    output_dir=output_dir,
+                    workspace_rel_path=workspace_rel_path,
+                )
+            except TimeoutError:
+                cells[i]["outputs"] = [
+                    {
+                        "output_type": "error",
+                        "ename": "TimeoutError",
+                        "evalue": f"Execution timed out after {validated_timeout} seconds",
+                        "traceback": [],
+                    }
+                ]
+                failed_cell = i
+                break
+            except Exception as e:
+                log.error("Execution error in kernel %s at cell %d: %s", kernel_id, i, e, exc_info=True)
+                failed_cell = i
+                break
+
+            # エラー確認
+            if result.get("error"):
+                failed_cell = i
+                cells[i]["outputs"] = _result_to_nb_outputs(result)
+                cells[i]["execution_count"] = result.get("execution_count", 0)
+                break
+
+            nb_outputs = _result_to_nb_outputs(result)
+            cells[i]["outputs"] = nb_outputs
+            cells[i]["execution_count"] = result.get("execution_count", 0)
+            success_count += 1
+
+        model["content"]["cells"] = cells
+
+        try:
+            await self.contents_manager.save(model, path)
+        except Exception as e:
+            log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
+            # 保存失敗は無視して実行結果を返す
+
+        self.write_success(
+            {
+                "executed_cells": executed_cells,
+                "success_count": success_count,
+                "failed_cell": failed_cell,
             }
         )
 
@@ -1072,6 +1265,7 @@ def get_handlers(base_url: str = ""):
         # /api/contents の代わりに /api/custom/contents を使用（JupyterLab フロントエンドとの競合を回避）
         (f"{base_url}/api/custom/contents", ContentsListHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells/([0-9]+)/execute", ContentsCellExecuteHandler),
+        (f"{base_url}/api/custom/contents/(.*)/cells/execute-batch", ContentsCellExecuteBatchHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells", ContentsCellsHandler),
         (f"{base_url}/api/custom/contents/(.*)/preview", ContentsPreviewHandler),
         (f"{base_url}/api/custom/contents/(.*)", ContentsHandler),

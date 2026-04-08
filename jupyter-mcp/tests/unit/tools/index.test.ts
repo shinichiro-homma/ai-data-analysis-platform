@@ -77,6 +77,9 @@ vi.mock('../../../src/tools/notebook-delete-cell.js', () => ({
 vi.mock('../../../src/tools/notebook-execute-cell.js', () => ({
   executeNotebookExecuteCell: vi.fn(async () => mockResponse('notebook_execute_cell')),
 }));
+vi.mock('../../../src/tools/notebook-execute-batch.js', () => ({
+  executeNotebookExecuteBatch: vi.fn(async () => mockResponse('notebook_execute_batch')),
+}));
 vi.mock('../../../src/tools/notebook-reorder-cell.js', () => ({
   executeNotebookReorderCell: vi.fn(async () => mockResponse('notebook_reorder_cell')),
 }));
@@ -95,7 +98,7 @@ beforeEach(() => {
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(24);
+    expect(tools).toHaveLength(25);
 
     const expectedToolNames = [
       'workspace_create',
@@ -109,6 +112,7 @@ describe('registerTools', () => {
       'notebook_delete_cell',
       'notebook_reorder_cell',
       'notebook_execute_cell',
+      'notebook_execute_batch',
       'session_create',
       'session_list',
       'session_delete',
@@ -177,6 +181,10 @@ describe('handleToolCall', () => {
       toolName: 'notebook_execute_cell',
       args: { notebook_path: 'test.ipynb', session_id: 'session-1', cell_index: 0 },
     },
+    {
+      toolName: 'notebook_execute_batch',
+      args: { notebook_path: 'test.ipynb', session_id: 'session-1', mode: 'all' },
+    },
     { toolName: 'session_create', args: {} },
     { toolName: 'session_list', args: {} },
     { toolName: 'session_delete', args: { session_id: 'session-1' } },
@@ -213,6 +221,7 @@ describe('handleToolCall ミドルウェア（自動AI編集モード）', () =>
     'notebook_edit_cell',
     'notebook_delete_cell',
     'notebook_execute_cell',
+    'notebook_execute_batch',
     'notebook_reorder_cell',
   ];
 
