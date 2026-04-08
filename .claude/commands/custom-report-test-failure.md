@@ -33,9 +33,9 @@
 
 ### 手順1: テストを1回だけ実行し、出力をファイルに保存
 
-scripts/test.sh --integration --rebuild --health {コンポーネント名} 2>&1 | tee /tmp/test-output.log
+scripts/test.sh --integration --rebuild --health --no-lint {コンポーネント名} 2>&1 | tee /tmp/test-output.log
 
-（全コンポーネントの場合は引数なし: scripts/test.sh --integration --rebuild --health 2>&1 | tee /tmp/test-output.log）
+（全コンポーネントの場合は引数なし: scripts/test.sh --integration --rebuild --health --no-lint 2>&1 | tee /tmp/test-output.log）
 
 **重要: テストは1回しか実行しないこと。解析に必要な情報はすべて /tmp/test-output.log から Read ツールや Grep ツールで取得すること。**
 

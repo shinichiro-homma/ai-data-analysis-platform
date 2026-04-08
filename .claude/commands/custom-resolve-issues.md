@@ -145,6 +145,8 @@ Phase 1.4 の見積もりに基づいて修正を実装してください。
 
 #### 3.2 テスト実行
 
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
+
 ```bash
 scripts/test.sh --health {対象コンポーネント名}
 ```
@@ -193,7 +195,7 @@ Closes #{Issue番号1}, #{Issue番号2}, ...
 
 ### 4.1 最終テスト
 
-全コンポーネントの最終テストを実行してください：
+全コンポーネントの最終テストを実行してください。lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ```bash
 scripts/test.sh --health

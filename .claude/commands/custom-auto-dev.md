@@ -166,6 +166,7 @@ Agent ツールでサブエージェントを起動してください。
 ## 手順
 
 `.claude/rules/tdd.md` を読み、「Red フェーズ」の手順に従ってテストを準備してください。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
 テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
 
 ## 報告
@@ -204,6 +205,7 @@ Agent ツールでサブエージェントを起動してください。
 ## 実装手順
 
 `.claude/rules/tdd.md` を読み、「Green フェーズ」の手順に従って実装してください。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
 テストが通るまで最大 5 回繰り返すこと。
 実装に関係のないファイルを変更しないこと。
 
@@ -259,6 +261,7 @@ Agent ツールでサブエージェントを起動し、レビュー指摘に�
 
 制約:
 - `.claude/rules/tdd.md` の原則に従うこと
+- lint 失敗時は `.claude/rules/lint.md` に従うこと
 - 機能の追加・変更を行わない（リファクタリングのみ）
 - テストが通るまで最大 3 回繰り返す
 
@@ -295,7 +298,7 @@ Agent ツール（subagent_type: `code-reviewer`, model: `opus`）でレビュ�
 - レビューの REJECT 理由と修正指示
 - テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
 
-制約: テストコードを変更しない、指摘箇所のみ修正
+制約: テストコードを変更しない、指摘箇所のみ修正、lint 失敗時は `.claude/rules/lint.md` に従うこと
 
 修正後、再度ステップ 2e（レビュー）を実行してください。
 

@@ -80,6 +80,7 @@ Issue #{Issue番号} の修正を実装してください。
 - 修正方針から逸脱しない
 - 影響範囲外のファイルを不必要に変更しない
 - `.claude/rules/tdd.md` を読み、その原則に従うこと
+- lint 失敗時は `.claude/rules/lint.md` に従うこと
 - テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
 - テストが通るまで最大 5 回繰り返すこと
 

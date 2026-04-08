@@ -25,6 +25,7 @@ OPTIONS:
   --integration   統合テスト（Docker 環境が必要）
   --rebuild       テスト前にコンポーネントを自動リビルド（MCP/Docker を自動判定）
   --health        テスト後に既知障害と照合して分類する
+  --no-lint       lint / format チェックをスキップする
   -h, --help      このヘルプを表示
 
 Examples:
@@ -41,6 +42,7 @@ EOF
 
 TYPECHECK=true
 TEST=true
+LINT=true
 HEALTH=false
 INTEGRATION=false
 REBUILD=false
@@ -52,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --test)          TYPECHECK=false; shift ;;
     --integration)   INTEGRATION=true; shift ;;
     --rebuild)       REBUILD=true; shift ;;
+    --no-lint)       LINT=false; shift ;;
     --health)        HEALTH=true; shift ;;
     -h|--help)    usage; exit 0 ;;
     -*)           echo "Error: unknown option $1" >&2; usage; exit 1 ;;
@@ -97,8 +100,31 @@ run_rebuild() {
 
 echo "=== Test Runner ==="
 echo "Targets: ${TARGETS[*]}"
-echo "Typecheck: $TYPECHECK | Test: $TEST | Integration: $INTEGRATION"
+echo "Typecheck: $TYPECHECK | Test: $TEST | Lint: $LINT | Integration: $INTEGRATION"
 echo ""
+
+# Lint check (before any build/test)
+if $LINT; then
+  echo "--- Lint / Format Check ---"
+  # Map test.sh component names to lint.sh component names
+  # test.sh targets: jupyter-mcp, document-mcp, document-server, jupyter-server
+  # lint.sh also supports: mcp-shared, scripts
+  LINT_TARGETS=()
+  for _t in "${TARGETS[@]}"; do
+    LINT_TARGETS+=("$_t")
+  done
+  # Always include mcp-shared and scripts when running all components
+  if [[ ${#TARGETS[@]} -eq ${#COMPONENTS[@]} ]]; then
+    LINT_TARGETS+=("mcp-shared" "scripts")
+  fi
+  if scripts/lint.sh "${LINT_TARGETS[@]}"; then
+    echo ""
+  else
+    echo ""
+    echo "ERROR: Lint check failed. Fix lint issues before running tests."
+    exit 1
+  fi
+fi
 
 # Integration mode: check Docker environment
 if $INTEGRATION; then

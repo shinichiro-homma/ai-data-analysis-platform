@@ -7,8 +7,10 @@
 
 | スクリプト | 用途 | 例 |
 |-----------|------|-----|
-| `scripts/test.sh [COMPONENT]` | 型チェック + テスト | `scripts/test.sh jupyter-mcp` |
-| `scripts/test.sh --rebuild [COMPONENT]` | リビルド + テスト（MCP/Docker 自動判定） | `scripts/test.sh --rebuild jupyter-mcp` |
+| `scripts/lint.sh [COMPONENT]` | lint / format チェック（検出のみ） | `scripts/lint.sh jupyter-mcp` |
+| `scripts/test.sh [COMPONENT]` | lint + 型チェック + テスト | `scripts/test.sh jupyter-mcp` |
+| `scripts/test.sh --no-lint [COMPONENT]` | 型チェック + テスト（lint スキップ） | `scripts/test.sh --no-lint jupyter-mcp` |
+| `scripts/test.sh --rebuild [COMPONENT]` | リビルド + lint + テスト（MCP/Docker 自動判定） | `scripts/test.sh --rebuild jupyter-mcp` |
 | `scripts/test.sh --integration [COMPONENT]` | 統合テスト（Docker 環境必要） | `scripts/test.sh --integration jupyter-mcp` |
 | `scripts/smoke-test.sh` | Docker 環境のスモークテスト | `scripts/smoke-test.sh` |
 | `scripts/check-freshness.sh` | Docker 環境の鮮度チェック | `scripts/check-freshness.sh` |
@@ -29,11 +31,16 @@
 ## よく使うパターン
 
 ```bash
-# リビルド + テスト（推奨: MCP/Docker を自動判定）
+# lint / format チェック（検出のみ、CI と同じルール）
+scripts/lint.sh                           # 全対象
+scripts/lint.sh jupyter-mcp               # 特定コンポーネント
+scripts/lint.sh document-server scripts   # 複数指定
+
+# リビルド + テスト（推奨: MCP/Docker を自動判定、lint 込み）
 scripts/test.sh --rebuild jupyter-mcp
 scripts/test.sh --rebuild document-server
 
-# コード変更後のテスト（リビルドなし）
+# コード変更後のテスト（リビルドなし、lint 込み）
 scripts/test.sh jupyter-mcp
 
 # MCP サーバーのリビルド（コード変更を反映）
