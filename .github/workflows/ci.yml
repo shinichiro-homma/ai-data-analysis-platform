@@ -34,7 +34,7 @@ jobs:
           while IFS= read -r file; do
             [ -z "$file" ] && continue
             case "$file" in
-              docs/*|*.md|.claude/*) ;;
+              docs/*|*.md|.claude/*|.githooks/*|.mainignore) ;;
               *) CODE_CHANGED="true"; break ;;
             esac
           done <<< "$CHANGED"
