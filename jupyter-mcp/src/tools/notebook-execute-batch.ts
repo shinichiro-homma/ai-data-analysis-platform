@@ -97,6 +97,7 @@ export async function executeNotebookExecuteBatch(args: Record<string, unknown>)
       executed_cells: result.executed_cells,
       success_count: result.success_count,
       failed_cell: result.failed_cell,
+      ...(result.error !== undefined ? { error: result.error } : {}),
     });
   } catch (error) {
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));

@@ -151,6 +151,40 @@ describe('executeNotebookExecuteCell', () => {
     });
   });
 
+  describe('KeyboardInterrupt 対応', () => {
+    test('KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる', async () => {
+      const mockResponse: CellExecuteResponse = {
+        cell_index: 0,
+        source: 'import time; time.sleep(100)',
+        execution_count: 5,
+        outputs: [
+          {
+            output_type: 'error',
+            ename: 'KeyboardInterrupt',
+            evalue: '',
+            traceback: [
+              '\u001b[0;31m---------------------------------------------------------------------------\u001b[0m',
+              '\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)',
+              '\u001b[0;31mKeyboardInterrupt\u001b[0m: ',
+            ],
+          },
+        ],
+        execution_time_ms: 3000,
+      };
+
+      vi.mocked(jupyterClient.executeCellInNotebook).mockResolvedValue(mockResponse);
+
+      const result = await executeNotebookExecuteCell({
+        notebook_path: 'analysis.ipynb',
+        session_id: 'session-123',
+        cell_index: 0,
+      });
+
+      const responseText = result.content[0].text;
+      expect(responseText).toContain('KeyboardInterrupt');
+    });
+  });
+
   describe('異常系 - API エラー', () => {
     test('範囲外の cell_index => サーバーエラーが伝播される', async () => {
       const error = new Error('セルインデックスが不正です: 999');
