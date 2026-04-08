@@ -101,6 +101,9 @@ vi.mock('../../../src/tools/notebook-change-cell-type.js', () => ({
 vi.mock('../../../src/tools/notebook-copy-cell.js', () => ({
   executeNotebookCopyCell: vi.fn(async () => mockResponse('notebook_copy_cell')),
 }));
+vi.mock('../../../src/tools/notebook-clear-outputs.js', () => ({
+  executeNotebookClearOutputs: vi.fn(async () => mockResponse('notebook_clear_outputs')),
+}));
 
 beforeEach(() => {
   mockEmitAiEditStart.mockClear();
@@ -110,7 +113,7 @@ beforeEach(() => {
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(29);
+    expect(tools).toHaveLength(30);
 
     const expectedToolNames = [
       'workspace_create',
@@ -142,6 +145,7 @@ describe('registerTools', () => {
       'notebook_split_cell',
       'notebook_change_cell_type',
       'notebook_copy_cell',
+      'notebook_clear_outputs',
     ];
 
     const toolNames = tools.map((t) => t.name);

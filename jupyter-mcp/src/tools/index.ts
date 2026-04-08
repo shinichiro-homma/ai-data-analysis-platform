@@ -46,6 +46,7 @@ import { executeNotebookMergeCells } from './notebook-merge-cells.js';
 import { executeNotebookSplitCell } from './notebook-split-cell.js';
 import { executeNotebookChangeCellType } from './notebook-change-cell-type.js';
 import { executeNotebookCopyCell } from './notebook-copy-cell.js';
+import { executeNotebookClearOutputs } from './notebook-clear-outputs.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -758,6 +759,28 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
     },
     execute: executeNotebookCopyCell,
   },
+  {
+    definition: {
+      name: 'notebook_clear_outputs',
+      description:
+        'Clears the outputs and execution_count of cells in a notebook. When cell_index is specified, only that cell is cleared. When omitted, all code cells in the notebook are cleared.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'integer',
+            description: 'Cell index to clear (0-indexed). If omitted, all code cells are cleared',
+          },
+        },
+        required: ['notebook_path'],
+      },
+    },
+    execute: executeNotebookClearOutputs,
+  },
 ];
 
 /** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する */
@@ -773,6 +796,7 @@ const NOTEBOOK_EDIT_TOOLS = new Set([
   'notebook_split_cell',
   'notebook_change_cell_type',
   'notebook_copy_cell',
+  'notebook_clear_outputs',
 ]);
 
 /**

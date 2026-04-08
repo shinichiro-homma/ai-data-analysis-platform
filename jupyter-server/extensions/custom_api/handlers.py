@@ -905,6 +905,15 @@ class ContentsCellsHandler(BaseCustomHandler):
 
                 cells.insert(to_index, copied_cell)
 
+            elif action == "clear_output":
+                if not isinstance(index, int) or index < 0 or index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {index}", 400)
+                    return
+
+                if cells[index].get("cell_type") == "code":
+                    cells[index]["outputs"] = []
+                    cells[index]["execution_count"] = None
+
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)
                 return
@@ -1234,6 +1243,55 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
         )
 
 
+class ContentsCellsClearAllOutputsHandler(BaseCustomHandler):
+    """POST /api/custom/contents/{path}/cells/clear-all-outputs"""
+
+    @web.authenticated
+    async def post(self, path: str):
+        """全コードセルの出力をクリアする"""
+        try:
+            path = validate_path(path)
+        except ValueError as e:
+            self.write_error_response("VALIDATION_ERROR", str(e), 400)
+            return
+
+        if not path.endswith(".ipynb"):
+            self.write_error_response("VALIDATION_ERROR", "Not a notebook: path must end with .ipynb", 400)
+            return
+
+        try:
+            model = await self.contents_manager.get(path, content=True)
+        except FileNotFoundError:
+            self.write_error_response("NOTEBOOK_NOT_FOUND", f"Not found: {path}", 404)
+            return
+        except Exception as e:
+            log.error("Failed to load notebook '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to load notebook", 500)
+            return
+
+        if model["type"] != "notebook":
+            self.write_error_response("VALIDATION_ERROR", "Not a notebook", 400)
+            return
+
+        cells = model["content"].get("cells", [])
+        cleared_cells = 0
+
+        for cell in cells:
+            if cell.get("cell_type") == "code":
+                cell["outputs"] = []
+                cell["execution_count"] = None
+                cleared_cells += 1
+
+        try:
+            await self.contents_manager.save(model, path)
+        except Exception as e:
+            log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
+            self.write_error_response("INTERNAL_ERROR", "Failed to save notebook", 500)
+            return
+
+        self.write_success({"cleared_cells": cleared_cells})
+
+
 class ContentsCellExecuteBatchHandler(BaseCustomHandler):
     """POST /api/custom/contents/{path}/cells/execute-batch"""
 
@@ -1428,6 +1486,7 @@ def get_handlers(base_url: str = ""):
         (f"{base_url}/api/custom/contents", ContentsListHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells/([0-9]+)/execute", ContentsCellExecuteHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells/execute-batch", ContentsCellExecuteBatchHandler),
+        (f"{base_url}/api/custom/contents/(.*)/cells/clear-all-outputs", ContentsCellsClearAllOutputsHandler),
         (f"{base_url}/api/custom/contents/(.*)/cells", ContentsCellsHandler),
         (f"{base_url}/api/custom/contents/(.*)/preview", ContentsPreviewHandler),
         (f"{base_url}/api/custom/contents/(.*)", ContentsHandler),
