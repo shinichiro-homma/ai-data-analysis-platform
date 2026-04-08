@@ -17,6 +17,15 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - 指定したカーネルを停止できる
 - 全カーネルの一括停止ができる
 
+#### F1.4: カーネル再起動
+- 指定したカーネルを再起動できる（変数・実行状態をリセット）
+- 再起動後もセッションは維持される
+
+#### F1.5: カーネル中断
+- 実行中のコードを中断できる
+- AI編集ロック中でも中断を受け付ける（ロック貫通）
+- 中断されたコード実行はエラーレスポンス（`KeyboardInterrupt`）を返す
+
 #### F1.3: カーネル状態確認
 - カーネルの状態（idle/busy/dead）を取得できる
 - 起動中のカーネル一覧を取得できる
@@ -56,6 +65,19 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - セルの出力を取得できる
 - セルの一覧を取得できる（各セルのソース、出力、実行回数を含む）
 - 指定セルのコードをカーネルで再実行し、出力と実行回数を更新できる
+- セルの一括実行ができる（全セル / 指定位置まで / 指定位置以降）
+  - Markdownセルはスキップし、コードセルのみ実行する
+  - 途中のセルでエラーが発生した場合は実行を停止する
+- 複数セルを1つに結合できる（ソースコードを改行区切りで連結）
+- セルを指定行で分割できる
+- セルのタイプを変更できる（code ↔ markdown）
+  - code → markdown 変換時は outputs と execution_count をクリアする
+- セルをコピー/ペーストできる（指定位置にセルを複製）
+- セルの出力をクリアできる（単一セル / 全セル）
+
+#### F3.4: カーネル再起動+全セル実行
+- カーネルを再起動した後、ノートブックの全コードセルを順番に実行する
+- カーネル再起動の完了を待ってから実行を開始する
 
 ### F4: AI同期イベント配信
 
@@ -275,6 +297,14 @@ Jupyter Server標準APIとカスタム拡張APIを使用:
 | `GET /api/custom/contents/{path}/cells` | セル一覧取得 |
 | `PATCH /api/custom/contents/{path}/cells` | セル操作 |
 | `POST /api/custom/contents/{path}/cells/{index}/execute` | セル再実行 |
+| `POST /api/custom/contents/{path}/cells/execute-batch` | セル一括実行（全セル / ここまで / これ以降） |
+| `PATCH /api/custom/contents/{path}/cells` (action: merge) | セル結合 |
+| `PATCH /api/custom/contents/{path}/cells` (action: split) | セル分割 |
+| `PATCH /api/custom/contents/{path}/cells` (action: change_type) | セルタイプ変更 |
+| `PATCH /api/custom/contents/{path}/cells` (action: copy) | セルコピー |
+| `PATCH /api/custom/contents/{path}/cells` (action: clear_output) | セル出力クリア |
+| `POST /api/custom/contents/{path}/cells/clear-all-outputs` | 全セル出力クリア |
+| `POST /api/kernels/{id}/restart-and-run-all` | カーネル再起動+全セル実行 |
 
 **ワークスペース・セッション管理:**
 
@@ -395,6 +425,25 @@ Jupyter Server標準APIとカスタム拡張APIを使用:
 - [ ] 非SELECT文を指定するとバリデーションエラーが返る
 - [ ] タイムアウト設定が機能する（デフォルト300秒）
 - [ ] DATABASE_URL が未設定の場合に適切なエラーメッセージが返る
+
+### AC11: セル一括操作
+- [ ] セルの一括実行（全セル）で全コードセルが順番に実行される
+- [ ] セルの一括実行（ここまで）で指定セルまでが実行される
+- [ ] セルの一括実行（これ以降）で指定セル以降が実行される
+- [ ] Markdownセルがスキップされる
+- [ ] 途中でエラーが発生した場合、以降のセルは実行されない
+- [ ] セル結合で複数セルのソースコードが連結される
+- [ ] セル分割で1つのセルが指定行で2つに分かれる
+- [ ] セルタイプ変更（code → markdown）で outputs と execution_count がクリアされる
+- [ ] セルコピーで指定位置にセルが複製される
+- [ ] 単一セルの出力クリアで outputs が空になり execution_count がリセットされる
+- [ ] 全セルの出力クリアで全コードセルの outputs が空になる
+
+### AC12: カーネル制御
+- [ ] カーネル再起動で変数・実行状態がリセットされる
+- [ ] カーネル再起動+全セル実行で、再起動後に全コードセルが順番に実行される
+- [ ] カーネル中断で実行中のコードが停止し、KeyboardInterrupt が返る
+- [ ] AI編集ロック中でもカーネル中断が実行できる
 
 ### AC8: シェルコマンド実行阻止
 - [ ] `POST /api/kernels/{id}/execute` で `!ls` を送信するとエラーが返る（AST 検査）
