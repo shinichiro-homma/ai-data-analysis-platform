@@ -44,6 +44,8 @@ import { executeDataPreview } from './data-preview.js';
 import { executeFileRead } from './file-read.js';
 import { executeNotebookMergeCells } from './notebook-merge-cells.js';
 import { executeNotebookSplitCell } from './notebook-split-cell.js';
+import { executeNotebookChangeCellType } from './notebook-change-cell-type.js';
+import { executeNotebookCopyCell } from './notebook-copy-cell.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -702,6 +704,60 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
     },
     execute: executeNotebookSplitCell,
   },
+  {
+    definition: {
+      name: 'notebook_change_cell_type',
+      description:
+        'Changes the type of a cell in a notebook (code ↔ markdown). outputs and execution_count are always cleared/initialized on type change.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to change type (0-indexed)',
+          },
+          new_type: {
+            type: 'string',
+            enum: ['code', 'markdown'],
+            description: 'New cell type (code or markdown)',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'new_type'],
+      },
+    },
+    execute: executeNotebookChangeCellType,
+  },
+  {
+    definition: {
+      name: 'notebook_copy_cell',
+      description:
+        'Copies a cell to a specified position within a notebook. The copied cell has its outputs and execution_count cleared (for code cells). If target_index is omitted, the cell is copied immediately after the source cell.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          source_index: {
+            type: 'number',
+            description: 'Cell index to copy (0-indexed)',
+          },
+          target_index: {
+            type: 'number',
+            description:
+              'Position to insert the copied cell (0-indexed). If omitted, the cell is inserted immediately after the source cell',
+          },
+        },
+        required: ['notebook_path', 'source_index'],
+      },
+    },
+    execute: executeNotebookCopyCell,
+  },
 ];
 
 /** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する */
@@ -715,6 +771,8 @@ const NOTEBOOK_EDIT_TOOLS = new Set([
   'notebook_reorder_cell',
   'notebook_merge_cells',
   'notebook_split_cell',
+  'notebook_change_cell_type',
+  'notebook_copy_cell',
 ]);
 
 /**
