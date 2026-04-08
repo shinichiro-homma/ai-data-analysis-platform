@@ -104,6 +104,9 @@ vi.mock('../../../src/tools/notebook-copy-cell.js', () => ({
 vi.mock('../../../src/tools/notebook-clear-outputs.js', () => ({
   executeNotebookClearOutputs: vi.fn(async () => mockResponse('notebook_clear_outputs')),
 }));
+vi.mock('../../../src/tools/kernel-restart.js', () => ({
+  executeKernelRestart: vi.fn(async () => mockResponse('kernel_restart')),
+}));
 
 beforeEach(() => {
   mockEmitAiEditStart.mockClear();
@@ -113,7 +116,7 @@ beforeEach(() => {
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(30);
+    expect(tools).toHaveLength(31);
 
     const expectedToolNames = [
       'workspace_create',
@@ -146,6 +149,7 @@ describe('registerTools', () => {
       'notebook_change_cell_type',
       'notebook_copy_cell',
       'notebook_clear_outputs',
+      'kernel_restart',
     ];
 
     const toolNames = tools.map((t) => t.name);
@@ -216,6 +220,7 @@ describe('handleToolCall', () => {
     { toolName: 'execute_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'test.csv' } },
     { toolName: 'export_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'export.parquet' } },
     { toolName: 'get_image', args: { file_path: 'workspaces/ws-123/output/exec-1-img-001.png' } },
+    { toolName: 'kernel_restart', args: { session_id: 'session-1' } },
   ];
 
   toolRoutingTestCases.forEach(({ toolName, args }) => {

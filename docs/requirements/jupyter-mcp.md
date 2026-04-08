@@ -1011,34 +1011,6 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 }
 ```
 
-### kernel_restart_and_run_all
-
-カーネルを再起動し、ノートブックの全コードセルを順番に実行する。
-
-```typescript
-{
-  name: "kernel_restart_and_run_all",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      timeout: {
-        type: "number",
-        description: "セルあたりのタイムアウト秒数"
-      }
-    },
-    required: ["notebook_path", "session_id"]
-  }
-}
-```
-
 ### kernel_interrupt
 
 実行中のコードを中断する。AI編集ロック中でも実行可能（ロック貫通）。中断された場合、実行中のMCPツール（execute_code等）のレスポンスに `interrupted: true` が含まれる。
@@ -1256,7 +1228,7 @@ npm run build && npm start
 
 ### AC14: カーネル制御
 - [ ] kernel_restart でカーネルが再起動され、変数がリセットされる
-- [ ] kernel_restart_and_run_all で再起動後に全セルが実行される
+- [ ] kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで再起動後に全セルが実行される
 - [ ] kernel_interrupt で実行中のコードが中断される
 - [ ] kernel_interrupt がAI編集ロック中でも実行できる
 - [ ] 中断された execute_code のレスポンスに interrupted 情報が含まれる
