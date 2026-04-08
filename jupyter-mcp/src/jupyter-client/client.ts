@@ -41,6 +41,7 @@ import {
   CellExecuteResponse,
   CellExecuteBatchRequest,
   CellExecuteBatchResponse,
+  ClearAllOutputsResponse,
   DataPreviewResponse,
   DataPreviewOptions,
   TextFileResponse,
@@ -454,6 +455,20 @@ export class JupyterClient {
       request,
       { path, index: cellIndex },
       requestTimeoutMs,
+    );
+    return response.data;
+  }
+
+  // ===========================================================================
+  // 出力クリア
+  // ===========================================================================
+
+  async clearAllOutputs(path: string): Promise<ClearAllOutputsResponse> {
+    const response = await this.request<ApiResponse<ClearAllOutputsResponse>>(
+      'POST',
+      `/api/custom/contents/${encodeURIComponent(path)}/cells/clear-all-outputs`,
+      undefined,
+      { path },
     );
     return response.data;
   }

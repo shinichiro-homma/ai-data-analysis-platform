@@ -180,7 +180,16 @@ export interface UpdateNotebookRequest {
   content: NotebookContent;
 }
 
-export type CellAction = 'add' | 'update' | 'delete' | 'reorder' | 'merge' | 'split' | 'change_type' | 'copy';
+export type CellAction =
+  | 'add'
+  | 'update'
+  | 'delete'
+  | 'reorder'
+  | 'merge'
+  | 'split'
+  | 'change_type'
+  | 'copy'
+  | 'clear_output';
 
 export interface CellOperationRequest {
   action: CellAction;
@@ -293,7 +302,9 @@ export interface AiEventBase {
     | 'cells_merged'
     | 'cell_split'
     | 'cell_type_changed'
-    | 'cell_copied';
+    | 'cell_copied'
+    | 'output_cleared'
+    | 'all_outputs_cleared';
 }
 
 /**
@@ -452,6 +463,25 @@ export interface CellCopiedEvent extends AiEventBase {
 }
 
 /**
+ * 単一セル出力クリアイベント
+ * AIが notebook_clear_outputs ツールを cell_index 指定で実行した際に配信される
+ */
+export interface OutputClearedEvent extends AiEventBase {
+  type: 'output_cleared';
+  notebook_path: string;
+  cell_index: number;
+}
+
+/**
+ * 全セル出力クリアイベント
+ * AIが notebook_clear_outputs ツールを cell_index 省略で実行した際に配信される
+ */
+export interface AllOutputsClearedEvent extends AiEventBase {
+  type: 'all_outputs_cleared';
+  notebook_path: string;
+}
+
+/**
  * AI同期イベントの型定義
  */
 export type AiEvent =
@@ -467,7 +497,9 @@ export type AiEvent =
   | CellsMergedEvent
   | CellSplitEvent
   | CellTypeChangedEvent
-  | CellCopiedEvent;
+  | CellCopiedEvent
+  | OutputClearedEvent
+  | AllOutputsClearedEvent;
 
 export interface BroadcastEventResponse {
   broadcasted: boolean;
@@ -594,6 +626,14 @@ export interface CellExecuteBatchResponse {
   executed_cells: number;
   success_count: number;
   failed_cell: number | null;
+}
+
+// =============================================================================
+// 出力クリア関連
+// =============================================================================
+
+export interface ClearAllOutputsResponse {
+  cleared_cells: number;
 }
 
 // =============================================================================
