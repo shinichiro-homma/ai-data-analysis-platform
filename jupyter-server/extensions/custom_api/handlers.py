@@ -743,6 +743,110 @@ class ContentsCellsHandler(BaseCustomHandler):
                 insert_index = min(to_index, len(cells))
                 cells.insert(insert_index, cell_to_move)
 
+            elif action == "merge":
+                start_index = body.get("start_index")
+                end_index = body.get("end_index")
+
+                if start_index is None or end_index is None:
+                    self.write_error_response("VALIDATION_ERROR", "start_index and end_index are required", 400)
+                    return
+                if not isinstance(start_index, int) or not isinstance(end_index, int):
+                    self.write_error_response("VALIDATION_ERROR", "start_index and end_index must be integers", 400)
+                    return
+                if start_index >= end_index:
+                    self.write_error_response(
+                        "VALIDATION_ERROR",
+                        f"start_index ({start_index}) must be less than end_index ({end_index})",
+                        400,
+                    )
+                    return
+                if start_index < 0 or end_index >= len(cells):
+                    self.write_error_response(
+                        "VALIDATION_ERROR",
+                        f"Index out of range: start_index={start_index}, end_index={end_index}, total={len(cells)}",
+                        400,
+                    )
+                    return
+
+                # セルタイプ混在チェック
+                cell_types = {cells[i]["cell_type"] for i in range(start_index, end_index + 1)}
+                if len(cell_types) > 1:
+                    self.write_error_response(
+                        "CELL_TYPE_MISMATCH",
+                        "Cannot merge cells of different types",
+                        400,
+                    )
+                    return
+
+                # ソースを \n で連結（末尾改行の重複を避ける）
+                merged_source = "\n".join(
+                    cells[i].get("source", "").rstrip("\n") for i in range(start_index, end_index + 1)
+                )
+                cell_type = cells[start_index]["cell_type"]
+                merged_cell = {
+                    "cell_type": cell_type,
+                    "source": merged_source,
+                    "metadata": cells[start_index].get("metadata", {}),
+                }
+                if cell_type == "code":
+                    merged_cell["outputs"] = []
+                    merged_cell["execution_count"] = None
+
+                # 先頭セルを置換し、残りを削除
+                cells[start_index] = merged_cell
+                del cells[start_index + 1 : end_index + 1]
+
+            elif action == "split":
+                split_index = body.get("index")
+                split_line = body.get("split_line")
+
+                if split_index is None or split_line is None:
+                    self.write_error_response("VALIDATION_ERROR", "index and split_line are required", 400)
+                    return
+                if not isinstance(split_index, int) or not isinstance(split_line, int):
+                    self.write_error_response("VALIDATION_ERROR", "index and split_line must be integers", 400)
+                    return
+                if split_index < 0 or split_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {split_index}", 400)
+                    return
+
+                source = cells[split_index].get("source", "")
+                source_lines = source.split("\n")
+                total_lines = len(source_lines)
+
+                if split_line < 1 or split_line >= total_lines:
+                    self.write_error_response(
+                        "VALIDATION_ERROR",
+                        f"split_line ({split_line}) must be between 1 and {total_lines - 1}",
+                        400,
+                    )
+                    return
+
+                cell_type = cells[split_index]["cell_type"]
+                metadata = cells[split_index].get("metadata", {})
+
+                first_half = "\n".join(source_lines[:split_line])
+                second_half = "\n".join(source_lines[split_line:])
+
+                first_cell = {
+                    "cell_type": cell_type,
+                    "source": first_half,
+                    "metadata": metadata,
+                }
+                second_cell = {
+                    "cell_type": cell_type,
+                    "source": second_half,
+                    "metadata": {},
+                }
+                if cell_type == "code":
+                    first_cell["outputs"] = []
+                    first_cell["execution_count"] = None
+                    second_cell["outputs"] = []
+                    second_cell["execution_count"] = None
+
+                cells[split_index] = first_cell
+                cells.insert(split_index + 1, second_cell)
+
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)
                 return

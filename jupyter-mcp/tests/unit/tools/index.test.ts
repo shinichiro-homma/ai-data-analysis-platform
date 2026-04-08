@@ -89,6 +89,12 @@ vi.mock('../../../src/tools/data-preview.js', () => ({
 vi.mock('../../../src/tools/file-read.js', () => ({
   executeFileRead: vi.fn(async () => mockResponse('file_read')),
 }));
+vi.mock('../../../src/tools/notebook-merge-cells.js', () => ({
+  executeNotebookMergeCells: vi.fn(async () => mockResponse('notebook_merge_cells')),
+}));
+vi.mock('../../../src/tools/notebook-split-cell.js', () => ({
+  executeNotebookSplitCell: vi.fn(async () => mockResponse('notebook_split_cell')),
+}));
 
 beforeEach(() => {
   mockEmitAiEditStart.mockClear();
@@ -98,7 +104,7 @@ beforeEach(() => {
 describe('registerTools', () => {
   test('全ツールが登録されている', () => {
     const tools = registerTools();
-    expect(tools).toHaveLength(25);
+    expect(tools).toHaveLength(27);
 
     const expectedToolNames = [
       'workspace_create',
@@ -126,6 +132,8 @@ describe('registerTools', () => {
       'get_image',
       'data_preview',
       'file_read',
+      'notebook_merge_cells',
+      'notebook_split_cell',
     ];
 
     const toolNames = tools.map((t) => t.name);

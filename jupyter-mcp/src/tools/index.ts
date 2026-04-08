@@ -42,6 +42,8 @@ import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
 import { executeNotebookExecuteBatch } from './notebook-execute-batch.js';
 import { executeDataPreview } from './data-preview.js';
 import { executeFileRead } from './file-read.js';
+import { executeNotebookMergeCells } from './notebook-merge-cells.js';
+import { executeNotebookSplitCell } from './notebook-split-cell.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -647,6 +649,59 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
     },
     execute: executeFileRead,
   },
+  {
+    definition: {
+      name: 'notebook_merge_cells',
+      description:
+        'Merges adjacent cells in a notebook into a single cell. All cells in the range must be the same type (code or markdown). The merged cell source is the concatenation of all sources joined by newlines.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          start_index: {
+            type: 'number',
+            description: 'Start cell index (0-indexed, inclusive)',
+          },
+          end_index: {
+            type: 'number',
+            description: 'End cell index (0-indexed, inclusive). Must be greater than start_index',
+          },
+        },
+        required: ['notebook_path', 'start_index', 'end_index'],
+      },
+    },
+    execute: executeNotebookMergeCells,
+  },
+  {
+    definition: {
+      name: 'notebook_split_cell',
+      description:
+        'Splits a single cell in a notebook into two cells at the specified line. Lines before split_line go to the first cell, lines from split_line onward go to the second cell.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to split (0-indexed)',
+          },
+          split_line: {
+            type: 'number',
+            description:
+              'Line number at which to split (1-indexed: line 1 means first line goes to first cell, remainder to second cell). Must be between 1 and total_lines-1',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'split_line'],
+      },
+    },
+    execute: executeNotebookSplitCell,
+  },
 ];
 
 /** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する */
@@ -658,6 +713,8 @@ const NOTEBOOK_EDIT_TOOLS = new Set([
   'notebook_execute_cell',
   'notebook_execute_batch',
   'notebook_reorder_cell',
+  'notebook_merge_cells',
+  'notebook_split_cell',
 ]);
 
 /**

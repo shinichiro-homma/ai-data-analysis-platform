@@ -52,6 +52,19 @@ export function validateCellIndexParam(
 }
 
 /**
+ * 1以上の整数パラメータを検証し、数値を返す（split_line 等に使用）
+ */
+export function validatePositiveIntegerParam(value: unknown, paramName: string): { value: number } | { error: string } {
+  if (value === undefined || value === null) {
+    return { error: `${paramName} パラメータは必須です` };
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    return { error: `${paramName} パラメータは 1 以上の整数である必要があります` };
+  }
+  return { value };
+}
+
+/**
  * cell_index パラメータのバリデーション
  *
  * @param value - 検証する値
