@@ -902,7 +902,7 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
       },
       split_line: {
         type: "number",
-        description: "分割行番号（0-indexed、この行から下が新しいセルになる）"
+        description: "分割行番号（1-indexed、この行から下が新しいセルになる）"
       }
     },
     required: ["notebook_path", "cell_index", "split_line"]

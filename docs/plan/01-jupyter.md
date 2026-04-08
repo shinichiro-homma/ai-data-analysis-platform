@@ -226,7 +226,7 @@ SQLクエリ結果を大量行対応でワークスペースにファイル保�
 | # | タスク | ステータス | E2Eテスト | 備考 |
 |---|--------|-----------|-----------|------|
 | 19.1 | セル一括実行 | [x] | notebook_execute_batch で全セル/ここまで/これ以降の一括実行ができる | jupyter-server: POST /cells/execute-batch、jupyter-mcp: notebook_execute_batch |
-| 19.2 | セル結合・分割 | [→] | notebook_merge_cells で隣接セルが結合され、notebook_split_cell でセルが分割される | jupyter-server: PATCH /cells (action: merge/split)、jupyter-mcp: 2ツール |
+| 19.2 | セル結合・分割 | [x] | notebook_merge_cells で隣接セルが結合され、notebook_split_cell でセルが分割される | jupyter-server: PATCH /cells (action: merge/split)、jupyter-mcp: 2ツール |
 | 19.3 | セルタイプ変更・コピー | [ ] | notebook_change_cell_type でセルタイプが変更され、notebook_copy_cell でセルが複製される | jupyter-server: PATCH /cells (action: change_type/copy)、jupyter-mcp: 2ツール |
 | 19.4 | 出力クリア | [ ] | notebook_clear_outputs で単一セル/全セルの出力がクリアされる | jupyter-server: PATCH /cells (action: clear_output) + POST /cells/clear-all-outputs、jupyter-mcp: 1ツール |
 | 19.5 | カーネル再起動・再起動+全セル実行 | [ ] | kernel_restart でカーネルが再起動され、kernel_restart_and_run_all で再起動後に全セルが実行される | jupyter-server: POST /restart-and-run-all、jupyter-mcp: 2ツール |
