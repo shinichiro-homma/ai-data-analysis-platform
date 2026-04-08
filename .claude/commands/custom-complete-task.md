@@ -128,20 +128,24 @@ dev ブランチ上にいる場合は、対象タスクの feature ブランチ�
 
 タスクのステータスを `[→]` から `[x]` に更新してください。
 
-## 6. コミット & PR 作成
+## 6. コミット & 次のアクションの選択
 
 ### 6a. コミット
 
-`.claude/skills/commit-and-push/SKILL.md` を読み、その手順に従って commit & push を行ってください。
+`.claude/skills/commit-and-push/SKILL.md` を読み、その手順に従って commit を行ってください。
 
 パラメータ:
 - context: タスク {番号} {タスク名} 完了
-- push: true
+- push: false
 - agent: none
 
-### 6b. PR 作成と CI 待機
+### 6b. ユーザーに次のアクションを確認
 
-`.claude/rules/branch-workflow.md` の「PR 作成」および「PR 作成後の CI 待機と自動修正」セクションに従って、feature → dev の PR 作成から CI グリーン化までを実施してください。
+`AskUserQuestion` で以下の選択肢を提示してください：
+
+1. **push & PR 作成する** — このタスクで PR を出す場合。push 後、`.claude/rules/branch-workflow.md` の「PR 作成」「PR 作成後の CI 待機と自動修正」に従う
+2. **push のみ（PR は後で作成）** — リモートにバックアップしたいが PR はまだ出さない場合。`git push -u origin {ブランチ名}` のみ実行
+3. **このブランチで開発を継続する** — push も PR もスキップし、そのまま次の作業に進む
 
 ## 7. 次のタスクの提案
 
@@ -156,7 +160,8 @@ dev ブランチ上にいる場合は、対象タスクの feature ブランチ�
 ## タスク完了
 
 - タスク: {番号} {タスク名}
-- PR: {PR URL}
+- ブランチ: {ブランチ名}
+- PR: {PR URL}（PR 作成した場合のみ）
 - 次のタスク候補: {番号} {タスク名}
 ```
 **次のタスクを案内する際は /custom-plan-task {番号} としてください。**
