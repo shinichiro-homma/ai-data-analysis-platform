@@ -75,9 +75,8 @@
 #### F3.3: カーネル制御
 - カーネル再起動（変数・実行状態をリセット）
 - カーネル再起動+全セル実行（再起動後にノートブックの全コードセルを順番に実行）
-- カーネル中断（実行中のコードを停止）
-  - AI編集ロック中でも中断を受け付ける（ロック貫通）
-  - 中断された場合、MCP レスポンスに `interrupted: true` を含めて返却し、AIに中断を通知する
+- カーネル中断はユーザーが JupyterLab UI から行う（kernel_interrupt MCPツールは提供しない。MCP はリクエスト-レスポンス型のため、AI が実行待機中に別ツールを呼べない）
+  - カーネル実行を伴うツール（execute_code, notebook_execute_cell, notebook_execute_batch）が KeyboardInterrupt を受けた場合、エラー種別として `KeyboardInterrupt` を MCP レスポンスに含める
 
 ### F4: 変数・データ操作
 
@@ -114,7 +113,7 @@
 - ロック中はユーザーのキーボード入力・セル編集・セル実行を無効化する
 - 対象ツールは `jupyter-mcp/src/tools/index.ts` の `NOTEBOOK_EDIT_TOOLS` Set で管理し、新しいノートブック操作ツール追加時は Set に追加するだけで自動対応される
 - `ai_edit_start` / `ai_edit_end` は独立した MCP ツールとしては提供しない（内部自動処理のみ）
-- `kernel_interrupt` は `NOTEBOOK_EDIT_TOOLS` に含めない（AI編集ロックを貫通して実行可能にするため）
+- カーネル中断は MCP ツールとしては提供しない（ユーザーが JupyterLab UI から直接実行する）
 
 #### F6.3: AI操作のリアルタイム同期
 - `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
@@ -1011,54 +1010,6 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 }
 ```
 
-### kernel_restart_and_run_all
-
-カーネルを再起動し、ノートブックの全コードセルを順番に実行する。
-
-```typescript
-{
-  name: "kernel_restart_and_run_all",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      timeout: {
-        type: "number",
-        description: "セルあたりのタイムアウト秒数"
-      }
-    },
-    required: ["notebook_path", "session_id"]
-  }
-}
-```
-
-### kernel_interrupt
-
-実行中のコードを中断する。AI編集ロック中でも実行可能（ロック貫通）。中断された場合、実行中のMCPツール（execute_code等）のレスポンスに `interrupted: true` が含まれる。
-
-```typescript
-{
-  name: "kernel_interrupt",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
 ### data_preview
 
 ワークスペース内のデータファイルをプレビューする。
@@ -1256,10 +1207,7 @@ npm run build && npm start
 
 ### AC14: カーネル制御
 - [ ] kernel_restart でカーネルが再起動され、変数がリセットされる
-- [ ] kernel_restart_and_run_all で再起動後に全セルが実行される
-- [ ] kernel_interrupt で実行中のコードが中断される
-- [ ] kernel_interrupt がAI編集ロック中でも実行できる
-- [ ] 中断された execute_code のレスポンスに interrupted 情報が含まれる
+- [ ] カーネル実行を伴うツール（execute_code, notebook_execute_cell, notebook_execute_batch）が KeyboardInterrupt を受けた場合、エラー種別 `KeyboardInterrupt` が MCP レスポンスに含まれる
 
 ### AC10: SQL実行・データ取得
 - [x] execute_sql でSELECTクエリを実行し、結果がワークスペースの `data/` にCSVファイルとして保存される
