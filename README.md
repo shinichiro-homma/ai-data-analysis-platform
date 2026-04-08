@@ -134,6 +134,15 @@ Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下�
 | `notebook_delete_cell` | セル削除 |
 | `notebook_execute_cell` | セル再実行 |
 | `notebook_reorder_cell` | セル並び替え |
+| `notebook_execute_batch` | セル一括実行 |
+| `notebook_merge_cells` | セル結合 |
+| `notebook_split_cell` | セル分割 |
+| `notebook_change_cell_type` | セルタイプ変更 |
+| `notebook_copy_cell` | セルコピー |
+| `notebook_clear_outputs` | 出力クリア |
+| `kernel_restart` | カーネル再起動 |
+| `kernel_restart_and_run_all` | カーネル再起動+全セル実行 |
+| `kernel_interrupt` | カーネル中断 |
 | `file_list` | ファイル一覧取得 |
 | `file_read` | ファイル読み取り |
 | `data_preview` | データプレビュー |

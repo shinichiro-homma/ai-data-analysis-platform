@@ -127,7 +127,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/kernels/{kernel_id}/interrupt
 
-実行中のコードを中断する。JupyterLab UI 用の内部 API であり、MCP ツールとしては公開しない。
+実行中のコードを中断する。AI編集ロック中でも実行可能（ロック貫通）。
 
 **レスポンス:**
 ```json
@@ -149,6 +149,51 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
   "data": {
     "id": "kernel-abc123",
     "status": "starting"
+  }
+}
+```
+
+#### POST /api/kernels/{kernel_id}/restart-and-run-all
+
+カーネルを再起動し、指定ノートブックの全コードセルを順番に実行する。
+
+**リクエスト:**
+```json
+{
+  "notebook_path": "analysis.ipynb",
+  "timeout": 30
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| notebook_path | string | Yes | 実行するノートブックのパス |
+| timeout | number | No | セルあたりのタイムアウト秒数 |
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "executed_cells": 5,
+    "success_count": 5,
+    "failed_cell": null
+  }
+}
+```
+
+**レスポンス（途中でエラー）:**
+```json
+{
+  "data": {
+    "executed_cells": 3,
+    "success_count": 2,
+    "failed_cell": {
+      "cell_index": 2,
+      "error": {
+        "type": "NameError",
+        "message": "name 'x' is not defined"
+      }
+    }
   }
 }
 ```
@@ -600,6 +645,117 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 **エラー:**
 - `400 VALIDATION_ERROR` - ノートブック以外のファイル、コードセル以外のセル、または範囲外のインデックスを指定した場合
 - `404 NOT_FOUND` - ファイルまたはカーネルが存在しない場合
+
+#### POST /api/custom/contents/{path}/cells/execute-batch
+
+ノートブックのセルを一括実行する。
+
+**リクエスト:**
+```json
+{
+  "kernel_id": "kernel-abc123",
+  "mode": "all",
+  "cell_index": null,
+  "timeout": 30
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| kernel_id | string | Yes | 実行に使用するカーネルID |
+| mode | string | Yes | 実行モード（`all` / `up_to` / `from`） |
+| cell_index | number | No | 基準セルインデックス（`up_to` / `from` 時に必須） |
+| timeout | number | No | セルあたりのタイムアウト秒数 |
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "executed_cells": 5,
+    "success_count": 5,
+    "failed_cell": null
+  }
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: merge)
+
+隣接する複数セルを1つに結合する。
+
+**リクエスト:**
+```json
+{
+  "action": "merge",
+  "start_index": 1,
+  "end_index": 3
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: split)
+
+セルを指定行で2つに分割する。
+
+**リクエスト:**
+```json
+{
+  "action": "split",
+  "index": 2,
+  "split_line": 5
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: change_type)
+
+セルのタイプを変更する。
+
+**リクエスト:**
+```json
+{
+  "action": "change_type",
+  "index": 2,
+  "cell_type": "markdown"
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: copy)
+
+セルをコピー（複製）する。
+
+**リクエスト:**
+```json
+{
+  "action": "copy",
+  "index": 2,
+  "to_index": 4
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: clear_output)
+
+セルの出力をクリアする。
+
+**リクエスト:**
+```json
+{
+  "action": "clear_output",
+  "index": 2
+}
+```
+
+#### POST /api/custom/contents/{path}/cells/clear-all-outputs
+
+全セルの出力をクリアする。
+
+**リクエスト:** ボディなし
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "cleared_cells": 5
+  }
+}
+```
 
 #### GET /api/custom/contents/{path}/preview
 

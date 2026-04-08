@@ -65,6 +65,19 @@
 - セルの削除
 - セルの再実行（指定セルのコードをカーネルで実行し、出力を更新）
 - セルの並び替え
+- セルの一括実行（全セル / ここまで / これ以降）
+- セルの結合（複数セルを1つに結合）
+- セルの分割（1つのセルを指定行で分割）
+- セルのタイプ変更（code ↔ markdown）
+- セルのコピー（指定位置にセルを複製）
+- セルの出力クリア（単一セル / 全セル）
+
+#### F3.3: カーネル制御
+- カーネル再起動（変数・実行状態をリセット）
+- カーネル再起動+全セル実行（再起動後にノートブックの全コードセルを順番に実行）
+- カーネル中断（実行中のコードを停止）
+  - AI編集ロック中でも中断を受け付ける（ロック貫通）
+  - 中断された場合、MCP レスポンスに `interrupted: true` を含めて返却し、AIに中断を通知する
 
 ### F4: 変数・データ操作
 
@@ -101,6 +114,7 @@
 - ロック中はユーザーのキーボード入力・セル編集・セル実行を無効化する
 - 対象ツールは `jupyter-mcp/src/tools/index.ts` の `NOTEBOOK_EDIT_TOOLS` Set で管理し、新しいノートブック操作ツール追加時は Set に追加するだけで自動対応される
 - `ai_edit_start` / `ai_edit_end` は独立した MCP ツールとしては提供しない（内部自動処理のみ）
+- `kernel_interrupt` は `NOTEBOOK_EDIT_TOOLS` に含めない（AI編集ロックを貫通して実行可能にするため）
 
 #### F6.3: AI操作のリアルタイム同期
 - `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
@@ -801,6 +815,250 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 }
 ```
 
+### notebook_execute_batch
+
+ノートブックのセルを一括実行する。全セル / ここまで / これ以降の3モードをサポート。
+
+```typescript
+{
+  name: "notebook_execute_batch",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      },
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      },
+      mode: {
+        type: "string",
+        enum: ["all", "up_to", "from"],
+        description: "実行モード（all: 全セル、up_to: 指定セルまで、from: 指定セル以降）"
+      },
+      cell_index: {
+        type: "number",
+        description: "基準セルインデックス（mode が up_to または from の場合に必須）"
+      },
+      timeout: {
+        type: "number",
+        description: "セルあたりのタイムアウト秒数"
+      }
+    },
+    required: ["notebook_path", "session_id", "mode"]
+  }
+}
+```
+
+**戻り値:** 実行されたセル数、成功数、失敗したセルのインデックス（成功時は null）。
+
+### notebook_merge_cells
+
+複数の隣接セルを1つに結合する。
+
+```typescript
+{
+  name: "notebook_merge_cells",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      start_index: {
+        type: "number",
+        description: "結合開始セルインデックス（0-indexed）"
+      },
+      end_index: {
+        type: "number",
+        description: "結合終了セルインデックス（0-indexed、この位置のセルを含む）"
+      }
+    },
+    required: ["notebook_path", "start_index", "end_index"]
+  }
+}
+```
+
+### notebook_split_cell
+
+セルを指定行で2つに分割する。
+
+```typescript
+{
+  name: "notebook_split_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "分割対象のセルインデックス（0-indexed）"
+      },
+      split_line: {
+        type: "number",
+        description: "分割行番号（0-indexed、この行から下が新しいセルになる）"
+      }
+    },
+    required: ["notebook_path", "cell_index", "split_line"]
+  }
+}
+```
+
+### notebook_change_cell_type
+
+セルのタイプを変更する（code ↔ markdown）。
+
+```typescript
+{
+  name: "notebook_change_cell_type",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "対象セルインデックス（0-indexed）"
+      },
+      new_type: {
+        type: "string",
+        enum: ["code", "markdown"],
+        description: "変更後のセルタイプ"
+      }
+    },
+    required: ["notebook_path", "cell_index", "new_type"]
+  }
+}
+```
+
+### notebook_copy_cell
+
+セルを指定位置にコピー（複製）する。
+
+```typescript
+{
+  name: "notebook_copy_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      source_index: {
+        type: "number",
+        description: "コピー元セルインデックス（0-indexed）"
+      },
+      target_index: {
+        type: "number",
+        description: "コピー先インデックス（0-indexed、省略時はソースの直後に挿入）"
+      }
+    },
+    required: ["notebook_path", "source_index"]
+  }
+}
+```
+
+### notebook_clear_outputs
+
+セルの出力をクリアする。
+
+```typescript
+{
+  name: "notebook_clear_outputs",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "対象セルインデックス（省略時は全セルの出力をクリア）"
+      }
+    },
+    required: ["notebook_path"]
+  }
+}
+```
+
+### kernel_restart
+
+カーネルを再起動する（変数・実行状態をリセット）。
+
+```typescript
+{
+  name: "kernel_restart",
+  inputSchema: {
+    type: "object",
+    properties: {
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      }
+    },
+    required: ["session_id"]
+  }
+}
+```
+
+### kernel_restart_and_run_all
+
+カーネルを再起動し、ノートブックの全コードセルを順番に実行する。
+
+```typescript
+{
+  name: "kernel_restart_and_run_all",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      },
+      timeout: {
+        type: "number",
+        description: "セルあたりのタイムアウト秒数"
+      }
+    },
+    required: ["notebook_path", "session_id"]
+  }
+}
+```
+
+### kernel_interrupt
+
+実行中のコードを中断する。AI編集ロック中でも実行可能（ロック貫通）。中断された場合、実行中のMCPツール（execute_code等）のレスポンスに `interrupted: true` が含まれる。
+
+```typescript
+{
+  name: "kernel_interrupt",
+  inputSchema: {
+    type: "object",
+    properties: {
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      }
+    },
+    required: ["session_id"]
+  }
+}
+```
+
 ### data_preview
 
 ワークスペース内のデータファイルをプレビューする。
@@ -984,6 +1242,24 @@ npm run build && npm start
 - [ ] ロック中にブラウザ上のセルに実行結果がリアルタイムに表示される
 - [ ] ロック中にブラウザ上にセルがリアルタイムに追加される
 - [ ] 新しいノートブック操作ツールを NOTEBOOK_EDIT_TOOLS に追加するだけで自動ロック制御が適用される
+
+### AC13: セル一括操作
+- [ ] notebook_execute_batch (mode: all) で全コードセルが順番に実行される
+- [ ] notebook_execute_batch (mode: up_to) で指定セルまでが実行される
+- [ ] notebook_execute_batch (mode: from) で指定セル以降が実行される
+- [ ] notebook_merge_cells で複数セルが1つに結合される
+- [ ] notebook_split_cell でセルが2つに分割される
+- [ ] notebook_change_cell_type でセルタイプが変更される
+- [ ] notebook_copy_cell でセルが複製される
+- [ ] notebook_clear_outputs (cell_index指定) で単一セルの出力がクリアされる
+- [ ] notebook_clear_outputs (cell_index省略) で全セルの出力がクリアされる
+
+### AC14: カーネル制御
+- [ ] kernel_restart でカーネルが再起動され、変数がリセットされる
+- [ ] kernel_restart_and_run_all で再起動後に全セルが実行される
+- [ ] kernel_interrupt で実行中のコードが中断される
+- [ ] kernel_interrupt がAI編集ロック中でも実行できる
+- [ ] 中断された execute_code のレスポンスに interrupted 情報が含まれる
 
 ### AC10: SQL実行・データ取得
 - [x] execute_sql でSELECTクエリを実行し、結果がワークスペースの `data/` にCSVファイルとして保存される

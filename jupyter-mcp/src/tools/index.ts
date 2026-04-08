@@ -39,6 +39,7 @@ import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
 import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
+import { executeNotebookExecuteBatch } from './notebook-execute-batch.js';
 import { executeDataPreview } from './data-preview.js';
 import { executeFileRead } from './file-read.js';
 
@@ -297,6 +298,42 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
       },
     },
     execute: executeNotebookExecuteCell,
+  },
+  {
+    definition: {
+      name: 'notebook_execute_batch',
+      description:
+        'Executes multiple cells in a notebook at once. Supports three modes: all (execute all cells), up_to (execute from the first cell to the specified index inclusive), from (execute from the specified index to the last cell inclusive). Markdown cells are skipped. Stops on the first error and returns the failed cell index.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+          mode: {
+            type: 'string',
+            enum: ['all', 'up_to', 'from'],
+            description:
+              'Execution mode: all = all cells, up_to = first cell to cell_index (inclusive), from = cell_index to last cell (inclusive)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Reference cell index (0-indexed). Required when mode is up_to or from',
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in seconds per cell (default: 30, max: 300)',
+          },
+        },
+        required: ['notebook_path', 'session_id', 'mode'],
+      },
+    },
+    execute: executeNotebookExecuteBatch,
   },
   {
     definition: {
@@ -619,6 +656,7 @@ const NOTEBOOK_EDIT_TOOLS = new Set([
   'notebook_edit_cell',
   'notebook_delete_cell',
   'notebook_execute_cell',
+  'notebook_execute_batch',
   'notebook_reorder_cell',
 ]);
 

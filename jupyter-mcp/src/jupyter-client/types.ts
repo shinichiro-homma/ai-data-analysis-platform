@@ -524,6 +524,23 @@ export interface TextFileResponse {
 }
 
 // =============================================================================
+// セル一括実行関連
+// =============================================================================
+
+export interface CellExecuteBatchRequest {
+  kernel_id: string;
+  mode: 'all' | 'up_to' | 'from';
+  cell_index?: number;
+  timeout?: number;
+}
+
+export interface CellExecuteBatchResponse {
+  executed_cells: number;
+  success_count: number;
+  failed_cell: number | null;
+}
+
+// =============================================================================
 // クライアント設定
 // =============================================================================
 
