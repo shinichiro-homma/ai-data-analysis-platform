@@ -6,6 +6,7 @@ api-contracts.md に定義された仕様に従った API を提供する。
 
 from __future__ import annotations
 
+import copy as _copy
 import logging
 import re
 import time
@@ -846,6 +847,63 @@ class ContentsCellsHandler(BaseCustomHandler):
 
                 cells[split_index] = first_cell
                 cells.insert(split_index + 1, second_cell)
+
+            elif action == "change_type":
+                change_index = body.get("index")
+                new_cell_type = body.get("cell_type")
+
+                if change_index is None or new_cell_type is None:
+                    self.write_error_response("VALIDATION_ERROR", "index and cell_type are required", 400)
+                    return
+                if not isinstance(change_index, int) or not isinstance(new_cell_type, str):
+                    self.write_error_response(
+                        "VALIDATION_ERROR", "index must be integer and cell_type must be string", 400
+                    )
+                    return
+                if new_cell_type not in ("code", "markdown"):
+                    self.write_error_response(
+                        "VALIDATION_ERROR", f"cell_type must be 'code' or 'markdown', got: {new_cell_type}", 400
+                    )
+                    return
+                if change_index < 0 or change_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {change_index}", 400)
+                    return
+
+                cells[change_index]["cell_type"] = new_cell_type
+                cells[change_index]["outputs"] = []
+                cells[change_index]["execution_count"] = None
+
+            elif action == "copy":
+                copy_index = body.get("index")
+                to_index = body.get("to_index")
+
+                if copy_index is None:
+                    self.write_error_response("VALIDATION_ERROR", "index is required", 400)
+                    return
+                if not isinstance(copy_index, int):
+                    self.write_error_response("VALIDATION_ERROR", "index must be an integer", 400)
+                    return
+                if copy_index < 0 or copy_index >= len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid index: {copy_index}", 400)
+                    return
+
+                # to_index 省略時は copy_index + 1
+                if to_index is None:
+                    to_index = copy_index + 1
+                if not isinstance(to_index, int):
+                    self.write_error_response("VALIDATION_ERROR", "to_index must be an integer", 400)
+                    return
+                # to_index は 0 〜 len(cells) の範囲（末尾挿入を含む）
+                if to_index < 0 or to_index > len(cells):
+                    self.write_error_response("INVALID_CELL_INDEX", f"Invalid to_index: {to_index}", 400)
+                    return
+
+                copied_cell = _copy.deepcopy(cells[copy_index])
+                if copied_cell.get("cell_type") == "code":
+                    copied_cell["outputs"] = []
+                    copied_cell["execution_count"] = None
+
+                cells.insert(to_index, copied_cell)
 
             else:
                 self.write_error_response("VALIDATION_ERROR", f"Unknown action: {action}", 400)

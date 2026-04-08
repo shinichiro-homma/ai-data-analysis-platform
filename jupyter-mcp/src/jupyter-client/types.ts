@@ -180,7 +180,7 @@ export interface UpdateNotebookRequest {
   content: NotebookContent;
 }
 
-export type CellAction = 'add' | 'update' | 'delete' | 'reorder' | 'merge' | 'split';
+export type CellAction = 'add' | 'update' | 'delete' | 'reorder' | 'merge' | 'split' | 'change_type' | 'copy';
 
 export interface CellOperationRequest {
   action: CellAction;
@@ -190,6 +190,7 @@ export interface CellOperationRequest {
   start_index?: number;
   end_index?: number;
   split_line?: number;
+  cell_type?: 'code' | 'markdown';
 }
 
 // =============================================================================
@@ -290,7 +291,9 @@ export interface AiEventBase {
     | 'ai_edit_start'
     | 'ai_edit_end'
     | 'cells_merged'
-    | 'cell_split';
+    | 'cell_split'
+    | 'cell_type_changed'
+    | 'cell_copied';
 }
 
 /**
@@ -427,6 +430,28 @@ export interface CellSplitEvent extends AiEventBase {
 }
 
 /**
+ * セルタイプ変更イベント
+ * AIが notebook_change_cell_type ツールを実行した際に配信される
+ */
+export interface CellTypeChangedEvent extends AiEventBase {
+  type: 'cell_type_changed';
+  notebook_path: string;
+  cell_index: number;
+  new_type: 'code' | 'markdown';
+}
+
+/**
+ * セルコピーイベント
+ * AIが notebook_copy_cell ツールを実行した際に配信される
+ */
+export interface CellCopiedEvent extends AiEventBase {
+  type: 'cell_copied';
+  notebook_path: string;
+  source_index: number;
+  target_index: number;
+}
+
+/**
  * AI同期イベントの型定義
  */
 export type AiEvent =
@@ -440,7 +465,9 @@ export type AiEvent =
   | AiEditStartEvent
   | AiEditEndEvent
   | CellsMergedEvent
-  | CellSplitEvent;
+  | CellSplitEvent
+  | CellTypeChangedEvent
+  | CellCopiedEvent;
 
 export interface BroadcastEventResponse {
   broadcasted: boolean;
