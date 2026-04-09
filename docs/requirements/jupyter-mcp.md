@@ -1207,6 +1207,7 @@ npm run build && npm start
 
 ### AC14: カーネル制御
 - [ ] kernel_restart でカーネルが再起動され、変数がリセットされる
+- [ ] kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで再起動後に全セルが実行される
 - [ ] カーネル実行を伴うツール（execute_code, notebook_execute_cell, notebook_execute_batch）が KeyboardInterrupt を受けた場合、エラー種別 `KeyboardInterrupt` が MCP レスポンスに含まれる
 
 ### AC10: SQL実行・データ取得

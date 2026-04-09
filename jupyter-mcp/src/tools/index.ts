@@ -46,6 +46,7 @@ import { executeNotebookMergeCells } from './notebook-merge-cells.js';
 import { executeNotebookSplitCell } from './notebook-split-cell.js';
 import { executeNotebookChangeCellType } from './notebook-change-cell-type.js';
 import { executeNotebookCopyCell } from './notebook-copy-cell.js';
+import { executeKernelRestart } from './kernel-restart.js';
 import { executeNotebookClearOutputs } from './notebook-clear-outputs.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
@@ -781,9 +782,28 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
     },
     execute: executeNotebookClearOutputs,
   },
+  {
+    definition: {
+      name: 'kernel_restart',
+      description:
+        'Restarts the kernel associated with the given session. All variables and state are cleared. To re-execute all cells after restart, call notebook_execute_batch(mode: "all") afterwards.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+        },
+        required: ['session_id'],
+      },
+    },
+    execute: executeKernelRestart,
+  },
 ];
 
-/** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する */
+/** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する
+ *  kernel_restart はセル内容を変更しないため対象外 */
 const NOTEBOOK_EDIT_TOOLS = new Set([
   'execute_code',
   'notebook_add_cell',
