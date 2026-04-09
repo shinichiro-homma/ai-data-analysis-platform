@@ -28,39 +28,43 @@ if echo "$COMMAND" | grep -qE '\$\(|`'; then
   exit 0
 fi
 
-# settings.local.json から Bash の許可プレフィックスを動的に取得
-SETTINGS_FILE="${CLAUDE_PROJECT_DIR}/.claude/settings.local.json"
-if [[ ! -f "$SETTINGS_FILE" ]]; then
+# settings.json と settings.local.json の両方から Bash の許可プレフィックスを動的に取得
+SETTINGS_FILES=()
+for f in "${CLAUDE_PROJECT_DIR}/.claude/settings.json" "${CLAUDE_PROJECT_DIR}/.claude/settings.local.json"; do
+  [[ -f "$f" ]] && SETTINGS_FILES+=("$f")
+done
+
+if [[ ${#SETTINGS_FILES[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Bash(...) パターンからプレフィックスを抽出
+# 複数ファイルから Bash(...) パターンのプレフィックスを抽出・統合
 # "Bash(git status:*)" → "git status"
 # "Bash(scripts/*)" → "scripts/"
 # "Read", "Write" など Bash 以外はスキップ
+extract_prefixes() {
+  local jq_path="$1"
+  for f in "${SETTINGS_FILES[@]}"; do
+    jq -r "${jq_path}[]? // empty" "$f" 2>/dev/null
+  done | grep '^Bash(' \
+       | sed 's/^Bash(//; s/[:*]*)*$//' \
+       | sort -u
+}
+
 IFS=$'\n' read -r -d '' -a ALLOWED_PREFIXES < <(
-  jq -r '.permissions.allow[]? // empty' "$SETTINGS_FILE" \
-    | grep '^Bash(' \
-    | sed 's/^Bash(//; s/[:*]*)*$//' \
-    | sort -u
+  extract_prefixes '.permissions.allow'
   printf '\0'
 )
 
 # deny リストからブロック対象のプレフィックスも取得
 IFS=$'\n' read -r -d '' -a DENIED_PREFIXES < <(
-  jq -r '.permissions.deny[]? // empty' "$SETTINGS_FILE" \
-    | grep '^Bash(' \
-    | sed 's/^Bash(//; s/[:*]*)*$//' \
-    | sort -u
+  extract_prefixes '.permissions.deny'
   printf '\0'
 )
 
 # ask リストから確認対象のプレフィックスも取得
 IFS=$'\n' read -r -d '' -a ASK_PREFIXES < <(
-  jq -r '.permissions.ask[]? // empty' "$SETTINGS_FILE" \
-    | grep '^Bash(' \
-    | sed 's/^Bash(//; s/[:*]*)*$//' \
-    | sort -u
+  extract_prefixes '.permissions.ask'
   printf '\0'
 )
 
