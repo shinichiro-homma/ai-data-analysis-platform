@@ -231,4 +231,4 @@ SQLクエリ結果を大量行対応でワークスペースにファイル保�
 | 19.4 | 出力クリア | [x] | notebook_clear_outputs で単一セル/全セルの出力がクリアされる | jupyter-server: PATCH /cells (action: clear_output) + POST /cells/clear-all-outputs、jupyter-mcp: 1ツール |
 | 19.5 | カーネル再起動 | [x] | kernel_restart でカーネルが再起動される。再起動+全セル実行は kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで実現 | jupyter-mcp: 1ツール |
 | 19.6 | カーネル中断時の KeyboardInterrupt レスポンス対応 | [x] | notebook_execute_cell / notebook_execute_batch で KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる（execute_code は対応済み） | jupyter-mcp: 既存ツールの KeyboardInterrupt ハンドリング改善 |
-| 19.7 | ノートブック操作拡張の結合テスト | [ ] | 一括実行→結合→分割→タイプ変更→コピー→出力クリア→カーネル再起動→中断の一連フローが動作する | 統合テスト |
+| 19.7 | ノートブック操作拡張の結合テスト | [x] | 一括実行→結合→分割→タイプ変更→コピー→出力クリア→カーネル再起動→中断の一連フローが動作する | 統合テスト |
