@@ -131,6 +131,33 @@ describe('executeNotebookExecuteBatch', () => {
     });
   });
 
+  describe('KeyboardInterrupt 対応', () => {
+    test('KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる', async () => {
+      // サーバーは KeyboardInterrupt 時に error フィールドを返す
+      const mockResponse: CellExecuteBatchResponse = {
+        executed_cells: 3,
+        success_count: 2,
+        failed_cell: 2,
+        error: {
+          type: 'KeyboardInterrupt',
+          message: '',
+          traceback: ['\u001b[0;31mKeyboardInterrupt\u001b[0m: '],
+        },
+      };
+
+      vi.mocked(jupyterClient.executeBatchCells).mockResolvedValue(mockResponse);
+
+      const result = await executeNotebookExecuteBatch({
+        notebook_path: 'analysis.ipynb',
+        session_id: 'session-123',
+        mode: 'all',
+      });
+
+      const responseText = result.content[0].text;
+      expect(responseText).toContain('KeyboardInterrupt');
+    });
+  });
+
   describe('異常系 - バリデーションエラー', () => {
     test('notebook_path 未指定で VALIDATION_ERROR', async () => {
       const result = await executeNotebookExecuteBatch({

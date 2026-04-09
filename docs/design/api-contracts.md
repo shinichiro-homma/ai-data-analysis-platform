@@ -673,10 +673,18 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
   "data": {
     "executed_cells": 5,
     "success_count": 5,
-    "failed_cell": null
+    "failed_cell": null,
+    "error": null
   }
 }
 ```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| executed_cells | number | 実行されたセル数 |
+| success_count | number | 成功したセル数 |
+| failed_cell | number \| null | 失敗したセルのインデックス（成功時は null） |
+| error | object \| null | エラー情報（`type`, `message`, `traceback`）。KeyboardInterrupt やタイムアウト等のエラー種別を含む |
 
 #### PATCH /api/custom/contents/{path}/cells (action: merge)
 

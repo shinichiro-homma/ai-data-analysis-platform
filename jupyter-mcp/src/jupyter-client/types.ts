@@ -626,6 +626,7 @@ export interface CellExecuteBatchResponse {
   executed_cells: number;
   success_count: number;
   failed_cell: number | null;
+  error?: ExecutionError;
 }
 
 // =============================================================================

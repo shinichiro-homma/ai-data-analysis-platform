@@ -17,7 +17,7 @@ import {
 } from '../utils/validation.js';
 import { resolveSession } from '../utils/session-resolver.js';
 import { jupyterClient } from '../jupyter-client/client.js';
-import type { AiEvent } from '../jupyter-client/types.js';
+import type { AiEvent, CellOutputData } from '../jupyter-client/types.js';
 
 /**
  * AI同期イベントを配信する（失敗しても続行する fire-and-forget）
@@ -109,12 +109,21 @@ export async function executeNotebookExecuteCell(args: Record<string, unknown>):
       .flatMap((o) => (o.output_type === 'stream' && o.name === 'stderr' ? [o.text] : []))
       .join('');
 
+    // エラー出力を抽出（KeyboardInterrupt 等）
+    const errorOutput = result.outputs.find(
+      (o): o is Extract<CellOutputData, { output_type: 'error' }> => o.output_type === 'error',
+    );
+    const error = errorOutput
+      ? { type: errorOutput.ename, message: errorOutput.evalue, traceback: errorOutput.traceback }
+      : undefined;
+
     return createSuccessResponse({
       cell_index: result.cell_index,
       execution_count: result.execution_count,
       stdout,
       stderr,
       execution_time_ms: result.execution_time_ms,
+      ...(error !== undefined ? { error } : {}),
     });
   } catch (error) {
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));

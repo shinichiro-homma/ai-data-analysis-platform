@@ -1397,6 +1397,7 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
         executed_cells = 0
         success_count = 0
         failed_cell = None
+        error_info = None
 
         for i in range(start_idx, end_idx + 1):
             cell = cells[i]
@@ -1422,6 +1423,11 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
                     workspace_rel_path=workspace_rel_path,
                 )
             except TimeoutError:
+                error_info = {
+                    "type": "TimeoutError",
+                    "message": f"Execution timed out after {validated_timeout} seconds",
+                    "traceback": [],
+                }
                 cells[i]["outputs"] = [
                     {
                         "output_type": "error",
@@ -1439,6 +1445,7 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
 
             # エラー確認
             if result.get("error"):
+                error_info = result["error"]
                 failed_cell = i
                 cells[i]["outputs"] = _result_to_nb_outputs(result)
                 cells[i]["execution_count"] = result.get("execution_count", 0)
@@ -1457,13 +1464,14 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
             log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
             # 保存失敗は無視して実行結果を返す
 
-        self.write_success(
-            {
-                "executed_cells": executed_cells,
-                "success_count": success_count,
-                "failed_cell": failed_cell,
-            }
-        )
+        response = {
+            "executed_cells": executed_cells,
+            "success_count": success_count,
+            "failed_cell": failed_cell,
+        }
+        if error_info is not None:
+            response["error"] = error_info
+        self.write_success(response)
 
 
 # =============================================================================
