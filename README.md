@@ -238,6 +238,10 @@ cd document-mcp && npm run dev
 cd document-server && uvicorn src.main:app --reload --port 3002
 ```
 
+### ブラウザ操作・UI 検証
+
+JupyterLab の UI 挙動確認やバグ再現は [`@playwright/cli`](https://www.npmjs.com/package/@playwright/cli) の利用を推奨する。セットアップと使い方は [docs/guides/browser-automation.md](docs/guides/browser-automation.md) を参照。
+
 ## ライセンス
 
 MIT
