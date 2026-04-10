@@ -1,3 +1,11 @@
+---
+paths:
+  - ".claude/rules/**"
+  - ".claude/commands/**"
+  - ".claude/skills/**"
+  - "docs/STRUCTURE.md"
+---
+
 # DRY 原則（Don't Repeat Yourself）
 
 同じ知識やルールを複数箇所に書かない。単一の正（Single Source of Truth）を定め、他の箇所からは参照すること。

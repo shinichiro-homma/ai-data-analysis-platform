@@ -1,3 +1,8 @@
+---
+paths:
+  - "scripts/clean-rebuild.sh"
+---
+
 # clean-rebuild 実行前の確認ルール
 
 `scripts/clean-rebuild.sh` を実行する前に、**必ずユーザーに明示的な承認を求めること**。失われる情報を説明せずに承認を求めたり、無断で実行することは禁止する。

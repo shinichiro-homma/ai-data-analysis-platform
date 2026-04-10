@@ -1,3 +1,10 @@
+---
+paths:
+  - "docs/requirements/**"
+  - "docs/design/api-contracts.md"
+  - "docs/overview.md"
+---
+
 # 要件変更ワークフロー
 
 要件変更は必ず以下の2ステップで行う。影響範囲の洗い出しと変更適用を分離することで、変更漏れや不整合を防ぐ。
