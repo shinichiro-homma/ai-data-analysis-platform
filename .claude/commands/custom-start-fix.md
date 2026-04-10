@@ -88,7 +88,7 @@ Issue #{Issue番号} の修正を実装してください。
 
 対象がブラウザ動作確認に該当するかの判定と手順は `.claude/rules/testing.md` に従うこと。
 バグの再現手順に沿って操作し、修正後は症状が解消されていることを確認する。
-必要に応じて `browser_take_screenshot` でエビデンスを記録する。
+必要に応じて `playwright-cli screenshot` でエビデンスを記録する。
 
 ## 報告
 以下の形式で報告してください：
