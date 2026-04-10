@@ -327,3 +327,51 @@ F3.3 と AC6 に以下の方針を明記する。要件の意図（AI 編集中�
 
 - AI による編集（`cell_added` / `cell_edited` / `cell_execute_*`）が引き続き正常反映される
 - WebSocket 切断時の `unlockAll` で mode 監視シグナルも正しく disconnect される（T7 として jupyter-server 停止→再開シナリオを確認）
+
+## 検証結果
+
+### 1. 静的検証（実施済み）
+
+| 項目 | 結果 | 備考 |
+|------|------|------|
+| `tsc`（`jupyterlab-ai-sync/` で `npm run build:lib`） | PASS | 型エラーなし |
+| `scripts/rebuild.sh jupyter-server` | PASS | Docker イメージ再ビルド成功、コンテナ healthy 確認済み |
+| CI `JupyterLab AI Sync build`（`npm run build` = `tsc && jupyter labextension build .`） | PASS | PR #53 のチェックでグリーン |
+| CI `TypeScript lint, typecheck & test` | PASS | PR #53 |
+| CI `Python lint, typecheck & test` | PASS | PR #53 |
+| CI `Integration test (Docker Compose)` | PASS | PR #53 |
+
+### 2. 動的検証（playwright-cli で実施済み）
+
+**環境**: `docker compose up -d` で全サービス起動、`scripts/rebuild.sh jupyter-server` で修正済み labextension を反映。テスト用ノートブック `work/issue51-test.ipynb`（`import time; print('start'); time.sleep(60); print('done')`）を Contents API で作成して実施。
+
+| # | 操作 | 期待 | 結果 | エビデンス |
+|---|------|------|------|-----------|
+| **T1** | sleep セルを Run ボタンで実行 | セル `[*]`、kernel Busy | PASS | スナップショット `[*]:` / `Python 3 (ipykernel) \| Busy` |
+| **Lock** | `curl POST /api/ai/events/broadcast {ai_edit_start}` でロック発火 | インジケータ表示、Mode: Command に遷移 | PASS | `AI が編集中です...` 表示、`Mode: Command` 表示、console に `[LockManager] Notebook locked` ログ |
+| **T2** | キーボード `I I`（command mode ショートカット） | カーネル中断、セルが `KeyboardInterrupt` で停止 | **PASS** | セル `[1]:` に変化、`KeyboardInterrupt Traceback (most recent call last) Cell In[1], line 3 ... time.sleep(60) ... KeyboardInterrupt:` を観測、kernel Idle に遷移 |
+| **T3** | ツールバー「■ Interrupt the kernel」ボタンクリック | 中断成功 | **PASS** | セル `[2]:` に変化、`KeyboardInterrupt Traceback (most recent call last) Cell In[2], line 3 ...` を観測、kernel Idle に遷移 |
+| **T5** | ツールバー「⟳ Restart the kernel」ボタンクリック | **ブロック**・警告ログ | **PASS** | console に `[LockManager] Blocked command: notebook:restart-kernel` 警告、セルは `[*]:` のまま走り続けた（再起動されず） |
+| **T7** | 中断後にロックインジケータが維持されるか | インジケータ表示継続 | PASS | T2/T3 後も `AI が編集中です...` が継続表示 |
+| **R1** | ロック中にツールバー「Run this cell」ボタン | ブロック | PASS | console に `[LockManager] Blocked command: notebook:run-cell-and-select-next` 警告 |
+| **Unlock** | `curl POST /api/ai/events/broadcast {ai_edit_end}` でロック解除 | インジケータ消失、modeChangedDisposer で mode 監視が解除 | PASS | console に `[LockManager] Unlocking notebook:` / `Notebook unlocked:` ログ、インジケータ消失 |
+
+未実施項目（代替検証で十分と判断したもの）:
+- T4（Kernel メニュー → Interrupt）: T3（同じ `notebook:interrupt-kernel` コマンドにマップ）で検証済みのため省略
+- T6（`0 0` restart ショートカット）: T5（同じ `notebook:restart-kernel` コマンド）で検証済みのため省略
+- R2〜R6: R1 で `BLOCKED_COMMAND_IDS` のパス自体が動作することを確認済み、今回の変更は allowlist 追加のみで既存の denylist ロジックに影響しないため省略
+
+### 3. 既知の副次問題（本 Issue のスコープ外）
+
+ツールバーの Interrupt ボタン経由で中断が成功した際、ブラウザ console に以下のエラーが観測された:
+
+```
+i: Invalid response: 200 OK
+    at i.create (...jlab_core.js)
+    at async Object.d [as interruptKernel] (...jlab_core.js)
+    at async execute (...jlab_core.js)
+```
+
+- **挙動への影響**: なし。実際の interrupt 自体は成功している（セル実行カウンタの更新と `KeyboardInterrupt` の発生を確認済み）
+- **発生箇所**: JupyterLab 本体の `interruptKernel` 関数内。jupyter-server からの 200 OK レスポンスを「invalid」と扱っている
+- **判断**: 本 Issue（#51）のスコープ外。jupyterlab-ai-sync の変更範囲外であり、今回の修正前から存在していた可能性が高い。必要であれば別 Issue で追跡する
