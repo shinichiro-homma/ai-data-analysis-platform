@@ -55,6 +55,9 @@ jupyter-server/jupyter-server/
 # Playwright MCP
 .playwright-mcp/
 
+# Playwright CLI workspace (see docs/guides/browser-automation.md)
+.playwright-cli/
+
 # MCP config (personal)
 .mcp.json
 
