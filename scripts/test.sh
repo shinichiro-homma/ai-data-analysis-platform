@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-source "$(dirname "$0")/lib/common.sh"
+source scripts/lib/common.sh
 
 COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server)
 
