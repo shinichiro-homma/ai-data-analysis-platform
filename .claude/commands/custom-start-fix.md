@@ -2,7 +2,7 @@ Issue #$ARGUMENTS の修正を実装します。
 
 以下の手順で作業してください：
 
-## 1. 未コミットの変更確認とブランチ確認
+## 1. 未コミットの変更確認
 
 まず、未コミットの変更がないか確認してください：
 
@@ -12,12 +12,14 @@ git status
 
 未コミットの変更がある場合は、先にコミットまたはスタッシュしてください。
 
-次に、`.claude/rules/branch-workflow.md` の「ブランチ確認」に従い、現在のブランチを確認してください。
+## 2. ブランチの確認・切り替え
+
+`.claude/rules/branch-workflow.md` の「ブランチ確認」に従い、現在のブランチを確認してください。
 
 新しいブランチを作成する場合は「ブランチ作成」に従って作成してください。
 既に対象 Issue の fix ブランチが存在する場合は、「ブランチ切り替え」に従って切り替えてください。
 
-## 2. イシュー詳細ファイルの確認
+## 3. イシュー詳細ファイルの確認
 
 `docs/issues/` ディレクトリから、Issue #$ARGUMENTS に対応するファイルを探して読んでください。
 
@@ -33,27 +35,67 @@ git status
 
 **「修正方針レビュー完了」にチェックが入っていない場合は、先に `/custom-fix-bug $ARGUMENTS` を実行して設計を完了させてください。設計なしで実装を開始しないでください。**
 
-## 3. 関連ドキュメントの確認
+## 4. 関連ドキュメントの確認
 
 イシュー詳細ファイルに記載されている関連ドキュメントを確認してください：
 
 - 影響範囲に記載されたファイル
 - 関連する要件定義（`docs/requirements/*.md`）
-- 関連するAPI仕様（`docs/design/api-contracts.md`）
+- 関連する API 仕様（`docs/design/api-contracts.md`）
 
-## 4. 関連 Skill の特定
+## 5. 関連 Skill の特定
 
 修正対象に応じて、サブエージェントに渡す Skill パスを特定してください：
 
 | 修正対象 | 参照する Skill |
 |----------|---------------|
 | MCP サーバー（jupyter-mcp, document-mcp） | `.claude/skills/mcp-typescript-server/SKILL.md` |
+| JupyterLab 拡張（jupyterlab-ai-sync） | `.claude/skills/jupyterlab-extension/SKILL.md` |
+| Jupyter カーネル通信 | `.claude/skills/jupyter-kernel-communication/SKILL.md` |
 
-該当する Skill パスを記録してください（ステップ 5 でサブエージェントに渡します）。
+該当する Skill パスを記録してください（ステップ 6・7 でサブエージェントに渡します）。
 
-## 5. 修正の実装（Agent: general-purpose, model: sonnet）
+## 6. テスト準備（Agent: general-purpose, model: opus）
 
-Agent ツールでサブエージェントを起動し、修正の実装とテストを一括で実行させてください。
+Agent ツールでサブエージェントを起動してください。
+
+**設定:**
+- subagent_type: `general-purpose`
+- model: `opus`
+
+**プロンプト:**
+
+```
+Issue #{Issue番号} の修正に向けたテスト準備を行ってください。
+対象コンポーネント: {コンポーネント名}
+
+## イシュー詳細
+{イシュー詳細ファイルの内容を貼る（原因、修正方針、修正ファイル一覧、テスト計画）}
+
+## 関連 Skill
+{Skill パスがあれば: 実装前に `{Skill パス}` を読んでください}
+{なければ: なし}
+
+## 手順
+
+`.claude/rules/tdd.md` を読み、「Red フェーズ」の手順に従ってテストを準備してください。
+バグを再現する回帰テストを優先して作成すること。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
+テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
+
+## 報告
+以下の形式で報告してください：
+- テストファイル: {パスの一覧}
+- テスト状態: {PASS / FAIL（Red フェーズ） / 既存テスト流用}
+- 新規作成したテスト: {あれば一覧}
+- テスト実行コマンド: {使用するコマンド}
+```
+
+**結果を確認し、テストファイルのパスとテスト実行コマンドを記録してください。**
+
+## 7. 実装（Agent: general-purpose, model: sonnet）
+
+Agent ツールでサブエージェントを起動してください。
 
 **設定:**
 - subagent_type: `general-purpose`
@@ -73,22 +115,23 @@ Issue #{Issue番号} の修正を実装してください。
 {なければ: なし}
 
 ## 関連ドキュメント
-{ステップ 3 で確認した関連ドキュメントのパス一覧}
+{ステップ 4 で確認した関連ドキュメントのパス一覧}
 
-## 実装の制約
+## テスト情報
+- テストファイル: {ステップ 6 で記録したテストファイルのパス}
+- テスト実行コマンド: {ステップ 6 で記録したコマンド}
 
-- 修正方針から逸脱しない
-- 影響範囲外のファイルを不必要に変更しない
-- `.claude/rules/tdd.md` を読み、その原則に従うこと
-- lint 失敗時は `.claude/rules/lint.md` に従うこと
-- テスト実行コマンド: `scripts/test.sh --rebuild {コンポーネント名}`
-- テストが通るまで最大 5 回繰り返すこと
+## 実装手順
+
+`.claude/rules/tdd.md` を読み、「Green フェーズ」の手順に従って実装してください。
+修正方針から逸脱しないこと。影響範囲外のファイルを不必要に変更しないこと。
+lint 失敗時は `.claude/rules/lint.md` に従うこと。
+テストが通るまで最大 5 回繰り返すこと。
 
 ## ブラウザ動作確認
 
 対象がブラウザ動作確認に該当するかの判定と手順は `.claude/rules/testing.md` に従うこと。
 バグの再現手順に沿って操作し、修正後は症状が解消されていることを確認する。
-必要に応じて `playwright-cli screenshot` でエビデンスを記録する。
 
 ## 報告
 以下の形式で報告してください：
@@ -100,44 +143,21 @@ Issue #{Issue番号} の修正を実装してください。
 ```
 
 **結果を確認してください:**
-- **テスト PASS** → ステップ 6 に進む
+- **テスト PASS** → ステップ 8 に進む
 - **テスト FAIL** → ユーザーに報告して停止する
 
-## 6. 完了処理
+## 8. 実装報告
 
-修正が完了したら、以下を行ってください：
+以下の形式で報告してください：
 
-1. イシュー詳細ファイルのステータスを更新：
-   ```markdown
-   - [x] 修正完了   ← チェックを入れる
-   ```
+```
+## 修正実装完了
 
-2. コミットメッセージに Issue 番号を含める：
-   ```
-   fix: {修正内容の要約}
+- Issue: #$ARGUMENTS
+- 設計ファイル: docs/issues/{番号}-{名前}.md
+- 変更ファイル: {サブエージェントが報告した変更ファイル一覧}
+- テスト結果: PASS
 
-   Refs #{Issue番号}
-   ```
-
-3. `tests/known-failures.json` に該当エントリがあれば削除する：
-   ```bash
-   scripts/manage-known-failures.sh list
-   scripts/manage-known-failures.sh remove --id {kf-XXX}
-   ```
-
-4. `.claude/rules/branch-workflow.md` の「PR 作成」および「PR 作成後の CI 待機と自動修正」セクションに従って、fix → dev の PR 作成から CI グリーン化までを実施する
-
-5. 以下の形式で報告する：
-   ```
-   ## 修正完了
-
-   - Issue: #$ARGUMENTS
-   - PR: {PR URL}
-   - 設計ファイル: docs/issues/{番号}-{名前}.md
-
-   ### 修正内容
-   （修正の要約）
-
-   ### テスト結果
-   （テスト結果の要約）
-   ```
+次のステップとして `/custom-complete-task` で完了検証・コミット・PR 作成に進めます。
+（リファクタが必要な場合は先に `/custom-refactor $ARGUMENTS`）
+```
