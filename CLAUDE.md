@@ -33,6 +33,10 @@ git config core.hooksPath .githooks
 
 # fetch 時に削除済みリモートブランチの追跡参照を自動削除
 git config fetch.prune true
+
+# Python 依存関係を同期（ルート .venv/ を作成）
+# 事前に uv が必要: https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 ```
 
 ## ブランチ運用

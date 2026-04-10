@@ -226,7 +226,7 @@ check_document_data() {
 
   # Get last_reload timestamp from /health endpoint
   local last_reload
-  last_reload=$(curl -sf http://localhost:3002/health 2>/dev/null | python3 -c "
+  last_reload=$(curl -sf http://localhost:3002/health 2>/dev/null | uv run python -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -247,7 +247,7 @@ except Exception:
   else
     # Convert ISO timestamp to epoch
     local reload_epoch
-    reload_epoch=$(python3 -c "
+    reload_epoch=$(uv run python -c "
 from datetime import datetime, timezone
 ts = '$last_reload'
 # Handle both offset-aware and naive ISO formats
@@ -377,7 +377,7 @@ if [[ ${#STALE[@]} -gt 0 ]]; then
           ;;
         document-server-data)
           echo "  Reloading document-server catalog via /admin/reload"
-          if curl -sf -X POST http://localhost:3002/admin/reload | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['data']['status']=='reloaded'" 2>/dev/null; then
+          if curl -sf -X POST http://localhost:3002/admin/reload | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d['data']['status']=='reloaded'" 2>/dev/null; then
             echo "  document-server catalog reloaded"
           else
             echo "  WARNING: /admin/reload failed, falling back to restart"

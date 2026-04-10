@@ -28,6 +28,7 @@
 
 - Docker & Docker Compose
 - Node.js 20+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.4+（Python 依存管理）
 
 ### 1. リポジトリのクローン
 
@@ -36,7 +37,15 @@ git clone https://github.com/shinichiro-homma/ai-data-analysis-platform.git
 cd ai-data-analysis-platform
 ```
 
-### 2. 環境変数の設定
+### 2. Python 依存関係の同期
+
+```bash
+uv sync
+```
+
+これにより `.venv/` が作成され、開発用 Python パッケージ（ruff 等）がインストールされます。
+
+### 3. 環境変数の設定
 
 ```bash
 cp .env.example .env
@@ -52,7 +61,7 @@ POSTGRES_PASSWORD=your-postgres-password-here  # 任意のパスワードに変�
 JUPYTER_TOKEN=your-secret-token-here           # 任意のトークンに変更
 ```
 
-### 3. サービスの起動
+### 4. サービスの起動
 
 ```bash
 docker-compose up -d
@@ -68,7 +77,7 @@ docker-compose up -d
 
 JupyterLab にはブラウザで `http://localhost:8888?token=<JUPYTER_TOKEN>` でアクセスできます。
 
-### 4. MCPサーバーのビルド
+### 5. MCPサーバーのビルド
 
 MCPサーバー（jupyter-mcp, document-mcp）は Claude Desktop からローカルプロセスとして起動されるため、docker-compose には含まれません。事前にビルドしておきます。
 
@@ -82,7 +91,7 @@ cd document-mcp && npm install && cd ..
 scripts/rebuild-mcp.sh document-mcp
 ```
 
-### 5. Claude Desktop への接続設定
+### 6. Claude Desktop への接続設定
 
 Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下を追加してください:
 

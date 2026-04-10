@@ -129,3 +129,15 @@ ruff（Python）と prettier（TypeScript）のフォーマッターを既存コ
 |---|--------|-----------|-----------|------|
 | 8.9 | tests/e2e の prettier 適用 | [x] | 型チェック（`tsc --noEmit`）が通る | 5ファイル |
 | 8.10 | scripts/ の ruff 適用 | [x] | スクリプトが正常動作する | Python スクリプト 2ファイル |
+
+---
+
+## Phase 9: ローカル Python 環境の uv 統一
+
+リポジトリクローン後のローカル Python 実行環境をリポジトリルート単一の uv venv に集約する Phase。開発者間・Claude Code セッション間で実行環境の差異が生じないようにし、`python` / `pip` 直叩きを PreToolUse フックで禁止して必ず `uv run` 経由にする。Docker ビルド経路（`Dockerfile`, `jupyter-server/requirements.txt`, `docker-compose.yml`）には一切手を加えない。CI ワークフロー（`.github/workflows/ci.yml`）の `setup-python@v5` + `pip install` 系ジョブは本 Phase の対象外（CI は既にバージョン固定済み）。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 9.1 | ルート venv 導入 + scripts uv 化 + Bash フック | [x] | `uv sync` 後に `scripts/lint.sh` が通り、`python3 -c "print(1)"` の直叩きが PreToolUse フックでブロックされ、`scripts/smoke-test.sh` が Docker 環境に対して成功する | ルート `pyproject.toml`, `.python-version`, `.claude/rules/python-uv.md`, `.claude/hooks/block-direct-python.sh` 新規作成。`scripts/` 配下の `python3` 直叩きを `uv run python` に置換。smoke-test は Bearer 認証ヘッダー同梱修正 |
+| 9.2 | mypy / pytest のルート venv 統合 | [ ] | `scripts/test.sh document-server` と `scripts/test.sh jupyter-server` が、コンポーネント直下の `.venv` を参照せずにルート venv 経由で通る | ルート `pyproject.toml` の `[dependency-groups] dev` に document-server / jupyter-server の依存・型チェック・テストツールを集約。`scripts/test.sh` の per-component venv 分岐を削除 |
+| 9.3 | jupyterlab-ai-sync ビルドのルート venv 統合 | [ ] | ルート venv を使った状態で `jupyterlab-ai-sync` の `npm run build` が成功し、labextension アセットが生成される | ルート dev group に `jupyterlab`, `jupyter-packaging`, `setuptools`, `wheel` を追加。`jupyterlab-ai-sync/pyproject.toml`（build backend）は変更しない |
