@@ -1,3 +1,9 @@
+---
+paths:
+  - "scripts/lint.sh"
+  - "scripts/test.sh"
+---
+
 # Lint ルール
 
 ## lint の実行タイミング

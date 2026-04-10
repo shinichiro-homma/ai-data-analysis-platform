@@ -1,6 +1,8 @@
 ---
 paths:
-  - "**/*"
+  - "scripts/manage-known-failures.sh"
+  - "scripts/create-test-issue.sh"
+  - ".github/workflows/**"
 ---
 
 # テスト失敗時のワークフロー

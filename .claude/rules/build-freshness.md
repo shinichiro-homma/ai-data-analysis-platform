@@ -1,3 +1,10 @@
+---
+paths:
+  - "scripts/rebuild.sh"
+  - "scripts/rebuild-mcp.sh"
+  - "scripts/check-freshness.sh"
+---
+
 # ビルド鮮度保証ルール
 
 コード変更後にテストを実行する際は、**必ず先にリビルドして鮮度を担保する**こと。古いビルド成果物や Docker イメージに対してテストを実行してはならない。
