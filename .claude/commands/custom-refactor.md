@@ -107,7 +107,7 @@ git diff --name-only HEAD~1
 ### 4.2 リビルド＋テスト実行
 
 `scripts/test.sh --rebuild {対象コンポーネント名}` を実行してください。
-`.claude/rules/rebuild-before-test.md` に従うこと。
+`.claude/rules/build-freshness.md` に従うこと。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ### 4.3.1 シェルスクリプトの動作確認（対象に `*.sh` が含まれる場合）

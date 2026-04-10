@@ -29,7 +29,7 @@ dev ブランチ上にいる場合は、対象タスクの feature ブランチ�
 タスク完了前の最終確認として、リビルド＋テストを実行してください。
 
 `scripts/test.sh --rebuild {対象コンポーネント名}` を実行してください。
-`.claude/rules/rebuild-before-test.md` に従うこと。
+`.claude/rules/build-freshness.md` に従うこと。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ## 4. 完了検証
