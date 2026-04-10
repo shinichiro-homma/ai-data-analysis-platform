@@ -76,9 +76,9 @@ jest.spyOn(axios, 'post').mockResolvedValue({ data: { /* ... */ } });
 
 `scripts/test.sh` を使う（`.claude/rules/scripts.md` 参照）。`npm test` / `pytest` の直接実行は禁止。
 
-## ブラウザ動作確認（Playwright MCP）
+## ブラウザ動作確認（playwright-cli）
 
-動作確認や結合テストでブラウザ操作が必要な場合は、Playwright MCP で自律的に操作すること。
+動作確認や結合テストでブラウザ操作が必要な場合は、`@playwright/cli` で自律的に操作すること。セットアップ・コマンド一覧・JupyterLab のトークン認証の扱いは [`docs/guides/browser-automation.md`](../../docs/guides/browser-automation.md) を参照する。
 
 ### ブラウザ確認が必要／不要なケース
 
@@ -88,15 +88,6 @@ jest.spyOn(axios, 'post').mockResolvedValue({ data: { /* ... */ } });
 | ユーザー操作を伴う機能（クリック、フォーム入力、D&D） | ユニットテストで検証できる範囲 |
 | リアルタイム同期（AI 側の操作が JupyterLab に即時反映されるか） | CLI ツールやスクリプトの動作 |
 | WebSocket 通信の結果確認、エラー表示、画面遷移 | |
-
-### 基本操作手順
-
-1. `browser_navigate` で対象 URL にアクセス
-2. `browser_snapshot` で状態確認（スクリーンショットより軽量、ref も取得可）
-3. `browser_click` / `browser_type` / `browser_fill_form` で操作
-4. `browser_snapshot` で結果確認、必要なら `browser_take_screenshot` でエビデンス保存
-5. `browser_console_messages` でコンソールエラー確認
-6. 非同期の完了待ちは `browser_wait_for` を使う
 
 事前に `docker-compose ps` で必要サービスの起動を確認する。JupyterLab は `http://localhost:8888`。
 

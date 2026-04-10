@@ -57,13 +57,9 @@
 
 #### ブラウザ操作が必要な場合（UI バグ、表示崩れ、画面遷移の問題等）
 
-Playwright MCP を使って自律的にブラウザを操作し、バグを再現してください。
+`.claude/rules/testing.md` の「ブラウザ動作確認」および [`docs/guides/browser-automation.md`](../../docs/guides/browser-automation.md) に従い、`@playwright/cli` でバグを再現してください。
 
-1. `browser_navigate` で対象ページにアクセスする
-2. `browser_snapshot` でページの状態を確認する
-3. 必要に応じて `browser_click`、`browser_type`、`browser_fill_form` 等で操作する
-4. バグが発生した状態を `browser_take_screenshot` でスクリーンショットとして記録する（ファイル名: `docs/issues/evidence-{バグ概要}.png`）
-5. `browser_console_messages` でコンソールエラーも確認する
+エビデンス用スクリーンショットは `playwright-cli screenshot` で取得し、`docs/issues/evidence-{バグ概要}.png` に保存してください。コンソールエラーは `playwright-cli console` で確認します。
 
 #### API・バックエンドのバグの場合
 
