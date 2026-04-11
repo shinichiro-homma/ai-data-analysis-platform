@@ -7,6 +7,8 @@
 .claude/commands/custom-auto-audit-docs.md
 .claude/commands/custom-auto-dev.md
 .claude/commands/custom-change-requirement.md
+.claude/commands/custom-cleanup-branches.md
+.claude/commands/custom-commit.md
 .claude/commands/custom-complete-task.md
 .claude/commands/custom-fix-bug.md
 .claude/commands/custom-plan-task.md
@@ -16,6 +18,7 @@
 .claude/commands/custom-resolve-issues.md
 .claude/commands/custom-start-fix.md
 .claude/commands/custom-start-task.md
+.claude/commands/custom-status.md
 .claude/commands/custom-update-plan.md
 
 # Claude skills (dev only)
@@ -26,6 +29,7 @@
 # Claude agents (dev only)
 .claude/agents/code-reviewer.md
 .claude/agents/impact-analyzer.md
+.claude/agents/requirements-researcher.md
 .claude/agents/requirements-verifier.md
 
 # Claude rules (dev only)
@@ -49,8 +53,10 @@ docs/issues/
 docs/PLAN.md
 
 # Dev scripts
-scripts/manage-known-failures.sh
+scripts/cleanup-merged-branches.sh
 scripts/create-test-issue.sh
+scripts/manage-known-failures.sh
+scripts/promote-to-main.sh
 
 # Dev testing
 tests/known-failures.json
