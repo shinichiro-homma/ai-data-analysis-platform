@@ -128,6 +128,14 @@ Claude Desktop の設定ファイル `claude_desktop_config.json` を開きま�
         "JUPYTER_SERVER_URL": "http://localhost:8888",
         "JUPYTER_TOKEN": "<JUPYTER_TOKEN>"
       }
+    },
+    "document-mcp": {
+      "command": "wsl.exe",
+      "args": ["node", "/home/<user>/path/to/document-mcp/dist/index.js"],
+      "env": {
+        "DOCUMENT_SERVER_URL": "http://localhost:3002",
+        "DOCUMENT_SERVER_TOKEN": "<DOCUMENT_SERVER_TOKEN>"
+      }
     }
   }
 }
