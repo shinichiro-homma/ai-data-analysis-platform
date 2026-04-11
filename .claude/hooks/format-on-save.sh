@@ -10,9 +10,12 @@
 #   出力なし + exit 0 = 正常（デフォルト動作に委ねる）
 #   exit 2 = ブロック（使用しない）
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+TOOL_NAME=$(json_get_path "$INPUT" .tool_name)
+FILE_PATH=$(json_get_path "$INPUT" .tool_input.file_path)
 
 # Edit / Write 以外は対象外
 if [[ "$TOOL_NAME" != "Edit" && "$TOOL_NAME" != "Write" ]]; then

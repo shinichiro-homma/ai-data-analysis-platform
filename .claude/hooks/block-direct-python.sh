@@ -10,8 +10,11 @@ set -euo pipefail
 #   exit 0 = 許可（直叩きなし）
 #   exit 2 = ブロック（stderr の指示に従って Claude が自己修正）
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(json_get_path "$INPUT" .tool_input.command)
 
 if [[ -z "$COMMAND" ]]; then
   exit 0

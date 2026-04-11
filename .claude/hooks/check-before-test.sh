@@ -5,8 +5,11 @@
 # 対象: scripts/test.sh, scripts/smoke-test.sh
 # 例外: --rebuild フラグ付き（自前でリビルドするため）
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(json_get_path "$INPUT" .tool_input.command)
 
 if [[ -z "$COMMAND" ]]; then
   exit 0

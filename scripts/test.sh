@@ -308,6 +308,10 @@ if [[ ${#FAILED[@]} -eq 0 ]]; then
   echo "All targets passed."
 else
   if $HEALTH; then
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "ERROR: --health は jq を必要とします。sudo apt-get install -y jq / brew install jq でインストールしてください。" >&2
+      exit 1
+    fi
     # Classify failures against known-failures.json
     KF_FILE="tests/known-failures.json"
     KNOWN=()

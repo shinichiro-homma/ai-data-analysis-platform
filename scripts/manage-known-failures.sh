@@ -3,6 +3,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+if ! command -v jq >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+ERROR: jq がインストールされていません。
+
+このスクリプトは known-failures.json の JSON CRUD に jq を必要とします。
+インストール:
+  Debian/Ubuntu: sudo apt-get install -y jq
+  macOS:         brew install jq
+EOF
+  exit 1
+fi
+
 KF_FILE="tests/known-failures.json"
 
 usage() {

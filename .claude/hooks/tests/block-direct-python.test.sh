@@ -21,8 +21,12 @@ run_test() {
   local command="$2"
   local expected_exit="$3"
 
+  # 入力 JSON は python3 で組み立てる（jq 未インストール環境でもテストを回すため）
   local input
-  input=$(printf '{"tool_input":{"command":%s}}' "$(printf '%s' "$command" | jq -Rs .)")
+  input=$(HOOK_TEST_COMMAND="$command" python3 -c '
+import json, os
+print(json.dumps({"tool_input": {"command": os.environ["HOOK_TEST_COMMAND"]}}))
+')
 
   local actual_exit=0
   echo "$input" | "$HOOK" >/dev/null 2>&1 || actual_exit=$?
