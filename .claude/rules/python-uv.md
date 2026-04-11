@@ -54,6 +54,22 @@ uv sync
 `python` / `python3` / `pip` / `pip3` の直叩きを検出して exit 2 でブロックする。
 `uv run python ...` / `uv run pip ...` 経由は通過する。
 
+## ローカル mypy / pytest の実行
+
+mypy と pytest はルート venv 経由で実行する。per-component `.venv/` は使わない。
+
+```bash
+# 型チェック（ルートから実行）
+uv run mypy <component>/src
+
+# テスト（コンポーネントディレクトリに cd してから実行）
+cd <component> && uv run --project <repo_root> pytest
+```
+
+- `src/` が存在しないコンポーネント（jupyter-server 等）の mypy はスキップする
+- pytest は `cd <component>` で rootdir を合わせてから `uv run --project <repo_root>` でルート venv を利用する
+- `scripts/test.sh` はこのルールに従って自動実行する
+
 ## Docker 経路の例外
 
 `Dockerfile` / `docker-compose.yml` 内の `RUN pip install` 等は Docker ビルド経路のため変更しない。

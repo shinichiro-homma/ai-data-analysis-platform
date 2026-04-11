@@ -14,12 +14,13 @@ YAMLカタログ・用語集・既存ロジックを読み込み、APIを提供�
 
 ## コマンド
 
+ルートで `uv sync` 済みであれば追加操作不要。
+
 ```bash
-pip install -r requirements.txt                    # 依存関係インストール
-uvicorn src.main:app --reload --port 3002          # 開発
-uvicorn src.main:app --host 0.0.0.0 --port 3002   # 本番
-pytest                                              # テスト
-mypy src/                                           # 型チェック
+uv run uvicorn src.main:app --reload --port 3002          # 開発
+uv run uvicorn src.main:app --host 0.0.0.0 --port 3002   # 本番
+uv run pytest                                              # テスト
+uv run mypy src/                                           # 型チェック
 ```
 
 ## 環境変数
