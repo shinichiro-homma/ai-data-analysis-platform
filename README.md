@@ -37,31 +37,17 @@ git clone https://github.com/shinichiro-homma/ai-data-analysis-platform.git
 cd ai-data-analysis-platform
 ```
 
-### 2. Python 依存関係の同期
+### 2. 初回セットアップ
 
 ```bash
-uv sync
+bash scripts/bootstrap.sh
 ```
 
-これにより `.venv/` が作成され、開発用 Python パッケージ（ruff 等）がインストールされます。
+Python 依存関係の同期（`uv sync`）・git 設定・`.env` の自動コピーを一括で行います。
+uv が未インストールの場合はスクリプトがインストール手順を案内します。
+`.env` はコピー後に `POSTGRES_PASSWORD` / `JUPYTER_TOKEN` を任意の値に変更してください。
 
-### 3. 環境変数の設定
-
-```bash
-cp .env.example .env
-```
-
-`.env` を編集し、以下の値を設定してください:
-
-```env
-# PostgreSQL
-POSTGRES_PASSWORD=your-postgres-password-here  # 任意のパスワードに変更
-
-# Jupyter Server
-JUPYTER_TOKEN=your-secret-token-here           # 任意のトークンに変更
-```
-
-### 4. サービスの起動
+### 3. サービスの起動
 
 ```bash
 docker-compose up -d

@@ -28,16 +28,11 @@ jupyter lab        # jupyter-server
 clone 後に 1 度だけ実行する：
 
 ```bash
-# git hooks を有効化（dev pull 時にマージ済みローカルブランチを自動削除）
-git config core.hooksPath .githooks
-
-# fetch 時に削除済みリモートブランチの追跡参照を自動削除
-git config fetch.prune true
-
-# Python 依存関係を同期（ルート .venv/ を作成）
-# 事前に uv が必要: https://docs.astral.sh/uv/getting-started/installation/
-uv sync
+bash scripts/bootstrap.sh
 ```
+
+- uv 未インストール時はスクリプトが PATH 設定手順または [公式インストールコマンド](https://docs.astral.sh/uv/getting-started/installation/) を案内する
+- `.env` は自動コピーされるが本番利用時は `POSTGRES_PASSWORD` / `JUPYTER_TOKEN` の変更が必須
 
 ## ブランチ運用
 
