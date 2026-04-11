@@ -7,6 +7,7 @@
 
 | スクリプト | 用途 | 主なオプション |
 |-----------|------|----------------|
+| `scripts/bootstrap.sh` | 初回セットアップ（uv 検知 → uv sync → git config → .env 初期化） | — |
 | `scripts/lint.sh [COMPONENT]` | lint チェック（検出のみ） | — |
 | `scripts/test.sh [COMPONENT]` | lint + 型チェック + テスト | `--no-lint` / `--typecheck`（型のみ）/ `--rebuild`（MCP・Docker 自動判定）/ `--integration`（Docker 必要、`--rebuild` と併用可）/ `--health`（既知障害と照合して分類） |
 | `scripts/smoke-test.sh` | Docker 環境のスモークテスト | — |
