@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+REPO_ROOT="$(pwd)"
 source scripts/lib/common.sh
 
 COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server)
@@ -227,24 +228,15 @@ for component in "${TARGETS[@]}"; do
     continue
   fi
 
-  # Python venv: check if venv exists for this component
-  HAS_VENV=false
-  if [[ "$PROJECT_TYPE" == "python" && -f "$component/.venv/bin/activate" ]]; then
-    HAS_VENV=true
-  fi
-
   if $TYPECHECK; then
     echo "  Type checking..."
     if [[ "$PROJECT_TYPE" == "typescript" ]]; then
       (cd "$component" && npm run typecheck) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
     else
-      # Check if mypy is available (via venv or system)
-      if $HAS_VENV && (cd "$component" && source .venv/bin/activate && command -v mypy >/dev/null 2>&1); then
-        (cd "$component" && source .venv/bin/activate && mypy src/) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
-      elif command -v mypy >/dev/null 2>&1; then
-        (cd "$component" && mypy src/) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
+      if [[ -d "$component/src" ]]; then
+        uv run mypy "$component/src" || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
       else
-        echo "  SKIP: mypy not available"
+        echo "  SKIP: no src/ directory"
       fi
     fi
     echo "  Typecheck OK"
@@ -270,13 +262,7 @@ for component in "${TARGETS[@]}"; do
       if [[ "$PROJECT_TYPE" == "typescript" ]]; then
         (cd "$component" && npm test) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
       else
-        if $HAS_VENV && (cd "$component" && source .venv/bin/activate && command -v pytest >/dev/null 2>&1); then
-          (cd "$component" && source .venv/bin/activate && pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
-        elif command -v pytest >/dev/null 2>&1; then
-          (cd "$component" && pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
-        else
-          echo "  SKIP: pytest not available"
-        fi
+        (cd "$component" && uv run --project "$REPO_ROOT" pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
       fi
       echo "  Test OK"
     fi
