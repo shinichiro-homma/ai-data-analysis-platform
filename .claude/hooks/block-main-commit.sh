@@ -5,8 +5,11 @@
 # 対象: git commit を含む Bash コマンド
 # 動作: main ブランチにいる場合は exit 2 でブロック
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(json_get_path "$INPUT" .tool_input.command)
 
 if [[ -z "$COMMAND" ]]; then
   exit 0

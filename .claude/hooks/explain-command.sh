@@ -8,8 +8,11 @@
 # フック応答:
 #   出力なし + exit 0 = デフォルト動作に委ねる（許可判断には関与しない）
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-DESCRIPTION=$(echo "$INPUT" | jq -r '.tool_input.description // empty')
+DESCRIPTION=$(json_get_path "$INPUT" .tool_input.description)
 
 if [[ -z "$DESCRIPTION" ]]; then
   exit 0

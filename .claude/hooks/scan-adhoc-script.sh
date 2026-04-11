@@ -11,8 +11,11 @@
 #   exit 0 = 許可（対象外、または危険パターンなし）
 #   JSON + exit 0 = ask（危険パターン検出、ユーザー承認を要求）
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(json_get_path "$INPUT" .tool_input.command)
 
 if [[ -z "$COMMAND" ]]; then
   exit 0
@@ -82,12 +85,5 @@ fi
 REASONS=$(printf '%s; ' "${DETECTED[@]}")
 MESSAGE="tmp/ スクリプト '${SCRIPT_PATH}' に禁止パターンが検出されました: ${REASONS}詳細は .claude/rules/adhoc-script-execution.md を参照してください。"
 
-# jq で JSON をエスケープして出力
-jq -n --arg reason "$MESSAGE" '{
-  hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    permissionDecision: "ask",
-    permissionDecisionReason: $reason
-  }
-}'
+json_emit_ask "$MESSAGE"
 exit 0

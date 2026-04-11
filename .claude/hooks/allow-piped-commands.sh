@@ -16,8 +16,11 @@
 #   出力なし + exit 0 = 許可（デフォルト動作に委ねる）
 #   exit 2 = ブロック
 
+# shellcheck source=lib/json.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
+
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(json_get_path "$INPUT" .tool_input.command)
 
 if [[ -z "$COMMAND" ]]; then
   exit 0
@@ -55,9 +58,9 @@ fi
 # "Bash(scripts/*)" → "scripts/"
 # "Read", "Write" など Bash 以外はスキップ
 extract_prefixes() {
-  local jq_path="$1"
+  local json_path="$1"
   for f in "${SETTINGS_FILES[@]}"; do
-    jq -r "${jq_path}[]? // empty" "$f" 2>/dev/null
+    json_get_array_items "$f" "$json_path"
   done | grep '^Bash(' \
        | sed 's/^Bash(//; s/[:*]*)*$//' \
        | sort -u
