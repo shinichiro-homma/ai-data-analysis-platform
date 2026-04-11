@@ -240,6 +240,26 @@ pwd                        # プロジェクトルートで実行 → <PROJECT_P
 
 JupyterLab をブラウザで開いた状態で AI に分析を依頼すると、AIの操作（セル追加、コード実行、結果表示）がリアルタイムに反映されます。AI編集中はノートブックが自動ロックされ、完了後にユーザーが自由に編集できます。
 
+## システムプロンプトテンプレート
+
+本プラットフォーム向けに、AI の分析ワークフローを整えるためのシステムプロンプトのテンプレートを [`system-prompt-templates/`](system-prompt-templates/) に同梱しています。Claude Desktop のプロジェクト指示（Project Instructions）や API 利用時の system プロンプトに貼り付けて利用してください。
+
+| ファイル | 言語 |
+|---------|------|
+| [`analysis-policy.md`](system-prompt-templates/analysis-policy.md) | English |
+| [`analysis-policy.ja.md`](system-prompt-templates/analysis-policy.ja.md) | 日本語 |
+
+テンプレートに含まれる主なポリシー:
+
+- **計画 → 1ステップ実行 → 報告 → 待機** の原則（計画なしにツールを連鎖させない）
+- **ツール呼び出しの順序**（`workspace_create` → `session_create` → `notebook_create` → 分析）
+- **データ準備フェーズ**（用語カタログ・テーブル・既存ロジックの確認を SQL 作成前に必ず行う）
+- **`export_sql` / `execute_sql` / `execute_code` の使い分け**（生データ取得 vs. 中身確認 vs. 集計・可視化）
+- **外部ファイル・Unicode 正規化・Excel 読み込み**の落とし穴回避
+- **メモリ管理**（各ステップ実行前のチェックと 80% 超時の対処）
+
+利用は任意ですが、AI に一貫した分析手順を踏ませたい場合は適用を推奨します。プロジェクト固有のルールを追記してカスタマイズしても構いません。
+
 ## ドキュメント
 
 | ドキュメント | 内容 |
