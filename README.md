@@ -63,7 +63,7 @@ docker-compose up -d
 
 JupyterLab にはブラウザで `http://localhost:8888?token=<JUPYTER_TOKEN>` でアクセスできます。
 
-### 5. MCPサーバーのビルド
+### 4. MCPサーバーのビルド
 
 MCPサーバー（jupyter-mcp, document-mcp）は Claude Desktop からローカルプロセスとして起動されるため、docker-compose には含まれません。事前にビルドしておきます。
 
@@ -77,9 +77,16 @@ cd document-mcp && npm install && cd ..
 scripts/rebuild-mcp.sh document-mcp
 ```
 
-### 6. Claude Desktop への接続設定
+### 5. Claude Desktop への接続設定
 
-Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下を追加してください:
+Claude Desktop の設定ファイル `claude_desktop_config.json` を開きます（Claude Desktop メニュー → `Settings` → `Developer` → `Edit Config`）。設定ファイルのパスは OS により異なります:
+
+| OS | パス |
+|----|------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows / WSL | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+`mcpServers` に以下のエントリを追加してください:
 
 ```json
 {
@@ -89,21 +96,44 @@ Claude Desktop の設定ファイル（`claude_desktop_config.json`）に以下�
       "args": ["<absolute-path-to>/jupyter-mcp/dist/index.js"],
       "env": {
         "JUPYTER_SERVER_URL": "http://localhost:8888",
-        "JUPYTER_TOKEN": "<your-jupyter-token>"
+        "JUPYTER_TOKEN": "<JUPYTER_TOKEN>"
       }
     },
     "document-mcp": {
       "command": "node",
       "args": ["<absolute-path-to>/document-mcp/dist/index.js"],
       "env": {
-        "DOCUMENT_SERVER_URL": "http://localhost:3002"
+        "DOCUMENT_SERVER_URL": "http://localhost:3002",
+        "DOCUMENT_SERVER_TOKEN": "<DOCUMENT_SERVER_TOKEN>"
       }
     }
   }
 }
 ```
 
-`<absolute-path-to>` と `<your-jupyter-token>` は実際の値に置き換えてください。
+置換ポイント:
+
+- `<absolute-path-to>` — プロジェクトの絶対パス
+- `<JUPYTER_TOKEN>` / `<DOCUMENT_SERVER_TOKEN>` — プロジェクト直下の `.env` の同名変数と**完全一致**させる（不一致だと 401 になる）
+
+**WSL の場合**: Claude Desktop は Windows プロセスのため、Linux パスと Linux 側 `node` を直接指定すると失敗します。`wsl.exe` 経由で起動してください:
+
+```json
+{
+  "mcpServers": {
+    "jupyter-mcp": {
+      "command": "wsl.exe",
+      "args": ["node", "/home/<user>/path/to/jupyter-mcp/dist/index.js"],
+      "env": {
+        "JUPYTER_SERVER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "<JUPYTER_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+保存後、Claude Desktop を完全終了（macOS: Cmd+Q / Windows: タスクトレイから終了）してから再起動し、ハンマーアイコンに両サーバーのツールが表示されれば成功です。
 
 ## MCPツール一覧
 

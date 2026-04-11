@@ -35,9 +35,11 @@ cd jupyter-mcp && npm run build
 cd jupyter-mcp
 npx @modelcontextprotocol/inspector \
   -e JUPYTER_SERVER_URL=http://localhost:8888 \
-  -e JUPYTER_TOKEN=test-token-123 \
+  -e JUPYTER_TOKEN="$(grep '^JUPYTER_TOKEN=' ../.env | cut -d= -f2-)" \
   node dist/index.js
 ```
+
+`JUPYTER_TOKEN` はプロジェクト直下の `.env` と完全一致させる必要があります（ここではシェル展開で `.env` から読み込んでいます）。
 
 起動後、以下のような出力が表示される：
 
