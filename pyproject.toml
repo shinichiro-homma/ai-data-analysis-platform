@@ -1,0 +1,12 @@
+[project]
+name = "ai-data-analysis-platform-dev"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "psycopg2-binary>=2.9",
+  "pyarrow>=23.0",
+  "pyyaml>=6.0",
+]

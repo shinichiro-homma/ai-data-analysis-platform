@@ -128,32 +128,27 @@ if [[ ${#PY_TARGETS[@]} -gt 0 ]]; then
   echo ""
   echo "--- Ruff (Python) ---"
 
-  if ! command -v ruff >/dev/null 2>&1; then
-    echo "  ERROR: ruff not found. Install with: pip install ruff" >&2
-    FAILED+=("ruff:not-found")
+  RUFF_PATHS=()
+  for component in "${PY_TARGETS[@]}"; do
+    # Word-split intentionally — paths may contain multiple entries
+    # shellcheck disable=SC2206
+    RUFF_PATHS+=($(ruff_targets "$component"))
+  done
+
+  echo "  Checking format: ${RUFF_PATHS[*]}"
+  if uv run ruff format --check "${RUFF_PATHS[@]}" 2>&1; then
+    echo "  Ruff format OK"
   else
-    RUFF_PATHS=()
-    for component in "${PY_TARGETS[@]}"; do
-      # Word-split intentionally — paths may contain multiple entries
-      # shellcheck disable=SC2206
-      RUFF_PATHS+=($(ruff_targets "$component"))
-    done
+    FAILED+=("ruff-format")
+    echo "  FAILED: ruff format"
+  fi
 
-    echo "  Checking format: ${RUFF_PATHS[*]}"
-    if ruff format --check "${RUFF_PATHS[@]}" 2>&1; then
-      echo "  Ruff format OK"
-    else
-      FAILED+=("ruff-format")
-      echo "  FAILED: ruff format"
-    fi
-
-    echo "  Checking lint: ${RUFF_PATHS[*]}"
-    if ruff check "${RUFF_PATHS[@]}" 2>&1; then
-      echo "  Ruff lint OK"
-    else
-      FAILED+=("ruff-lint")
-      echo "  FAILED: ruff lint"
-    fi
+  echo "  Checking lint: ${RUFF_PATHS[*]}"
+  if uv run ruff check "${RUFF_PATHS[@]}" 2>&1; then
+    echo "  Ruff lint OK"
+  else
+    FAILED+=("ruff-lint")
+    echo "  FAILED: ruff lint"
   fi
 fi
 

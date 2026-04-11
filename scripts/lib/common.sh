@@ -34,7 +34,7 @@ set_data_env_in_dotenv() {
   local new_env="$1"
   if grep -q "^DATA_ENV=" .env 2>/dev/null; then
     # Use python3 for cross-platform compatibility (macOS/Linux sed -i differs)
-    python3 -c "
+    uv run python -c "
 import re, pathlib
 p = pathlib.Path('.env')
 content = p.read_text()
@@ -145,7 +145,7 @@ run_load_data() {
   echo "  Waiting for PostgreSQL TCP connection from host..."
   local max_retries=30
   for i in $(seq 1 "$max_retries"); do
-    if python3 -c "
+    if uv run python -c "
 import psycopg2, sys
 try:
     conn = psycopg2.connect(host='localhost', port=5432, user='${pg_user:-jupyter}', password='${pg_password}', dbname='${pg_db:-analysis_db}', connect_timeout=3)
@@ -168,7 +168,7 @@ except Exception:
     PGUSER="${pg_user:-jupyter}" \
     PGPASSWORD="${pg_password}" \
     PGDATABASE="${pg_db:-analysis_db}" \
-    python3 "$load_script" || {
+    uv run python "$load_script" || {
     echo "  ERROR: Data load failed" >&2
     return 1
   }
@@ -178,7 +178,7 @@ except Exception:
 # Get Docker Compose project name
 get_compose_project_name() {
   docker compose config --format json 2>/dev/null \
-    | python3 -c "import sys,json; print(json.load(sys.stdin).get('name',''))" 2>/dev/null \
+    | uv run python -c "import sys,json; print(json.load(sys.stdin).get('name',''))" 2>/dev/null \
     || basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g'
 }
 
