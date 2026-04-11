@@ -11,12 +11,13 @@ Usage: $(basename "$0") [OPTIONS] [COMPONENT...]
 CI と同じルールをローカルで事前チェックできます。
 
 COMPONENT:
-  jupyter-mcp       Jupyter MCP サーバー (prettier)
-  document-mcp      Document MCP サーバー (prettier)
-  mcp-shared        MCP 共有パッケージ (prettier)
-  document-server   Document サーバー (ruff)
-  jupyter-server    Jupyter サーバー (ruff)
-  scripts           運用スクリプト (ruff)
+  jupyter-mcp           Jupyter MCP サーバー (prettier)
+  document-mcp          Document MCP サーバー (prettier)
+  mcp-shared            MCP 共有パッケージ (prettier)
+  jupyterlab-ai-sync    JupyterLab AI 同期拡張 (prettier)
+  document-server       Document サーバー (ruff)
+  jupyter-server        Jupyter サーバー (ruff)
+  scripts               運用スクリプト (ruff)
   (省略時は全対象)
 
 OPTIONS:
@@ -31,7 +32,7 @@ EOF
 
 # ── Target definitions ──
 
-TS_COMPONENTS=(jupyter-mcp document-mcp mcp-shared)
+TS_COMPONENTS=(jupyter-mcp document-mcp mcp-shared jupyterlab-ai-sync)
 PY_COMPONENTS=(document-server jupyter-server scripts)
 ALL_COMPONENTS=("${TS_COMPONENTS[@]}" "${PY_COMPONENTS[@]}")
 
@@ -39,9 +40,10 @@ ALL_COMPONENTS=("${TS_COMPONENTS[@]}" "${PY_COMPONENTS[@]}")
 prettier_targets() {
   local component="$1"
   case "$component" in
-    jupyter-mcp)  echo "jupyter-mcp/src/**/*.ts" ;;
-    document-mcp) echo "document-mcp/src/**/*.ts" ;;
-    mcp-shared)   echo "packages/mcp-shared/src/**/*.ts" ;;
+    jupyter-mcp)          echo "jupyter-mcp/src/**/*.ts" ;;
+    document-mcp)         echo "document-mcp/src/**/*.ts" ;;
+    mcp-shared)           echo "packages/mcp-shared/src/**/*.ts" ;;
+    jupyterlab-ai-sync)   echo "jupyterlab-ai-sync/src/**/*.ts" ;;
   esac
 }
 

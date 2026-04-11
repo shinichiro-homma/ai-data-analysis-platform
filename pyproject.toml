@@ -18,4 +18,8 @@ dev = [
   "pydantic>=2.0",
   "sqlparse>=0.4",
   "types-PyYAML>=6.0",
+  "jupyterlab>=4.0.0,<5",
+  "jupyter-packaging>=0.12,<1",
+  "setuptools",
+  "wheel",
 ]

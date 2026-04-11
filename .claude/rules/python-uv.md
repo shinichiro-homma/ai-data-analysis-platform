@@ -6,6 +6,7 @@ paths:
   - scripts/**/*.sh
   - scripts/**/*.py
   - .claude/hooks/block-direct-python.sh
+  - jupyterlab-ai-sync/**/*.md
 ---
 
 # uv による Python 実行ルール
@@ -69,6 +70,22 @@ cd <component> && uv run --project <repo_root> pytest
 - `src/` が存在しないコンポーネント（jupyter-server 等）の mypy はスキップする
 - pytest は `cd <component>` で rootdir を合わせてから `uv run --project <repo_root>` でルート venv を利用する
 - `scripts/test.sh` はこのルールに従って自動実行する
+
+## jupyterlab-ai-sync ビルド
+
+`jupyterlab-ai-sync` の `npm run build`（内部で `tsc && jupyter labextension build .` を呼ぶ）はルート venv 経由で実行する。
+`jupyterlab-ai-sync/` 内で `uv run` を実行すると同ディレクトリの `pyproject.toml`（build backend）を拾うため、
+`--project <repo_root>` を明示してルート venv を使わせる。
+
+```bash
+# jupyterlab-ai-sync のビルド（リポジトリルートから実行）
+(cd jupyterlab-ai-sync && uv run --project .. npm run build)
+
+# 開発モードインストール
+uv run jupyter labextension develop . --overwrite
+```
+
+`scripts/test.sh jupyterlab-ai-sync` はこのルールに従って自動実行する。
 
 ## Docker 経路の例外
 
