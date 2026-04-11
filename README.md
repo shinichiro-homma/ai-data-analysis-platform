@@ -49,8 +49,10 @@ uv が未インストールの場合はスクリプトがインストール手�
 
 ### 3. サービスの起動
 
+初回起動時はデータ環境切り替えスクリプト経由で起動します。PostgreSQL のボリューム初期化・起動待機・CSV データのロードまでを一括で実施します:
+
 ```bash
-docker-compose up -d
+scripts/switch-env.sh sample
 ```
 
 以下のサービスが起動します:
@@ -62,6 +64,8 @@ docker-compose up -d
 | document-server | http://localhost:3002 | カタログ・用語集・ロジックAPI |
 
 JupyterLab にはブラウザで `http://localhost:8888?token=<JUPYTER_TOKEN>` でアクセスできます。
+
+> **`docker-compose up -d` を直接使わない理由**: 素の `docker-compose up -d` はテーブル作成までしか行わず、データロードは走りません（ロードはホスト側 Python から `scripts/lib/common.sh:run_load_data` 経由で実行される設計のため）。初回は必ず `scripts/switch-env.sh sample` を使ってください。`production` 環境に切り替える場合は引数を `production` に変更します。既に起動済みのサービスを停止・再起動するだけなら `docker compose stop` / `docker compose start` で構いません。
 
 ### 4. MCPサーバーのビルド
 
@@ -84,7 +88,9 @@ Claude Desktop の設定ファイル `claude_desktop_config.json` を開きま�
 | OS | パス |
 |----|------|
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Windows / WSL | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Windows / WSL | `%LOCALAPPDATA%\Packages\Claude_<PACKAGE_ID>\LocalCache\Roaming\Claude\claude_desktop_config.json` |
+
+> Windows 版 Claude Desktop は MSIX パッケージとして配布されているため、config ファイルは `%APPDATA%\Claude\` ではなく `%LOCALAPPDATA%\Packages\Claude_<PACKAGE_ID>\LocalCache\Roaming\Claude\` 配下に配置されます。`<PACKAGE_ID>` は実環境で `%LOCALAPPDATA%\Packages\` 配下を `Claude_*` で検索して特定してください。迷ったら Claude Desktop メニューの `Settings → Developer → Edit Config` が正しいファイルを開いてくれます。
 
 `mcpServers` に以下のエントリを追加してください:
 
@@ -113,33 +119,56 @@ Claude Desktop の設定ファイル `claude_desktop_config.json` を開きま�
 
 置換ポイント:
 
-- `<absolute-path-to>` — プロジェクトの絶対パス
+- `<absolute-path-to>` — プロジェクトの絶対パス（以下「WSL の場合」節では `<PROJECT_PATH>` と表記）
 - `<JUPYTER_TOKEN>` / `<DOCUMENT_SERVER_TOKEN>` — プロジェクト直下の `.env` の同名変数と**完全一致**させる（不一致だと 401 になる）
 
-**WSL の場合**: Claude Desktop は Windows プロセスのため、Linux パスと Linux 側 `node` を直接指定すると失敗します。`wsl.exe` 経由で起動してください:
+**WSL の場合**: Claude Desktop は Windows プロセスのため、Linux パスと Linux 側 `node` を直接指定すると失敗します。`wsl.exe` 経由で起動しますが、**`node` の絶対パスを指定する必要があります**（理由は下記）。
+
+事前に WSL で以下を実行し、node とプロジェクトの絶対パスを控えておきます:
+
+```bash
+which node                 # → <NODE_PATH>（例: /home/<user>/.nvm/versions/node/v24.14.1/bin/node）
+pwd                        # プロジェクトルートで実行 → <PROJECT_PATH>
+```
+
+控えた値を以下の `<NODE_PATH>` / `<PROJECT_PATH>` に埋め込んでください。**`env` に加えて `WSLENV` を必ず併記する**のがポイントです（理由は下記）:
 
 ```json
 {
   "mcpServers": {
     "jupyter-mcp": {
       "command": "wsl.exe",
-      "args": ["node", "/home/<user>/path/to/jupyter-mcp/dist/index.js"],
+      "args": [
+        "<NODE_PATH>",
+        "<PROJECT_PATH>/jupyter-mcp/dist/index.js"
+      ],
       "env": {
         "JUPYTER_SERVER_URL": "http://localhost:8888",
-        "JUPYTER_TOKEN": "<JUPYTER_TOKEN>"
+        "JUPYTER_TOKEN": "<JUPYTER_TOKEN>",
+        "WSLENV": "JUPYTER_SERVER_URL:JUPYTER_TOKEN"
       }
     },
     "document-mcp": {
       "command": "wsl.exe",
-      "args": ["node", "/home/<user>/path/to/document-mcp/dist/index.js"],
+      "args": [
+        "<NODE_PATH>",
+        "<PROJECT_PATH>/document-mcp/dist/index.js"
+      ],
       "env": {
         "DOCUMENT_SERVER_URL": "http://localhost:3002",
-        "DOCUMENT_SERVER_TOKEN": "<DOCUMENT_SERVER_TOKEN>"
+        "DOCUMENT_SERVER_TOKEN": "<DOCUMENT_SERVER_TOKEN>",
+        "WSLENV": "DOCUMENT_SERVER_URL:DOCUMENT_SERVER_TOKEN"
       }
     }
   }
 }
 ```
+
+> **なぜ `node` の絶対パスが必要か**: nvm でインストールした node は `~/.bashrc` 内で PATH に追加されます。`wsl.exe node ...` は非対話シェルで `.bashrc` を読まず、`wsl.exe bash -lc "node ..."` でもログインシェルは `.bash_profile` / `.profile` しか読まないため、いずれも `node: command not found` になります。確実に動かすには `which node` で得た絶対パスを直接指定してください。
+>
+> **node を更新したら再設定**: nvm で node バージョンを上げるとパスの `v<version>` 部分が変わります。本 config の `<NODE_PATH>` も追従して更新してください。
+>
+> **なぜ `WSLENV` が必要か**: `wsl.exe` は Claude Desktop が `env` で渡した Windows 側環境変数を、既定では Linux 側の子プロセスに転送しません。転送したい変数名をコロン区切りで `WSLENV` に列挙することで初めて Linux 側の node プロセスに渡ります。`WSLENV` を忘れると `DOCUMENT_SERVER_TOKEN が未設定` や jupyter 側の `HTTP 403` といった症状が出ます。
 
 保存後、Claude Desktop を完全終了（macOS: Cmd+Q / Windows: タスクトレイから終了）してから再起動し、ハンマーアイコンに両サーバーのツールが表示されれば成功です。
 
