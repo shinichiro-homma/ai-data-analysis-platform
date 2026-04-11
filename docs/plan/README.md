@@ -12,12 +12,12 @@
 
 | ファイル | カテゴリ | Phase数 | タスク数 |
 |---------|---------|---------|---------|
-| [01-jupyter.md](01-jupyter.md) | Jupyter（server + mcp + ai-sync） | 18 | 57 |
-| [02-document.md](02-document.md) | Document（server + mcp） | 7 | 22 |
+| [01-jupyter.md](01-jupyter.md) | Jupyter（server + mcp + ai-sync） | 19 | 67 |
+| [02-document.md](02-document.md) | Document（server + mcp） | 7 | 23 |
 | [03-workspace.md](03-workspace.md) | Workspace（cross-cutting） | 4 | 20 |
-| [04-infrastructure.md](04-infrastructure.md) | Infrastructure | 8 | 43 |
+| [04-infrastructure.md](04-infrastructure.md) | Infrastructure | 9 | 47 |
 
-**合計: 142タスク**
+**合計: 157タスク**
 
 ## ステータス凡例
 
