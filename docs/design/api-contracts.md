@@ -7,7 +7,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 ### リクエスト形式
 
 - Content-Type: `application/json`
-- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証で実装済み。document-server は認証未実装、信頼されたネットワーク内での運用を前提）
+- 認証: `Authorization: Bearer {token}` ヘッダー（jupyter-server は Jupyter Server 標準のトークン認証、document-server は `DOCUMENT_SERVER_TOKEN` による Bearer 認証。いずれも実装済み）
 
 ### レスポンス形式
 
@@ -127,7 +127,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/kernels/{kernel_id}/interrupt
 
-実行中のコードを中断する。JupyterLab UI 用の内部 API であり、MCP ツールとしては公開しない。
+実行中のコードを中断する。AI編集ロック中でも実行可能（ロック貫通）。
 
 **レスポンス:**
 ```json
@@ -153,6 +153,51 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 }
 ```
 
+#### POST /api/kernels/{kernel_id}/restart-and-run-all
+
+カーネルを再起動し、指定ノートブックの全コードセルを順番に実行する。
+
+**リクエスト:**
+```json
+{
+  "notebook_path": "analysis.ipynb",
+  "timeout": 30
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| notebook_path | string | Yes | 実行するノートブックのパス |
+| timeout | number | No | セルあたりのタイムアウト秒数 |
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "executed_cells": 5,
+    "success_count": 5,
+    "failed_cell": null
+  }
+}
+```
+
+**レスポンス（途中でエラー）:**
+```json
+{
+  "data": {
+    "executed_cells": 3,
+    "success_count": 2,
+    "failed_cell": {
+      "cell_index": 2,
+      "error": {
+        "type": "NameError",
+        "message": "name 'x' is not defined"
+      }
+    }
+  }
+}
+```
+
 ### コード実行
 
 #### POST /api/kernels/{kernel_id}/execute
@@ -170,7 +215,7 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | code | string | Yes | 実行するPythonコード |
-| timeout | number | No | タイムアウト秒数（デフォルト30秒、最大300秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json
@@ -400,32 +445,33 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 
 #### POST /api/custom/contents/{path}
 
-指定パスにファイルまたはノートブックを作成する。既存ファイルがある場合は上書きする。
+指定パス配下にファイルまたはノートブックを作成する。`POST /api/custom/contents` と同じ動作で、URLパスがデフォルトの作成先となる。同名ファイルが存在する場合は自動連番で回避する。
 
-**リクエスト（ノートブック）:**
+**リクエスト:**
 ```json
 {
-  "content": {
-    "cells": [
-      {
-        "cell_type": "code",
-        "source": "import pandas as pd"
-      }
-    ]
-  }
+  "type": "notebook",
+  "path": "subdir/analysis.ipynb"
 }
 ```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| type | string | No | ファイル種別（デフォルト: "notebook"） |
+| path | string | No | 作成先パス（省略時はURLの `{path}` を使用） |
 
 **レスポンス:**
 ```json
 {
   "data": {
-    "path": "/analysis.ipynb",
+    "path": "/subdir/analysis.ipynb",
     "type": "notebook",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
 ```
+
+> **注:** レスポンスの `path` は実際に作成されたファイルのパスを返す。同名ファイルが存在した場合、連番付きパスになることがある。
 
 #### GET /api/custom/contents/{path}
 
@@ -600,13 +646,132 @@ jupyter-mcp ↔ jupyter-server、document-mcp ↔ document-server 間のREST API
 - `400 VALIDATION_ERROR` - ノートブック以外のファイル、コードセル以外のセル、または範囲外のインデックスを指定した場合
 - `404 NOT_FOUND` - ファイルまたはカーネルが存在しない場合
 
+#### POST /api/custom/contents/{path}/cells/execute-batch
+
+ノートブックのセルを一括実行する。
+
+**リクエスト:**
+```json
+{
+  "kernel_id": "kernel-abc123",
+  "mode": "all",
+  "cell_index": null,
+  "timeout": 30
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| kernel_id | string | Yes | 実行に使用するカーネルID |
+| mode | string | Yes | 実行モード（`all` / `up_to` / `from`） |
+| cell_index | number | No | 基準セルインデックス（`up_to` / `from` 時に必須） |
+| timeout | number | No | セルあたりのタイムアウト秒数 |
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "executed_cells": 5,
+    "success_count": 5,
+    "failed_cell": null,
+    "error": null
+  }
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| executed_cells | number | 実行されたセル数 |
+| success_count | number | 成功したセル数 |
+| failed_cell | number \| null | 失敗したセルのインデックス（成功時は null） |
+| error | object \| null | エラー情報（`type`, `message`, `traceback`）。KeyboardInterrupt やタイムアウト等のエラー種別を含む |
+
+#### PATCH /api/custom/contents/{path}/cells (action: merge)
+
+隣接する複数セルを1つに結合する。
+
+**リクエスト:**
+```json
+{
+  "action": "merge",
+  "start_index": 1,
+  "end_index": 3
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: split)
+
+セルを指定行で2つに分割する。
+
+**リクエスト:**
+```json
+{
+  "action": "split",
+  "index": 2,
+  "split_line": 5
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: change_type)
+
+セルのタイプを変更する。
+
+**リクエスト:**
+```json
+{
+  "action": "change_type",
+  "index": 2,
+  "cell_type": "markdown"
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: copy)
+
+セルをコピー（複製）する。
+
+**リクエスト:**
+```json
+{
+  "action": "copy",
+  "index": 2,
+  "to_index": 4
+}
+```
+
+#### PATCH /api/custom/contents/{path}/cells (action: clear_output)
+
+セルの出力をクリアする。
+
+**リクエスト:**
+```json
+{
+  "action": "clear_output",
+  "index": 2
+}
+```
+
+#### POST /api/custom/contents/{path}/cells/clear-all-outputs
+
+全セルの出力をクリアする。
+
+**リクエスト:** ボディなし
+
+**レスポンス:**
+```json
+{
+  "data": {
+    "cleared_cells": 5
+  }
+}
+```
+
 #### GET /api/custom/contents/{path}/preview
 
 CSV/Parquetファイルの構造をプレビューする。カーネル不要で直接ファイルを読み取る。
 
 | クエリパラメータ | 型 | 必須 | 説明 |
 |-----------------|-----|------|------|
-| head_rows | number | No | 先頭行数（デフォルト5、最大50） |
+| head_rows | number | No | 先頭行数（デフォルト値・最大値は `handlers.py` を参照） |
 
 **レスポンス:**
 ```json
@@ -726,7 +891,7 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 {
   "sql": "SELECT customer_id, transaction_date, amount FROM purchase_history WHERE status = 'completed'",
   "workspace_id": "ws-abc123",
-  "filename": "purchase_history.parquet",
+  "file_path": "purchase_history.parquet",
   "format": "parquet",
   "timeout": 300
 }
@@ -736,9 +901,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 |-----------|-----|------|------|
 | sql | string | Yes | 実行するSELECT文 |
 | workspace_id | string | Yes | ワークスペースID |
-| filename | string | Yes | 保存先ファイル名（data/ディレクトリ内） |
+| file_path | string | Yes | 保存先ファイル名（data/ディレクトリ内） |
 | format | string | No | 出力形式（"parquet" / "csv"、デフォルト: "parquet"） |
-| timeout | number | No | タイムアウト秒数（デフォルト300秒、最大600秒） |
+| timeout | number | No | タイムアウト秒数（デフォルト値・最大値は `sql_handlers.py` を参照） |
 
 **レスポンス（成功時）:**
 ```json
@@ -791,7 +956,7 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
 }
 ```
 
-> `summary`（最大200文字）と `status`（`not_started` / `in_progress` / `completed` / `blocked`）はオプション。省略時はそれぞれ空文字列、`not_started`。
+> `summary` と `status` はオプション。制約値・許可リストは `workspace_handlers.py` を参照。省略時のデフォルトはそれぞれ空文字列、`not_started`。
 
 **レスポンス:**
 ```json
@@ -801,15 +966,15 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
     "name": "売上分析",
     "summary": "売上データのトレンド分析",
     "status": "not_started",
-    "path": "workspaces/ws-abc123",
-    "data_path": "data",
-    "output_path": "output",
+    "path": "workspaces/sample/ws-abc123",
+    "data_path": "workspaces/sample/ws-abc123/data",
+    "output_path": "workspaces/sample/ws-abc123/output",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
 ```
 
-> **パス形式:** `path` はサーバーベースディレクトリからの相対パス。`data_path` / `output_path` はカーネルの作業ディレクトリ（ワークスペースディレクトリ）からの相対パスで、カーネル内のコードでそのまま使用可能（例: `open('data/input.csv')`）。
+> **パス形式:** `path`, `data_path`, `output_path` はいずれもサーバーベースディレクトリからの相対パス（`WORKSPACE_PATH_PREFIX/{workspace_id}` 形式）。パスの構成要素は `base.py` の定数を参照。
 
 #### GET /api/workspaces
 
@@ -825,9 +990,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
         "name": "売上分析",
         "summary": "売上データのトレンド分析",
         "status": "in_progress",
-        "path": "workspaces/ws-abc123",
-        "data_path": "data",
-        "output_path": "output",
+        "path": "workspaces/sample/ws-abc123",
+        "data_path": "workspaces/sample/ws-abc123/data",
+        "output_path": "workspaces/sample/ws-abc123/output",
         "created_at": "2024-01-15T10:00:00Z",
         "file_count": 3
       },
@@ -836,9 +1001,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
         "name": "顧客分析",
         "summary": "",
         "status": "not_started",
-        "path": "workspaces/ws-def456",
-        "data_path": "data",
-        "output_path": "output",
+        "path": "workspaces/sample/ws-def456",
+        "data_path": "workspaces/sample/ws-def456/data",
+        "output_path": "workspaces/sample/ws-def456/output",
         "created_at": "2024-01-16T09:00:00Z",
         "file_count": 1
       }
@@ -869,9 +1034,9 @@ SQLクエリの結果をワークスペースの `data/` ディレクトリにPa
     "name": "売上分析",
     "summary": "売上データのトレンド分析。前処理完了、集計中",
     "status": "in_progress",
-    "path": "workspaces/ws-abc123",
-    "data_path": "data",
-    "output_path": "output",
+    "path": "workspaces/sample/ws-abc123",
+    "data_path": "workspaces/sample/ws-abc123/data",
+    "output_path": "workspaces/sample/ws-abc123/output",
     "created_at": "2024-01-15T10:00:00Z"
   }
 }
@@ -942,7 +1107,9 @@ AIイベントを送信する（jupyter-mcpから呼び出される）。受信�
 
 ##### ai_edit_start
 
-AI編集モード開始。ノートブックをロック（read-only）にする。
+AI編集モード開始。ノー���ブックをロック（read-only）にする��
+
+> **注:** このイベントは jupyter-mcp の `handleToolCall` ミドルウェアがノートブック編集系ツール実行時に自動配信する内部イベントです。独立した MCP ツールとしては提供されません���
 
 ```json
 {
@@ -964,6 +1131,44 @@ AI編集モード開始。ノートブックをロック（read-only）にする
     "source": "import pandas as pd\nprint('Hello')"
   },
   "index": 3
+}
+```
+
+##### cell_edited
+
+セル編集完了。対象セルの内容を更新する。
+
+```json
+{
+  "type": "cell_edited",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 0,
+  "source": "import pandas as pd\nprint('Updated')"
+}
+```
+
+##### cell_deleted
+
+セル削除完了。対象セルをノートブックから削除する。
+
+```json
+{
+  "type": "cell_deleted",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 2
+}
+```
+
+##### cell_reordered
+
+セル並び替え完了。対象セルを指定位置に移動する。
+
+```json
+{
+  "type": "cell_reordered",
+  "notebook_path": "analysis.ipynb",
+  "cell_index": 0,
+  "to_index": 3
 }
 ```
 
@@ -1063,6 +1268,8 @@ AI編集モード開始。ノートブックをロック（read-only）にする
 ##### ai_edit_end
 
 AI編集モード終了。ノートブックのロックを解除する。
+
+> **注:** このイベントは jupyter-mcp の `handleToolCall` ミドルウェアがツール実行完了後に自動配信する内部イベントです。独立した MCP ツールとしては提供されません。
 
 ```json
 {

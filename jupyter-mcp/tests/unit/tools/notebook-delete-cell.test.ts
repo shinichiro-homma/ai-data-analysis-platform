@@ -32,6 +32,13 @@ describe('executeNotebookDeleteCell', () => {
         index: 1,
       });
 
+      // postAiEvent が cell_deleted イベントで呼ばれたことを確認
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_deleted',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 1,
+      });
+
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');
       expect(result.content[0].text).toContain('"cell_index": 1');

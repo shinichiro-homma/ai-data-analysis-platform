@@ -9,6 +9,7 @@ import {
   handleToolCall as sharedHandleToolCall,
 } from '@ai-data-analysis/mcp-shared';
 import { type McpToolResult } from '../utils/response-formatter.js';
+import { emitAiEditStart, emitAiEditEnd } from '../utils/ai-edit-helpers.js';
 import { VALID_WORKSPACE_STATUSES } from '../utils/validation.js';
 
 /** workspace status フィールドの JSON Schema（ツール定義で共用） */
@@ -34,14 +35,19 @@ import { executeExecuteCode } from './execute-code.js';
 import { executeGetVariables } from './get-variables.js';
 import { executeGetDataframeInfo } from './get-dataframe-info.js';
 import { executeFileList } from './file-list.js';
-import { executeAiEditStart } from './ai-edit-start.js';
-import { executeAiEditEnd } from './ai-edit-end.js';
 import { executeExecuteSql } from './execute-sql.js';
 import { executeExportSql } from './export-sql.js';
 import { executeGetImage } from './get-image.js';
 import { executeNotebookExecuteCell } from './notebook-execute-cell.js';
+import { executeNotebookExecuteBatch } from './notebook-execute-batch.js';
 import { executeDataPreview } from './data-preview.js';
 import { executeFileRead } from './file-read.js';
+import { executeNotebookMergeCells } from './notebook-merge-cells.js';
+import { executeNotebookSplitCell } from './notebook-split-cell.js';
+import { executeNotebookChangeCellType } from './notebook-change-cell-type.js';
+import { executeNotebookCopyCell } from './notebook-copy-cell.js';
+import { executeKernelRestart } from './kernel-restart.js';
+import { executeNotebookClearOutputs } from './notebook-clear-outputs.js';
 
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   {
@@ -301,6 +307,42 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   },
   {
     definition: {
+      name: 'notebook_execute_batch',
+      description:
+        'Executes multiple cells in a notebook at once. Supports three modes: all (execute all cells), up_to (execute from the first cell to the specified index inclusive), from (execute from the specified index to the last cell inclusive). Markdown cells are skipped. Stops on the first error and returns the failed cell index.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+          mode: {
+            type: 'string',
+            enum: ['all', 'up_to', 'from'],
+            description:
+              'Execution mode: all = all cells, up_to = first cell to cell_index (inclusive), from = cell_index to last cell (inclusive)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Reference cell index (0-indexed). Required when mode is up_to or from',
+          },
+          timeout: {
+            type: 'number',
+            description: 'Timeout in seconds per cell (default: 30, max: 300)',
+          },
+        },
+        required: ['notebook_path', 'session_id', 'mode'],
+      },
+    },
+    execute: executeNotebookExecuteBatch,
+  },
+  {
+    definition: {
       name: 'session_create',
       description:
         'Creates a new session (kernel) to start data analysis. Specify workspace_id to launch a Python/SQL kernel in the workspace. REQUIRED before executing any code or SQL. MUST be called after workspace_create. The returned browser_url allows opening the notebook in a browser.',
@@ -476,42 +518,6 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   },
   {
     definition: {
-      name: 'ai_edit_start',
-      description:
-        'Starts AI edit mode and locks the notebook (read-only). Disables user keyboard input and cell editing until AI operations are complete.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          session_id: {
-            type: 'string',
-            description: 'Session ID (session created with notebook_path)',
-          },
-        },
-        required: ['session_id'],
-      },
-    },
-    execute: executeAiEditStart,
-  },
-  {
-    definition: {
-      name: 'ai_edit_end',
-      description:
-        'Ends AI edit mode and unlocks the notebook. Call after editing is complete to allow user editing again. Releases the lock started by ai_edit_start.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          session_id: {
-            type: 'string',
-            description: 'Session ID (session created with notebook_path)',
-          },
-        },
-        required: ['session_id'],
-      },
-    },
-    execute: executeAiEditEnd,
-  },
-  {
-    definition: {
       name: 'execute_sql',
       description: `Executes a SQL query and saves results as CSV in the workspace's data/ directory. Queries are auto-saved as .sql files in data/queries/.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure. Use key_type/domain in the response to identify JOIN keys\n(2) Call get_logic_index to check for reusable existing logic (SQL templates, etc.)\n\nJOIN rule: JOIN columns that share the same key_type. domain.master_table/master_column indicates FK references.\n\nResponse (SELECT):\n{\n  "file_path": "CSV path (loadable via pd.read_csv)",\n  "row_count": "number of rows",\n  "columns": "array of column names",\n  "truncated": "whether max_rows truncation occurred",\n  "query_file_path": "path to saved SQL file"\n}`,
       inputSchema: {
@@ -647,7 +653,171 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
     },
     execute: executeFileRead,
   },
+  {
+    definition: {
+      name: 'notebook_merge_cells',
+      description:
+        'Merges adjacent cells in a notebook into a single cell. All cells in the range must be the same type (code or markdown). The merged cell source is the concatenation of all sources joined by newlines.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          start_index: {
+            type: 'number',
+            description: 'Start cell index (0-indexed, inclusive)',
+          },
+          end_index: {
+            type: 'number',
+            description: 'End cell index (0-indexed, inclusive). Must be greater than start_index',
+          },
+        },
+        required: ['notebook_path', 'start_index', 'end_index'],
+      },
+    },
+    execute: executeNotebookMergeCells,
+  },
+  {
+    definition: {
+      name: 'notebook_split_cell',
+      description:
+        'Splits a single cell in a notebook into two cells at the specified line. Lines before split_line go to the first cell, lines from split_line onward go to the second cell.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to split (0-indexed)',
+          },
+          split_line: {
+            type: 'number',
+            description:
+              'Line number at which to split (1-indexed: line 1 means first line goes to first cell, remainder to second cell). Must be between 1 and total_lines-1',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'split_line'],
+      },
+    },
+    execute: executeNotebookSplitCell,
+  },
+  {
+    definition: {
+      name: 'notebook_change_cell_type',
+      description:
+        'Changes the type of a cell in a notebook (code ↔ markdown). outputs and execution_count are always cleared/initialized on type change.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'number',
+            description: 'Cell index to change type (0-indexed)',
+          },
+          new_type: {
+            type: 'string',
+            enum: ['code', 'markdown'],
+            description: 'New cell type (code or markdown)',
+          },
+        },
+        required: ['notebook_path', 'cell_index', 'new_type'],
+      },
+    },
+    execute: executeNotebookChangeCellType,
+  },
+  {
+    definition: {
+      name: 'notebook_copy_cell',
+      description:
+        'Copies a cell to a specified position within a notebook. The copied cell has its outputs and execution_count cleared (for code cells). If target_index is omitted, the cell is copied immediately after the source cell.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          source_index: {
+            type: 'number',
+            description: 'Cell index to copy (0-indexed)',
+          },
+          target_index: {
+            type: 'number',
+            description:
+              'Position to insert the copied cell (0-indexed). If omitted, the cell is inserted immediately after the source cell',
+          },
+        },
+        required: ['notebook_path', 'source_index'],
+      },
+    },
+    execute: executeNotebookCopyCell,
+  },
+  {
+    definition: {
+      name: 'notebook_clear_outputs',
+      description:
+        'Clears the outputs and execution_count of cells in a notebook. When cell_index is specified, only that cell is cleared. When omitted, all code cells in the notebook are cleared.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          notebook_path: {
+            type: 'string',
+            description: 'Notebook path (e.g., analysis.ipynb)',
+          },
+          cell_index: {
+            type: 'integer',
+            description: 'Cell index to clear (0-indexed). If omitted, all code cells are cleared',
+          },
+        },
+        required: ['notebook_path'],
+      },
+    },
+    execute: executeNotebookClearOutputs,
+  },
+  {
+    definition: {
+      name: 'kernel_restart',
+      description:
+        'Restarts the kernel associated with the given session. All variables and state are cleared. To re-execute all cells after restart, call notebook_execute_batch(mode: "all") afterwards.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          session_id: {
+            type: 'string',
+            description: 'Session ID',
+          },
+        },
+        required: ['session_id'],
+      },
+    },
+    execute: executeKernelRestart,
+  },
 ];
+
+/** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する
+ *  kernel_restart はセル内容を変更しないため対象外 */
+const NOTEBOOK_EDIT_TOOLS = new Set([
+  'execute_code',
+  'notebook_add_cell',
+  'notebook_edit_cell',
+  'notebook_delete_cell',
+  'notebook_execute_cell',
+  'notebook_execute_batch',
+  'notebook_reorder_cell',
+  'notebook_merge_cells',
+  'notebook_split_cell',
+  'notebook_change_cell_type',
+  'notebook_copy_cell',
+  'notebook_clear_outputs',
+]);
 
 /**
  * ツール定義一覧を返す
@@ -658,7 +828,17 @@ export function registerTools(): Tool[] {
 
 /**
  * ツール名から実装関数へルーティング
+ * NOTEBOOK_EDIT_TOOLS に含まれるツールは前後に ai_edit_start/end イベントを自動配信する
  */
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
-  return sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
+  const execute = () => sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
+
+  if (!NOTEBOOK_EDIT_TOOLS.has(name)) return execute();
+
+  try {
+    await emitAiEditStart(args);
+    return await execute();
+  } finally {
+    await emitAiEditEnd(args);
+  }
 }

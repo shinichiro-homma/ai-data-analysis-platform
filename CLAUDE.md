@@ -28,28 +28,15 @@ jupyter lab        # jupyter-server
 clone 後に 1 度だけ実行する：
 
 ```bash
-# git hooks を有効化（dev pull 時にマージ済みローカルブランチを自動削除）
-git config core.hooksPath .githooks
-
-# fetch 時に削除済みリモートブランチの追跡参照を自動削除
-git config fetch.prune true
+bash scripts/bootstrap.sh
 ```
+
+- uv 未インストール時はスクリプトが PATH 設定手順または [公式インストールコマンド](https://docs.astral.sh/uv/getting-started/installation/) を案内する
+- `.env` は自動コピーされるが本番利用時は `POSTGRES_PASSWORD` / `JUPYTER_TOKEN` の変更が必須
 
 ## ブランチ運用
 
-```
-main (公開・リリース済み、直接 push 禁止)
- └── dev (統合・検証用、直接 push 禁止)
-      └── feature/xxx ← dev から切る
-```
-
-- すべての作業は `feature/*` または `fix/*` ブランチで行う（ドキュメントのみの変更も含む）
-- `main` / `dev` への直接 push は GitHub ブランチ保護で拒否される
-- `main` への直接コミットはローカルフック（`block-main-commit.sh`）でもブロックされる
-- PR マージには CI（4 ジョブ）のパスが必須
-- main へのリリース: `scripts/promote-to-main.sh`（dev ブランチで実行）
-
-詳細は `.claude/rules/branch-workflow.md` を参照。
+`.claude/rules/branch-workflow.md` を参照。すべての変更は `feature/*` / `fix/*` ブランチで行い、PR 経由で `dev` にマージする。
 
 ## ドキュメント
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-source "$(dirname "$0")/lib/common.sh"
+source scripts/lib/common.sh
 
 usage() {
   cat <<EOF
@@ -18,7 +18,7 @@ OPTIONS:
   -h, --help  このヘルプを表示
 
 チェック対象:
-  - jupyter-server:       Docker イメージ vs jupyter-server/ ソース
+  - jupyter-server:       Docker イメージ vs jupyter-server/ + jupyterlab-ai-sync/ ソース
   - document-server:      Docker イメージ vs document-server/ ソース
   - document-server (data): YAML データ vs document-server コンテナ起動時刻
   - jupyter-mcp:          ビルド成果物 (dist/) vs jupyter-mcp/src/ ソース
@@ -68,9 +68,11 @@ fi
 # ============================================================
 
 # Check Docker service freshness
+# Usage: check_docker_service <service> <source_dir> [<source_dir2> ...]
 check_docker_service() {
   local service="$1"
-  local source_dir="$2"
+  shift
+  local source_dirs=("$@")
 
   local container_ts
   container_ts=$(container_epoch "$service")
@@ -80,15 +82,21 @@ check_docker_service() {
     return
   fi
 
-  local source_epoch
-  source_epoch=$(newest_file_epoch "$source_dir" "*.ts" "*.py" "*.json" "Dockerfile")
+  local max_source_epoch=0
+  for dir in "${source_dirs[@]}"; do
+    local epoch
+    epoch=$(newest_file_epoch "$dir" "*.ts" "*.py" "*.json" "*.css" "Dockerfile")
+    if [[ -n "$epoch" ]] && [[ "$epoch" -gt "$max_source_epoch" ]]; then
+      max_source_epoch="$epoch"
+    fi
+  done
 
-  if [[ -z "$source_epoch" ]]; then
+  if [[ "$max_source_epoch" -eq 0 ]]; then
     echo "  $service: SKIP (no source files found)"
     return
   fi
 
-  if [[ "$source_epoch" -gt "$container_ts" ]]; then
+  if [[ "$max_source_epoch" -gt "$container_ts" ]]; then
     echo "  $service: STALE (source newer than container)"
     STALE+=("$service")
   else
@@ -226,7 +234,7 @@ check_document_data() {
 
   # Get last_reload timestamp from /health endpoint
   local last_reload
-  last_reload=$(curl -sf http://localhost:3002/health 2>/dev/null | python3 -c "
+  last_reload=$(curl -sf http://localhost:3002/health 2>/dev/null | uv run python -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -247,7 +255,7 @@ except Exception:
   else
     # Convert ISO timestamp to epoch
     local reload_epoch
-    reload_epoch=$(python3 -c "
+    reload_epoch=$(uv run python -c "
 from datetime import datetime, timezone
 ts = '$last_reload'
 # Handle both offset-aware and naive ISO formats
@@ -310,7 +318,7 @@ echo ""
 # Check Docker services (only if running)
 echo "Docker services:"
 if is_service_running "jupyter-server"; then
-  check_docker_service "jupyter-server" "jupyter-server"
+  check_docker_service "jupyter-server" "jupyter-server" "jupyterlab-ai-sync"
 else
   echo "  jupyter-server: SKIP (not running)"
 fi
@@ -377,7 +385,7 @@ if [[ ${#STALE[@]} -gt 0 ]]; then
           ;;
         document-server-data)
           echo "  Reloading document-server catalog via /admin/reload"
-          if curl -sf -X POST http://localhost:3002/admin/reload | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['data']['status']=='reloaded'" 2>/dev/null; then
+          if curl -sf -X POST http://localhost:3002/admin/reload | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d['data']['status']=='reloaded'" 2>/dev/null; then
             echo "  document-server catalog reloaded"
           else
             echo "  WARNING: /admin/reload failed, falling back to restart"

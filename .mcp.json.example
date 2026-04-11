@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "jupyter-mcp": {
+      "command": "node",
+      "args": ["<PROJECT_ROOT>/jupyter-mcp/dist/index.js"],
+      "env": {
+        "JUPYTER_SERVER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "dev-token"
+      }
+    },
+    "document-mcp": {
+      "command": "node",
+      "args": ["<PROJECT_ROOT>/document-mcp/dist/index.js"],
+      "env": {
+        "DOCUMENT_SERVER_URL": "http://localhost:3002"
+      }
+    }
+  }
+}

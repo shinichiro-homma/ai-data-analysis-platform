@@ -208,7 +208,7 @@ is_service_healthy() {
 # Get health status of a service via docker compose JSON output
 get_service_health() {
   local svc=$1
-  docker compose ps --format json "$svc" 2>/dev/null | python3 -c "
+  docker compose ps --format json "$svc" 2>/dev/null | uv run python -c "
 import sys, json
 try:
     data = json.load(sys.stdin)

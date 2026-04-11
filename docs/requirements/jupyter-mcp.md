@@ -64,7 +64,19 @@
 - セルの編集（既存セルのソースコードを更新）
 - セルの削除
 - セルの再実行（指定セルのコードをカーネルで実行し、出力を更新）
-- セルの並び替え 【未実装】
+- セルの並び替え
+- セルの一括実行（全セル / ここまで / これ以降）
+- セルの結合（複数セルを1つに結合）
+- セルの分割（1つのセルを指定行で分割）
+- セルのタイプ変更（code ↔ markdown）
+- セルのコピー（指定位置にセルを複製）
+- セルの出力クリア（単一セル / 全セル）
+
+#### F3.3: カーネル制御
+- カーネル再起動（変数・実行状態をリセット）
+- カーネル再起動+全セル実行（再起動後にノートブックの全コードセルを順番に実行）
+- カーネル中断はユーザーが JupyterLab UI から行う（kernel_interrupt MCPツールは提供しない。MCP はリクエスト-レスポンス型のため、AI が実行待機中に別ツールを呼べない）
+  - カーネル実行を伴うツール（execute_code, notebook_execute_cell, notebook_execute_batch）が KeyboardInterrupt を受けた場合、エラー種別として `KeyboardInterrupt` を MCP レスポンスに含める
 
 ### F4: 変数・データ操作
 
@@ -80,7 +92,7 @@
   - describe（統計情報）
   - memory_bytes（メモリ使用量）
 
-#### F4.3: データプレビュー 【未実装】
+#### F4.3: データプレビュー
 - ファイルパスを指定してデータをプレビュー
 - CSV, Excel, Parquet等に対応
 
@@ -90,19 +102,18 @@
 - 指定ワークスペース内のファイル一覧を取得
 - ワークスペースIDでスコープされ、他のワークスペースのファイルは表示されない
 
-#### F5.2: ファイル読み取り 【未実装】
+#### F5.2: ファイル読み取り
 - テキストファイルの内容を取得（ノートブック以外。ノートブックは notebook_list_cells で構造化された形式で取得する）
 
 ### F6: AI編集制御
 
-#### F6.1: AI編集開始
-- ノートブックのAI編集モードを開始できる
-- 編集開始を通知し、JupyterLab上でノートブックをロック（read-only）にする
+#### F6.1: AI編集モードの自動制御
+- ノートブック編集系ツール（`NOTEBOOK_EDIT_TOOLS`）の実行時に、`handleToolCall` ミドルウェアが自動的に `ai_edit_start` イベントを配信し、ノートブックをロック（read-only）する
+- ツール実行完了後、ミドルウェアが自動的に `ai_edit_end` イベントを配信し、ロックを解除する
 - ロック中はユーザーのキーボード入力・セル編集・セル実行を無効化する
-
-#### F6.2: AI編集終了
-- ノートブックのAI編集モードを終了できる
-- 編集終了を通知し、JupyterLab上のノートブックロックを解除する
+- 対象ツールは `jupyter-mcp/src/tools/index.ts` の `NOTEBOOK_EDIT_TOOLS` Set で管理し、新しいノートブック操作ツール追加時は Set に追加するだけで自動対応される
+- `ai_edit_start` / `ai_edit_end` は独立した MCP ツールとしては提供しない（内部自動処理のみ）
+- カーネル中断は MCP ツールとしては提供しない（ユーザーが JupyterLab UI から直接実行する）
 
 #### F6.3: AI操作のリアルタイム同期
 - `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
@@ -173,7 +184,7 @@
 - execute_sql の F9.3 と同じ共通ユーティリティ（`saveQueryFile`）を使用する
 - レスポンスに `query_file_path` を含める
 
-### F10: 外部データアップロード
+### F10: 外部データアップロード 【未実装】
 
 #### F10.1: 外部データのアップロード
 - チャットから提供されたファイル（CSV、Excel等）をワークスペースの `data/` ディレクトリにアップロードできる
@@ -661,6 +672,10 @@ DataFrameの詳細情報を取得する。
       cell_index: {
         type: "number",
         description: "実行対象のセルインデックス（0-indexed）"
+      },
+      timeout: {
+        type: "number",
+        description: "タイムアウト秒数（デフォルト値は jupyter-mcp/src/tools/notebook-execute-cell.ts を参照）"
       }
     },
     required: ["notebook_path", "session_id", "cell_index"]
@@ -696,7 +711,7 @@ DataFrameの詳細情報を取得する。
 
 ### execute_sql
 
-SQL命令を実行する。SELECT文の場合は結果をワークスペースの `data/` ディレクトリにCSVファイルとして保存する。危険な操作（DELETE, ALTER, GRANT, REVOKE, VACUUM, ANALYZE, CREATE TABLE非TEMP, CREATE/DROP INDEX等）はブラックリスト方式で拒否する。
+SQL命令を実行する。SELECT文の場合は結果をワークスペースの `data/` ディレクトリにCSVファイルとして保存する。危険な操作はブラックリスト方式で拒否する（対象リストは `jupyter-server/extensions/custom_api/sql_handlers.py` の `BLOCKED_COMMANDS` を参照）。
 
 ```typescript
 {
@@ -710,7 +725,7 @@ SQL命令を実行する。SELECT文の場合は結果をワークスペース�
       },
       sql: {
         type: "string",
-        description: "実行するSQL文。危険な操作（DELETE, ALTER, GRANT, REVOKE, VACUUM, ANALYZE, CREATE TABLE非TEMP, CREATE/DROP INDEX等）は拒否される"
+        description: "実行するSQL文。ブロック対象の操作は拒否される（対象リストはコード参照）"
       },
       filename: {
         type: "string",
@@ -748,7 +763,7 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
       },
       sql: {
         type: "string",
-        description: "実行するSELECT文。危険な操作（DELETE, ALTER, GRANT, REVOKE等）は拒否される"
+        description: "実行するSELECT文。ブロック対象の操作は拒否される（対象リストはコード参照）"
       },
       filename: {
         type: "string",
@@ -771,55 +786,287 @@ SQLクエリの結果をデータセットとしてワークスペースにフ�
 
 **戻り値・エラー時:** `jupyter-mcp/src/tools/export-sql.ts` を参照。
 
+### notebook_reorder_cell
+
+ノートブック内のセルを別の位置に移動する。
+
+```typescript
+{
+  name: "notebook_reorder_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックパス（例: analysis.ipynb）"
+      },
+      cell_index: {
+        type: "number",
+        description: "移動元のセルインデックス（0始まり）"
+      },
+      to_index: {
+        type: "number",
+        description: "移動先のインデックス（0始まり）"
+      }
+    },
+    required: ["notebook_path", "cell_index", "to_index"]
+  }
+}
+```
+
+### notebook_execute_batch
+
+ノートブックのセルを一括実行する。全セル / ここまで / これ以降の3モードをサポート。
+
+```typescript
+{
+  name: "notebook_execute_batch",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス（例: analysis.ipynb）"
+      },
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      },
+      mode: {
+        type: "string",
+        enum: ["all", "up_to", "from"],
+        description: "実行モード（all: 全セル、up_to: 指定セルまで、from: 指定セル以降）"
+      },
+      cell_index: {
+        type: "number",
+        description: "基準セルインデックス（mode が up_to または from の場合に必須）"
+      },
+      timeout: {
+        type: "number",
+        description: "セルあたりのタイムアウト秒数"
+      }
+    },
+    required: ["notebook_path", "session_id", "mode"]
+  }
+}
+```
+
+**戻り値:** 実行されたセル数、成功数、失敗したセルのインデックス（成功時は null）。
+
+### notebook_merge_cells
+
+複数の隣接セルを1つに結合する。
+
+```typescript
+{
+  name: "notebook_merge_cells",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      start_index: {
+        type: "number",
+        description: "結合開始セルインデックス（0-indexed）"
+      },
+      end_index: {
+        type: "number",
+        description: "結合終了セルインデックス（0-indexed、この位置のセルを含む）"
+      }
+    },
+    required: ["notebook_path", "start_index", "end_index"]
+  }
+}
+```
+
+### notebook_split_cell
+
+セルを指定行で2つに分割する。
+
+```typescript
+{
+  name: "notebook_split_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "分割対象のセルインデックス（0-indexed）"
+      },
+      split_line: {
+        type: "number",
+        description: "分割行番号（1-indexed、この行から下が新しいセルになる）"
+      }
+    },
+    required: ["notebook_path", "cell_index", "split_line"]
+  }
+}
+```
+
+### notebook_change_cell_type
+
+セルのタイプを変更する（code ↔ markdown）。
+
+```typescript
+{
+  name: "notebook_change_cell_type",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "対象セルインデックス（0-indexed）"
+      },
+      new_type: {
+        type: "string",
+        enum: ["code", "markdown"],
+        description: "変更後のセルタイプ"
+      }
+    },
+    required: ["notebook_path", "cell_index", "new_type"]
+  }
+}
+```
+
+### notebook_copy_cell
+
+セルを指定位置にコピー（複製）する。
+
+```typescript
+{
+  name: "notebook_copy_cell",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      source_index: {
+        type: "number",
+        description: "コピー元セルインデックス（0-indexed）"
+      },
+      target_index: {
+        type: "number",
+        description: "コピー先インデックス（0-indexed、省略時はソースの直後に挿入）"
+      }
+    },
+    required: ["notebook_path", "source_index"]
+  }
+}
+```
+
+### notebook_clear_outputs
+
+セルの出力をクリアする。
+
+```typescript
+{
+  name: "notebook_clear_outputs",
+  inputSchema: {
+    type: "object",
+    properties: {
+      notebook_path: {
+        type: "string",
+        description: "ノートブックのパス"
+      },
+      cell_index: {
+        type: "number",
+        description: "対象セルインデックス（省略時は全セルの出力をクリア）"
+      }
+    },
+    required: ["notebook_path"]
+  }
+}
+```
+
+### kernel_restart
+
+カーネルを再起動する（変数・実行状態をリセット）。
+
+```typescript
+{
+  name: "kernel_restart",
+  inputSchema: {
+    type: "object",
+    properties: {
+      session_id: {
+        type: "string",
+        description: "セッションID"
+      }
+    },
+    required: ["session_id"]
+  }
+}
+```
+
+### data_preview
+
+ワークスペース内のデータファイルをプレビューする。
+
+```typescript
+{
+  name: "data_preview",
+  inputSchema: {
+    type: "object",
+    properties: {
+      workspace_id: {
+        type: "string",
+        description: "ワークスペースID"
+      },
+      file_path: {
+        type: "string",
+        description: "ワークスペース内の相対ファイルパス（例: data/sales.csv）"
+      },
+      head_rows: {
+        type: "number",
+        description: "取得する先頭行数（デフォルト値・最大値は jupyter-mcp/src/tools/data-preview.ts を参照）"
+      }
+    },
+    required: ["workspace_id", "file_path"]
+  }
+}
+```
+
+### file_read
+
+ワークスペース内のテキストファイルの内容を取得する（ノートブック以外）。
+
+```typescript
+{
+  name: "file_read",
+  inputSchema: {
+    type: "object",
+    properties: {
+      workspace_id: {
+        type: "string",
+        description: "ワークスペースID"
+      },
+      file_path: {
+        type: "string",
+        description: "ワークスペース内の相対ファイルパス（例: scripts/analysis.py）"
+      }
+    },
+    required: ["workspace_id", "file_path"]
+  }
+}
+```
+
 ## 画像ファイル管理
 
 画像はワークスペースの `output/` ディレクトリにファイルとして永続化する。`execute_code` のテキストレスポンスにはファイルパスのみを返却し、base64データは含めない（コンテキストウィンドウ節約）。AIクライアントが画像を視覚的に確認したい場合は、`get_image` ツールで画像データを MCP の image content type として取得できる。
 
 > 画像ファイルパス形式・対応画像形式・生成フローの詳細は `jupyter-mcp/src/tools/execute-code.ts` および `jupyter-mcp/src/tools/get-image.ts` を参照。
-
-### ai_edit_start
-
-ノートブックのAI編集モードを開始する。JupyterLab上でノートブックがロック（read-only）になり、ユーザーの入力が無効化される。
-
-```typescript
-{
-  name: "ai_edit_start",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID（notebook_path 付きで作成されたセッション）"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/ai-edit-start.ts` を参照。
-
-### ai_edit_end
-
-ノートブックのAI編集モードを終了する。JupyterLab上のノートブックロックが解除され、ユーザーの入力が再度有効になる。
-
-```typescript
-{
-  name: "ai_edit_end",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID（notebook_path 付きで作成されたセッション）"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/ai-edit-end.ts` を参照。
 
 ### get_image
 
@@ -941,10 +1188,27 @@ npm run build && npm start
 - [ ] 共有セッションでAIがコードを実行すると、ブラウザ側のノートブックに反映される
 
 ### AC8: AI編集制御
-- [ ] ai_edit_start でブラウザ上のノートブックがロックされる
-- [ ] ai_edit_end でロックが解除される
-- [ ] ロック中にexecute_codeを実行すると、ブラウザ上のセルに実行結果がリアルタイムに表示される
-- [ ] ロック中にnotebook_add_cellを実行すると、ブラウザ上にセルがリアルタイムに追加される
+- [ ] ノートブック編集系ツール（execute_code, notebook_add_cell 等）を実行すると、自動的にノートブックがロックされる
+- [ ] ツール実行完了後、自動的にロックが解除される
+- [ ] ロック中にブラウザ上のセルに実行結果がリアルタイムに表示される
+- [ ] ロック中にブラウザ上にセルがリアルタイムに追加される
+- [ ] 新しいノートブック操作ツールを NOTEBOOK_EDIT_TOOLS に追加するだけで自動ロック制御が適用される
+
+### AC13: セル一括操作
+- [ ] notebook_execute_batch (mode: all) で全コードセルが順番に実行される
+- [ ] notebook_execute_batch (mode: up_to) で指定セルまでが実行される
+- [ ] notebook_execute_batch (mode: from) で指定セル以降が実行される
+- [ ] notebook_merge_cells で複数セルが1つに結合される
+- [ ] notebook_split_cell でセルが2つに分割される
+- [ ] notebook_change_cell_type でセルタイプが変更される
+- [ ] notebook_copy_cell でセルが複製される
+- [ ] notebook_clear_outputs (cell_index指定) で単一セルの出力がクリアされる
+- [ ] notebook_clear_outputs (cell_index省略) で全セルの出力がクリアされる
+
+### AC14: カーネル制御
+- [ ] kernel_restart でカーネルが再起動され、変数がリセットされる
+- [ ] kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで再起動後に全セルが実行される
+- [ ] カーネル実行を伴うツール（execute_code, notebook_execute_cell, notebook_execute_batch）が KeyboardInterrupt を受けた場合、エラー種別 `KeyboardInterrupt` が MCP レスポンスに含まれる
 
 ### AC10: SQL実行・データ取得
 - [x] execute_sql でSELECTクエリを実行し、結果がワークスペースの `data/` にCSVファイルとして保存される
@@ -1045,11 +1309,9 @@ npm run build && npm start
 ```
 1. workspace_create でワークスペースを作成（または workspace_list で既存を選択）
 2. session_create(workspace_id=..., notebook_path="analysis.ipynb") でセッション作成
-3. ai_edit_start でノートブックをロック
-4. notebook_add_cell でセル追加（ブラウザにリアルタイム反映）
-5. execute_code でコード実行（ブラウザにリアルタイム反映）
-6. 必要に応じて 4-5 を繰り返す
-7. ai_edit_end でロック解除
+3. notebook_add_cell でセル追加（自動ロック → ブラウザにリアルタイム反映 → 自動アンロック）
+4. execute_code でコード実行（自動ロック → ブラウザにリアルタイム反映 → 自動アンロック）
+5. 必要に応じて 3-4 を繰り返す
 ```
 
 ### 画像確認のベストプラクティス

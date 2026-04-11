@@ -99,14 +99,8 @@ jupyter-mcp → REST API → jupyter-server → カーネル実行 → 結果を
 ユーザー: ブラウザで analysis.ipynb を開く
     │   → AIが起動したカーネルに自動接続
     │
-生成AI: ai_edit_start でノートブックをロック
-    │   → ブラウザ上で「AI が編集中です」表示、入力無効化
-    │
 生成AI: notebook_add_cell + execute_code でデータ読み込み・前処理
-    │   → セル追加・実行結果がブラウザにリアルタイム反映
-    │
-生成AI: ai_edit_end でロック解除
-    │   → ユーザーが自由に編集可能に
+    │   → 自動ロック → セル追加・実行結果がブラウザにリアルタイム反映 → 自動アンロック
 ```
 
 ### データ分析リクエスト
@@ -364,36 +358,32 @@ JupyterLabのフロントエンド拡張。AIの操作をノートブック上�
 ### AIリアルタイム同期のデータフロー
 
 ユーザーがブラウザでノートブックを開いている状態で、AIが操作する場合のフロー。
+handleToolCall ミドルウェアがノートブック編集系ツールの実行前後に自動でロック制御を行う。
 
 ```
-【AI編集モード開始】
-1. AI → jupyter-mcp: ai_edit_start(session_id)
-2. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_start"}
-3. jupyter-server → jupyterlab-ai-sync: WebSocket配信
-4. jupyterlab-ai-sync: ノートブックをロック（read-only化）
+【セル追加 + リアルタイム反映】（ミドルウェアが自動ロック制御）
+1. AI → jupyter-mcp: notebook_add_cell(notebook_path, cell_type, source, ...)
+2. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_start"}
+3. jupyterlab-ai-sync: ノートブックをロック（read-only化）
+4. jupyter-mcp → jupyter-server: PATCH /api/custom/contents/{path}/cells
+5. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_added"}
+6. jupyterlab-ai-sync: ノートブックUIにセルを挿入
+7. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_end"}
+8. jupyterlab-ai-sync: ノートブックのロック解除
 
-【セル追加 + リアルタイム反映】
-5. AI → jupyter-mcp: notebook_add_cell(notebook_path, cell_type, source, ...)
-6. jupyter-mcp → jupyter-server: PATCH /api/custom/contents/{path}/cells
-7. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_added"}
-8. jupyter-server → jupyterlab-ai-sync: WebSocket配信
-9. jupyterlab-ai-sync: ノートブックUIにセルを挿入
-
-【コード実行 + リアルタイム反映】
-10. AI → jupyter-mcp: execute_code(session_id, code)
-11. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_start"}
-12. jupyter-mcp → jupyter-server: POST /api/kernels/{id}/execute
-13. jupyter-server: カーネル実行 → 実行結果を jupyter-mcp に返却
-14. jupyter-mcp: 出力ごとに → POST /api/ai/events/broadcast {type: "cell_output"}
-15. jupyterlab-ai-sync: セルに出力を表示
-16. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_end"}
-17. jupyter-mcp → AI: 結果 + 画像ファイルパス（base64データなし）
-
-【AI編集モード終了】
-18. AI → jupyter-mcp: ai_edit_end(session_id)
-19. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_end"}
-20. jupyter-server → jupyterlab-ai-sync: WebSocket配信
-21. jupyterlab-ai-sync: ノートブックのロック解除
+【コード実行 + リアルタイム反映】（ミドルウェアが自動ロック制御）
+9. AI → jupyter-mcp: execute_code(session_id, code)
+10. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_start"}
+11. jupyterlab-ai-sync: ノートブックをロック（read-only化）
+12. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_start"}
+13. jupyter-mcp → jupyter-server: POST /api/kernels/{id}/execute
+14. jupyter-server: カーネル実行 → 実行結果を jupyter-mcp に返却
+15. jupyter-mcp: 出力ごとに → POST /api/ai/events/broadcast {type: "cell_output"}
+16. jupyterlab-ai-sync: セルに出力を表示
+17. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_end"}
+18. jupyter-mcp → AI: 結果 + 画像ファイルパス（base64データなし）
+19. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_end"}
+20. jupyterlab-ai-sync: ノートブックのロック解除
 ```
 
 ## 画像認識とデータ取得の使い分け

@@ -42,8 +42,8 @@ def _ensure_mock_module(name: str, **attrs) -> _types.ModuleType:
 
 def _load_module(name: str, filename: str) -> _types.ModuleType:
     """extensions/custom_api/ 配下のモジュールをファイルからロード"""
-    if name in sys.modules:
-        return sys.modules[name]
+    # 既存のエントリを削除して正規版を確実にロードする
+    sys.modules.pop(name, None)
     path = _ext_dir / "custom_api" / filename
     spec = importlib.util.spec_from_file_location(name, path, submodule_search_locations=[])
     mod = importlib.util.module_from_spec(spec)

@@ -32,12 +32,15 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 
 #### F1.2: イベント処理
 - 以下のイベントタイプを受信・処理する:
-  - `ai_edit_start` - AI編集開始
+  - `ai_edit_start` - AI編集開始（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
   - `cell_added` - セル追加
+  - `cell_edited` - セル内容の更新
+  - `cell_deleted` - セル削除
+  - `cell_reordered` - セル並び替え
   - `cell_execute_start` - セル実行開始
   - `cell_output` - セル出力（ストリーミング）
   - `cell_execute_end` - セル実行完了
-  - `ai_edit_end` - AI編集終了
+  - `ai_edit_end` - AI編集終了（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
 
 ### F2: ノートブックUIのリアルタイム更新
 
@@ -58,12 +61,12 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 ### F3: ノートブックロック機能
 
 #### F3.1: ロック開始
-- `ai_edit_start`イベントを受信したら、対象ノートブックをread-onlyモードにする
+- `ai_edit_start`イベント（ノートブック編集系ツール実行時にミドルウェアが自動配信）を受信したら、対象ノートブックをread-onlyモードにする
 - ユーザーのキーボード入力、セル編集、セル実行を無効化する
 - ロック中であることを示すUIインジケータを表示する（例: ツールバーにバナー表示）
 
 #### F3.2: ロック解除
-- `ai_edit_end`イベントを受信したら、ノートブックのread-onlyモードを解除する
+- `ai_edit_end`イベント（ツール実行完了時にミドルウェアが自動配信）を受信したら、ノートブックのread-onlyモードを解除する
 - ユーザーの入力を再度有効化する
 - UIインジケータを非表示にする
 
@@ -71,6 +74,8 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - ロック中もノートブックのスクロール・閲覧は可能
 - AIが追加したセルや実行結果はリアルタイムに表示される
 - ロック理由（「AI が編集中です」等）をユーザーに明示する
+- **カーネル中断はロック中でも有効** — ユーザーはAI編集ロック中でもカーネル中断（ツールバー / キーボードショートカット / Kernel メニュー）を実行できる。これは AI が暴走した際の緊急停止手段を確保するため
+- **カーネル再起動はロック中は無効化される** — ロック中の再起動はブロックされる。再起動はカーネルプロセスを強制終了して変数・インポート・実行履歴を完全消失させるため、AI 編集中に許可すると `ai_edit_end` 前にカーネル状態が破壊され、以降のツール呼び出しや出力書き戻しが不整合になる
 
 ### F4: 対象ノートブックの特定
 
@@ -118,7 +123,7 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - JupyterLab Extension API (`@jupyterlab/application`, `@jupyterlab/notebook`)
 - `@jupyterlab/services`（ServerConnection）
 - `@jupyterlab/coreutils`（PageConfig — トークン取得）
-- `@jupyterlab/filebrowser`（IFileBrowserFactory — ファイルブラウザUI操作）
+- `@jupyterlab/filebrowser`（IDefaultFileBrowser — ファイルブラウザUI操作）
 - `@lumino/widgets`（Widget — UIコンポーネント）
 - `@jupyter/ydoc`（ISharedCodeCell — セルモデル操作）
 - WebSocket（ネイティブブラウザAPI）
@@ -152,10 +157,10 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - [ ] SharedModelの`cell.outputs`に出力が正しく書き戻される（ファイル保存時の整合性）
 
 ### AC3: ノートブックロック
-- [ ] AIが`ai_edit_start`を呼ぶと、ノートブックがread-onlyになる
-- [ ] ロック中はキーボード入力・セル編集ができない
-- [ ] ロック中であることを示すインジケータが表示される
-- [ ] AIが`ai_edit_end`を呼ぶと、ロックが解除される
+- [ ] ノートブック編集系ツール実行時に `ai_edit_start` イベントが自動配信され��ノートブックがread-onlyにな���
+- [ ] ロッ���中はキーボード入力・セル��集ができない
+- [ ] ロック中であることを示すインジケータが表示され��
+- [ ] ツール実行完了後に `ai_edit_end` イ��ントが自動配信され、ロックが解除される
 - [ ] ロック解除後、通常通り編集できる
 
 ### AC4: WebSocket接続
@@ -169,6 +174,13 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - [ ] ディレクトリ変更時（ダブルクリックでフォルダ移動）にツリー展開状態がリセットされる
 - [ ] 同一ディレクトリ内でのツリー展開・折りたたみ状態は移動まで保持される
 - [ ] ファイルブラウザの既存動作（ファイルのシングルクリック選択、ダブルクリック開く）に影響しない
+
+### AC6: カーネル中断のロック貫通・カーネル再起動のブロック
+- [ ] AI編集ロック中でもカーネル中断ボタンが有効である
+- [ ] ロック中にキーボードショートカット（`I I`）でカーネル中断が発火する
+- [ ] ロック中に中断ボタンをクリックするとカーネルが中断される
+- [ ] 中断後もロック/アンロックの状態遷移が正常に動作する
+- [ ] AI編集ロック中はカーネル再起動（Kernel メニュー / `0 0` ショートカット / `notebook:restart-kernel` 等のコマンド）が無効化される
 
 ## 依存関係
 

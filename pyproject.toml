@@ -1,0 +1,25 @@
+[project]
+name = "ai-data-analysis-platform-dev"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "psycopg2-binary>=2.9",
+  "pyarrow>=23.0",
+  "pyyaml>=6.0",
+  "mypy>=1.0",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+  "httpx>=0.27.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.0",
+  "sqlparse>=0.4",
+  "types-PyYAML>=6.0",
+  "jupyterlab>=4.0.0,<5",
+  "jupyter-packaging>=0.12,<1",
+  "setuptools",
+  "wheel",
+]

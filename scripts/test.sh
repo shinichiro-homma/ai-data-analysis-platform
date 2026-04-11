@@ -2,9 +2,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-source "$(dirname "$0")/lib/common.sh"
+REPO_ROOT="$(pwd)"
+source scripts/lib/common.sh
 
-COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server)
+COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync)
 
 usage() {
   cat <<EOF
@@ -13,10 +14,11 @@ Usage: $(basename "$0") [OPTIONS] [COMPONENT...]
 コンポーネントの型チェックとテストを実行します。
 
 COMPONENT:
-  jupyter-mcp       Jupyter MCP サーバー
-  document-mcp      Document MCP サーバー
-  document-server   Document サーバー
-  jupyter-server    Jupyter サーバー
+  jupyter-mcp           Jupyter MCP サーバー
+  document-mcp          Document MCP サーバー
+  document-server       Document サーバー
+  jupyter-server        Jupyter サーバー
+  jupyterlab-ai-sync    JupyterLab AI 同期拡張
   (省略時は全コンポーネント)
 
 OPTIONS:
@@ -25,6 +27,7 @@ OPTIONS:
   --integration   統合テスト（Docker 環境が必要）
   --rebuild       テスト前にコンポーネントを自動リビルド（MCP/Docker を自動判定）
   --health        テスト後に既知障害と照合して分類する
+  --no-lint       lint / format チェックをスキップする
   -h, --help      このヘルプを表示
 
 Examples:
@@ -41,6 +44,7 @@ EOF
 
 TYPECHECK=true
 TEST=true
+LINT=true
 HEALTH=false
 INTEGRATION=false
 REBUILD=false
@@ -52,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --test)          TYPECHECK=false; shift ;;
     --integration)   INTEGRATION=true; shift ;;
     --rebuild)       REBUILD=true; shift ;;
+    --no-lint)       LINT=false; shift ;;
     --health)        HEALTH=true; shift ;;
     -h|--help)    usage; exit 0 ;;
     -*)           echo "Error: unknown option $1" >&2; usage; exit 1 ;;
@@ -97,8 +102,31 @@ run_rebuild() {
 
 echo "=== Test Runner ==="
 echo "Targets: ${TARGETS[*]}"
-echo "Typecheck: $TYPECHECK | Test: $TEST | Integration: $INTEGRATION"
+echo "Typecheck: $TYPECHECK | Test: $TEST | Lint: $LINT | Integration: $INTEGRATION"
 echo ""
+
+# Lint check (before any build/test)
+if $LINT; then
+  echo "--- Lint / Format Check ---"
+  # Map test.sh component names to lint.sh component names
+  # test.sh targets: jupyter-mcp, document-mcp, document-server, jupyter-server
+  # lint.sh also supports: mcp-shared, scripts
+  LINT_TARGETS=()
+  for _t in "${TARGETS[@]}"; do
+    LINT_TARGETS+=("$_t")
+  done
+  # Always include mcp-shared and scripts when running all components
+  if [[ ${#TARGETS[@]} -eq ${#COMPONENTS[@]} ]]; then
+    LINT_TARGETS+=("mcp-shared" "scripts")
+  fi
+  if scripts/lint.sh "${LINT_TARGETS[@]}"; then
+    echo ""
+  else
+    echo ""
+    echo "ERROR: Lint check failed. Fix lint issues before running tests."
+    exit 1
+  fi
+fi
 
 # Integration mode: check Docker environment
 if $INTEGRATION; then
@@ -184,6 +212,37 @@ FAILED=()
 for component in "${TARGETS[@]}"; do
   echo "--- $component ---"
 
+  if [[ "$component" == "jupyterlab-ai-sync" ]]; then
+    if [[ ! -d "$component" ]]; then
+      echo "  SKIP: directory not found"
+      FAILED+=("$component:skip"); continue
+    fi
+    # jupyterlab-ai-sync は npm workspaces 非参加のため node_modules を個別管理する
+    if [[ ! -d "$component/node_modules" ]]; then
+      echo "  Installing npm dependencies..."
+      (cd "$component" && npm install) \
+        || { FAILED+=("$component:install"); echo "  FAILED: npm install"; continue; }
+    fi
+    if $TYPECHECK; then
+      echo "  Type checking..."
+      (cd "$component" && npx tsc --noEmit) \
+        || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
+      echo "  Typecheck OK"
+    fi
+    if $TEST; then
+      if $INTEGRATION; then
+        echo "  SKIP: integration tests not supported for jupyterlab-ai-sync"
+      else
+        echo "  Building labextension (uv run)..."
+        (cd "$component" && uv run --project "$REPO_ROOT" npm run build) \
+          || { FAILED+=("$component:test"); echo "  FAILED: build"; continue; }
+        echo "  Build OK"
+      fi
+    fi
+    echo ""
+    continue
+  fi
+
   if [[ ! -d "$component" ]]; then
     echo "  SKIP: directory not found"
     FAILED+=("$component:skip")
@@ -201,24 +260,15 @@ for component in "${TARGETS[@]}"; do
     continue
   fi
 
-  # Python venv: check if venv exists for this component
-  HAS_VENV=false
-  if [[ "$PROJECT_TYPE" == "python" && -f "$component/.venv/bin/activate" ]]; then
-    HAS_VENV=true
-  fi
-
   if $TYPECHECK; then
     echo "  Type checking..."
     if [[ "$PROJECT_TYPE" == "typescript" ]]; then
       (cd "$component" && npm run typecheck) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
     else
-      # Check if mypy is available (via venv or system)
-      if $HAS_VENV && (cd "$component" && source .venv/bin/activate && command -v mypy >/dev/null 2>&1); then
-        (cd "$component" && source .venv/bin/activate && mypy src/) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
-      elif command -v mypy >/dev/null 2>&1; then
-        (cd "$component" && mypy src/) || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
+      if [[ -d "$component/src" ]]; then
+        uv run mypy "$component/src" || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
       else
-        echo "  SKIP: mypy not available"
+        echo "  SKIP: no src/ directory"
       fi
     fi
     echo "  Typecheck OK"
@@ -244,13 +294,7 @@ for component in "${TARGETS[@]}"; do
       if [[ "$PROJECT_TYPE" == "typescript" ]]; then
         (cd "$component" && npm test) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
       else
-        if $HAS_VENV && (cd "$component" && source .venv/bin/activate && command -v pytest >/dev/null 2>&1); then
-          (cd "$component" && source .venv/bin/activate && pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
-        elif command -v pytest >/dev/null 2>&1; then
-          (cd "$component" && pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
-        else
-          echo "  SKIP: pytest not available"
-        fi
+        (cd "$component" && uv run --project "$REPO_ROOT" pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
       fi
       echo "  Test OK"
     fi
@@ -264,6 +308,10 @@ if [[ ${#FAILED[@]} -eq 0 ]]; then
   echo "All targets passed."
 else
   if $HEALTH; then
+    if ! command -v jq >/dev/null 2>&1; then
+      echo "ERROR: --health は jq を必要とします。sudo apt-get install -y jq / brew install jq でインストールしてください。" >&2
+      exit 1
+    fi
     # Classify failures against known-failures.json
     KF_FILE="tests/known-failures.json"
     KNOWN=()

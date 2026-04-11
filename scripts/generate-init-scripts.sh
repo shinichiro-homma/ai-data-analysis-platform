@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-source "$(dirname "$0")/lib/common.sh"
+source scripts/lib/common.sh
 
 # --- usage ---
 usage() {
@@ -67,7 +67,7 @@ fi
 
 # --- Python スクリプト実行 ---
 echo "=== Generating init scripts for '${ENV}' ==="
-python3 scripts/lib/generate_init.py "$ENV"
+uv run python scripts/lib/generate_init.py "$ENV"
 
 echo ""
 echo "=== Done ==="

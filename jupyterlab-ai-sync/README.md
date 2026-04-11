@@ -20,28 +20,31 @@ AIの操作をノートブック上でリアルタイム表示するJupyterLab�
 
 ### 手動インストール
 
+ルートで `uv sync` 済みであれば、依存関係（JupyterLab 等）は解決済みです。
+
 ```bash
-pip install -e .
-jupyter labextension develop . --overwrite
+uv run jupyter labextension develop . --overwrite
 ```
 
 ## 開発
 
+ルートで `uv sync` を実行してから以下を行う:
+
 ```bash
-# 依存関係のインストール
+# 依存関係のインストール（初回のみ）
 npm install
 
-# ビルド
-npm run build
+# ビルド（ルート venv の jupyter を使用）
+uv run --project .. npm run build
 
 # ウォッチモード（ファイル変更を検知して自動リビルド）
-npm run watch
+uv run --project .. npm run watch
 ```
 
 別のターミナルで JupyterLab を起動:
 
 ```bash
-jupyter lab --watch
+uv run jupyter lab --watch
 ```
 
 ## 仕組み

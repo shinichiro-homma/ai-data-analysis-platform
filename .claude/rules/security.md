@@ -12,11 +12,9 @@ paths:
 
 ## 1. 認証・認可
 
-### APIトークンの検証
-
-- すべてのAPIエンドポイントで認証を必須とする
+- すべての API エンドポイントで認証を必須にする
 - トークンは `Authorization: Bearer {token}` ヘッダーで受け取る
-- 無効なトークンには 401 Unauthorized を返す
+- 無効トークンには 401 を返し、操作ごとに認可を確認して他ユーザーのリソースへのアクセスを防ぐ
 
 ```typescript
 // Good
@@ -28,22 +26,14 @@ if (!isValidToken(token)) {
   throw new UnauthorizedError('無効なトークンです');
 }
 
-// Bad
-// トークン検証なしで処理を続行
+// Bad: トークン検証なしで処理を続行
 ```
-
-### 認可の確認
-
-- 操作ごとに権限を確認する
-- 他ユーザーのリソースにアクセスできないようにする
 
 ## 2. 入力検証
 
-### すべての入力を検証する
-
-- ユーザーからの入力は信頼しない
-- 型、長さ、形式を検証する
-- 検証には Pydantic（Python）/ Zod（TypeScript）を使用する
+- ユーザー入力は信頼しない。型・長さ・形式を Pydantic（Python）/ Zod（TypeScript）で検証する
+- SQL は必ずパラメータ化クエリ。文字列結合で組み立てない
+- ファイルパスにユーザー入力を使う場合は正規化して base ディレクトリ配下に収まるか確認する
 
 ```python
 # Good
@@ -59,37 +49,10 @@ class ExecuteRequest(BaseModel):
             raise ValueError('コードが空です')
         return v
 
-# Bad
-def execute(code, timeout):
-    # 検証なしで実行
-    kernel.execute(code)
-```
+# Good: SQL はパラメータ化
+cursor.execute("SELECT * FROM tables WHERE name = %s", (table_name,))
 
-### SQLインジェクション対策
-
-- SQLクエリには必ずパラメータ化クエリを使用する
-- 文字列結合でSQLを組み立てない
-
-```python
-# Good
-cursor.execute(
-    "SELECT * FROM tables WHERE name = %s",
-    (table_name,)
-)
-
-# Bad - SQLインジェクションの脆弱性
-cursor.execute(f"SELECT * FROM tables WHERE name = '{table_name}'")
-```
-
-### パストラバーサル対策
-
-- ファイルパスにユーザー入力を使用する場合は正規化・検証する
-
-```python
-# Good
-import os
-from pathlib import Path
-
+# Good: パストラバーサル対策
 def safe_path(base_dir: str, user_input: str) -> Path:
     base = Path(base_dir).resolve()
     target = (base / user_input).resolve()
@@ -98,73 +61,34 @@ def safe_path(base_dir: str, user_input: str) -> Path:
     return target
 
 # Bad
-path = f"/data/{user_input}"  # ../../../etc/passwd などが可能
+cursor.execute(f"SELECT * FROM tables WHERE name = '{table_name}'")
+path = f"/data/{user_input}"  # ../../../etc/passwd が可能
 ```
 
 ## 3. 機密情報の管理
 
-### 環境変数で管理
-
-- パスワード、トークン、APIキーはコードにハードコードしない
-- 環境変数から取得する
+- パスワード・トークン・API キーはハードコードせず環境変数から取得する
+- ログ・エラーメッセージに機密情報を出力しない
+- API レスポンスに含めない（パスワードフィールドは `***` でマスク）
 
 ```typescript
 // Good
 const dbPassword = process.env.DB_PASSWORD;
-if (!dbPassword) {
-  throw new Error('DB_PASSWORD 環境変数が設定されていません');
-}
+if (!dbPassword) throw new Error('DB_PASSWORD 環境変数が設定されていません');
+
+// Good: レスポンスでマスク
+// { "connection": { "host": "db.example.com", "user": "analyst", "password": "***" } }
 
 // Bad
 const dbPassword = 'secret123';
+logger.info(`トークン ${token} で認証しました`);
 ```
 
-### ログに出力しない
+## 4. コード実行の安全性（Jupyter 固有）
 
-- 機密情報をログに出力しない
-- エラーメッセージに機密情報を含めない
-
-```python
-# Good
-logger.info(f"ユーザー {user_id} が接続しました")
-logger.error(f"認証エラー: ユーザー {user_id}")
-
-# Bad
-logger.info(f"トークン {token} で認証しました")
-logger.error(f"DB接続エラー: password={password}")
-```
-
-### レスポンスに含めない
-
-- APIレスポンスに機密情報を含めない
-- パスワードフィールドは `***` でマスクする
-
-```python
-# Good
-{
-    "connection": {
-        "host": "db.example.com",
-        "user": "analyst",
-        "password": "***"
-    }
-}
-
-# Bad
-{
-    "connection": {
-        "host": "db.example.com",
-        "user": "analyst",
-        "password": "actual_password_here"
-    }
-}
-```
-
-## 4. コード実行の安全性（Jupyter固有）
-
-### タイムアウトの設定
-
-- コード実行には必ずタイムアウトを設定する
-- 無限ループを防ぐ
+- コード実行には必ずタイムアウトを設定する（無限ループ防止）
+- メモリ使用量と同時実行数を制限する
+- ファイルシステム・ネットワークへのアクセスを必要最小限に制限する
 
 ```python
 # Good
@@ -174,39 +98,14 @@ result = kernel.execute(code, timeout=30)
 result = kernel.execute(code)  # タイムアウトなし
 ```
 
-### リソース制限
-
-- メモリ使用量を制限する
-- 同時実行数を制限する
-
-### 危険な操作の制限
-
-- ファイルシステムへのアクセスを制限する
-- ネットワークアクセスを制限する（必要に応じて）
-
 ## 5. 依存関係の管理
 
-### 既知の脆弱性のチェック
-
-```bash
-# npm
-npm audit
-
-# pip
-pip-audit
-```
-
-### 依存関係の更新
-
-- 定期的に依存関係を更新する
-- セキュリティアップデートは優先的に適用する
+- `npm audit` / `pip-audit` で既知の脆弱性を定期的にチェックする
+- 依存関係は定期更新し、セキュリティアップデートは優先的に適用する
 
 ## 6. エラーハンドリング
 
-### 詳細なエラー情報を隠す
-
-- 本番環境では内部エラーの詳細を返さない
-- スタックトレースを外部に公開しない
+本番環境では内部エラーの詳細やスタックトレースを外部に公開しない。
 
 ```python
 # Good
@@ -218,11 +117,5 @@ async def generic_exception_handler(request, exc):
         content={"error": {"code": "INTERNAL_ERROR", "message": "内部エラーが発生しました"}}
     )
 
-# Bad
-@app.exception_handler(Exception)
-async def generic_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"error": str(exc), "traceback": traceback.format_exc()}
-    )
+# Bad: traceback や exc 文字列をそのままレスポンスに含める
 ```

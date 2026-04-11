@@ -51,6 +51,26 @@ describe('executeNotebookExecuteCell', () => {
         timeout: 30,
       });
 
+      // postAiEvent が実行イベントフロー（start → output → end）で呼ばれたことを確認
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_execute_start',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+      });
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_output',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+        output: { output_type: 'stream', name: 'stdout', text: 'Hello, World!\n' },
+      });
+      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
+        type: 'cell_execute_end',
+        notebook_path: 'analysis.ipynb',
+        cell_index: 0,
+        execution_count: 3,
+        success: true,
+      });
+
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('Hello, World!');
       expect(result.content[0].text).toContain('"execution_count": 3');
@@ -128,6 +148,40 @@ describe('executeNotebookExecuteCell', () => {
       expect(result.content[0].text).toContain('"success": false');
       expect(result.content[0].text).toContain('VALIDATION_ERROR');
       expect(jupyterClient.executeCellInNotebook).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('KeyboardInterrupt 対応', () => {
+    test('KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる', async () => {
+      const mockResponse: CellExecuteResponse = {
+        cell_index: 0,
+        source: 'import time; time.sleep(100)',
+        execution_count: 5,
+        outputs: [
+          {
+            output_type: 'error',
+            ename: 'KeyboardInterrupt',
+            evalue: '',
+            traceback: [
+              '\u001b[0;31m---------------------------------------------------------------------------\u001b[0m',
+              '\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)',
+              '\u001b[0;31mKeyboardInterrupt\u001b[0m: ',
+            ],
+          },
+        ],
+        execution_time_ms: 3000,
+      };
+
+      vi.mocked(jupyterClient.executeCellInNotebook).mockResolvedValue(mockResponse);
+
+      const result = await executeNotebookExecuteCell({
+        notebook_path: 'analysis.ipynb',
+        session_id: 'session-123',
+        cell_index: 0,
+      });
+
+      const responseText = result.content[0].text;
+      expect(responseText).toContain('KeyboardInterrupt');
     });
   });
 

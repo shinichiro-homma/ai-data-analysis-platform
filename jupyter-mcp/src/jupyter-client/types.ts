@@ -180,13 +180,26 @@ export interface UpdateNotebookRequest {
   content: NotebookContent;
 }
 
-export type CellAction = 'add' | 'update' | 'delete' | 'reorder';
+export type CellAction =
+  | 'add'
+  | 'update'
+  | 'delete'
+  | 'reorder'
+  | 'merge'
+  | 'split'
+  | 'change_type'
+  | 'copy'
+  | 'clear_output';
 
 export interface CellOperationRequest {
   action: CellAction;
   cell?: Partial<Cell>;
   index?: number;
   to_index?: number;
+  start_index?: number;
+  end_index?: number;
+  split_line?: number;
+  cell_type?: 'code' | 'markdown';
 }
 
 // =============================================================================
@@ -276,7 +289,22 @@ export interface ApiError {
  * AI同期イベントの基底型
  */
 export interface AiEventBase {
-  type: 'cell_added' | 'cell_execute_start' | 'cell_output' | 'cell_execute_end' | 'ai_edit_start' | 'ai_edit_end';
+  type:
+    | 'cell_added'
+    | 'cell_edited'
+    | 'cell_deleted'
+    | 'cell_reordered'
+    | 'cell_execute_start'
+    | 'cell_output'
+    | 'cell_execute_end'
+    | 'ai_edit_start'
+    | 'ai_edit_end'
+    | 'cells_merged'
+    | 'cell_split'
+    | 'cell_type_changed'
+    | 'cell_copied'
+    | 'output_cleared'
+    | 'all_outputs_cleared';
 }
 
 /**
@@ -341,8 +369,40 @@ export interface CellExecuteEndEvent extends AiEventBase {
 }
 
 /**
+ * セル編集イベント
+ * AIが notebook_edit_cell ツールを実行した際に配信される
+ */
+export interface CellEditedEvent extends AiEventBase {
+  type: 'cell_edited';
+  notebook_path: string;
+  cell_index: number;
+  source: string;
+}
+
+/**
+ * セル削除イベント
+ * AIが notebook_delete_cell ツールを実行した際に配信される
+ */
+export interface CellDeletedEvent extends AiEventBase {
+  type: 'cell_deleted';
+  notebook_path: string;
+  cell_index: number;
+}
+
+/**
+ * セル並び替えイベント
+ * AIが notebook_reorder_cell ツールを実行した際に配信される
+ */
+export interface CellReorderedEvent extends AiEventBase {
+  type: 'cell_reordered';
+  notebook_path: string;
+  cell_index: number;
+  to_index: number;
+}
+
+/**
  * AI編集モード開始イベント
- * AIが ai_edit_start ツールを実行した際に配信される
+ * handleToolCall ミドルウェアがノートブック編集系ツール実行前に自動配信する
  */
 export interface AiEditStartEvent extends AiEventBase {
   type: 'ai_edit_start';
@@ -351,10 +411,73 @@ export interface AiEditStartEvent extends AiEventBase {
 
 /**
  * AI編集モード終了イベント
- * AIが ai_edit_end ツールを実行した際に配信される
+ * handleToolCall ミドルウェアがツール実行完了後に自動配信する
  */
 export interface AiEditEndEvent extends AiEventBase {
   type: 'ai_edit_end';
+  notebook_path: string;
+}
+
+/**
+ * セル結合イベント
+ * AIが notebook_merge_cells ツールを実行した際に配信される
+ */
+export interface CellsMergedEvent extends AiEventBase {
+  type: 'cells_merged';
+  notebook_path: string;
+  start_index: number;
+  end_index: number;
+}
+
+/**
+ * セル分割イベント
+ * AIが notebook_split_cell ツールを実行した際に配信される
+ */
+export interface CellSplitEvent extends AiEventBase {
+  type: 'cell_split';
+  notebook_path: string;
+  cell_index: number;
+  split_line: number;
+}
+
+/**
+ * セルタイプ変更イベント
+ * AIが notebook_change_cell_type ツールを実行した際に配信される
+ */
+export interface CellTypeChangedEvent extends AiEventBase {
+  type: 'cell_type_changed';
+  notebook_path: string;
+  cell_index: number;
+  new_type: 'code' | 'markdown';
+}
+
+/**
+ * セルコピーイベント
+ * AIが notebook_copy_cell ツールを実行した際に配信される
+ */
+export interface CellCopiedEvent extends AiEventBase {
+  type: 'cell_copied';
+  notebook_path: string;
+  source_index: number;
+  target_index: number;
+}
+
+/**
+ * 単一セル出力クリアイベント
+ * AIが notebook_clear_outputs ツールを cell_index 指定で実行した際に配信される
+ */
+export interface OutputClearedEvent extends AiEventBase {
+  type: 'output_cleared';
+  notebook_path: string;
+  cell_index: number;
+}
+
+/**
+ * 全セル出力クリアイベント
+ * AIが notebook_clear_outputs ツールを cell_index 省略で実行した際に配信される
+ */
+export interface AllOutputsClearedEvent extends AiEventBase {
+  type: 'all_outputs_cleared';
   notebook_path: string;
 }
 
@@ -363,11 +486,20 @@ export interface AiEditEndEvent extends AiEventBase {
  */
 export type AiEvent =
   | CellAddedEvent
+  | CellEditedEvent
+  | CellDeletedEvent
+  | CellReorderedEvent
   | CellExecuteStartEvent
   | CellOutputEvent
   | CellExecuteEndEvent
   | AiEditStartEvent
-  | AiEditEndEvent;
+  | AiEditEndEvent
+  | CellsMergedEvent
+  | CellSplitEvent
+  | CellTypeChangedEvent
+  | CellCopiedEvent
+  | OutputClearedEvent
+  | AllOutputsClearedEvent;
 
 export interface BroadcastEventResponse {
   broadcasted: boolean;
@@ -477,6 +609,32 @@ export interface TextFileResponse {
   type: 'file';
   content: string;
   modified_at: string;
+}
+
+// =============================================================================
+// セル一括実行関連
+// =============================================================================
+
+export interface CellExecuteBatchRequest {
+  kernel_id: string;
+  mode: 'all' | 'up_to' | 'from';
+  cell_index?: number;
+  timeout?: number;
+}
+
+export interface CellExecuteBatchResponse {
+  executed_cells: number;
+  success_count: number;
+  failed_cell: number | null;
+  error?: ExecutionError;
+}
+
+// =============================================================================
+// 出力クリア関連
+// =============================================================================
+
+export interface ClearAllOutputsResponse {
+  cleared_cells: number;
 }
 
 // =============================================================================

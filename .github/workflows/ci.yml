@@ -14,36 +14,78 @@ env:
 
 jobs:
   # ──────────────────────────────────────────────
+  # 変更検出: ドキュメントのみの変更かどうかを判定
+  # ──────────────────────────────────────────────
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code_changed: ${{ steps.detect.outputs.code_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect code changes
+        id: detect
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          CODE_CHANGED="false"
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            case "$file" in
+              docs/*|*.md|.claude/*|.githooks/*|.mainignore) ;;
+              *) CODE_CHANGED="true"; break ;;
+            esac
+          done <<< "$CHANGED"
+          echo "code_changed=$CODE_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Code changed: $CODE_CHANGED"
+          echo "Changed files:"
+          echo "$CHANGED"
+
+  # ──────────────────────────────────────────────
   # TypeScript: format + 型チェック + ユニットテスト
   # ──────────────────────────────────────────────
   ts-typecheck-and-test:
     name: TypeScript lint, typecheck & test
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code_changed == 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - run: npm ci
+        if: needs.changes.outputs.code_changed == 'true'
 
       - name: Prettier check
-        run: npx prettier --check "jupyter-mcp/src/**/*.ts" "document-mcp/src/**/*.ts" "packages/mcp-shared/src/**/*.ts"
+        if: needs.changes.outputs.code_changed == 'true'
+        run: scripts/lint.sh jupyter-mcp document-mcp mcp-shared
 
       - name: Build mcp-shared
+        if: needs.changes.outputs.code_changed == 'true'
         run: npm -w packages/mcp-shared run build
 
       - name: Typecheck
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           npx -w jupyter-mcp tsc --noEmit
           npx -w document-mcp tsc --noEmit
 
       - name: Unit tests
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           npm -w jupyter-mcp test
           npm -w document-mcp test
+
+      - name: Skip (docs-only change)
+        if: needs.changes.outputs.code_changed != 'true'
+        run: echo "Skipped — docs-only change"
 
   # ──────────────────────────────────────────────
   # Python: format + lint + 型チェック + ユニットテスト
@@ -51,42 +93,52 @@ jobs:
   python-lint-and-test:
     name: Python lint, typecheck & test
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code_changed == 'true'
 
       - uses: actions/setup-python@v5
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: Install uv
+        if: needs.changes.outputs.code_changed == 'true'
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync root venv (uv)
+        if: needs.changes.outputs.code_changed == 'true'
+        run: uv sync
+
+      - name: Install component dependencies
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
-          pip install ruff
           pip install -e "document-server[dev]" types-PyYAML
           pip install pytest pytest-asyncio sqlparse
 
-      - name: Ruff format check
-        run: |
-          ruff format --check document-server/src/ document-server/tests/
-          ruff format --check jupyter-server/extensions/ jupyter-server/tests/
-          ruff format --check scripts/*.py scripts/lib/*.py
-
-      - name: Ruff lint
-        run: |
-          ruff check document-server/src/ document-server/tests/
-          ruff check jupyter-server/extensions/ jupyter-server/tests/
-          ruff check scripts/*.py scripts/lib/*.py
+      - name: Ruff format + lint check
+        if: needs.changes.outputs.code_changed == 'true'
+        run: scripts/lint.sh document-server jupyter-server scripts
 
       - name: Mypy (document-server)
+        if: needs.changes.outputs.code_changed == 'true'
         working-directory: document-server
         run: mypy src/
 
       - name: Test document-server
+        if: needs.changes.outputs.code_changed == 'true'
         working-directory: document-server
         run: pytest
 
       - name: Test jupyter-server
+        if: needs.changes.outputs.code_changed == 'true'
         working-directory: jupyter-server
         run: pytest
+
+      - name: Skip (docs-only change)
+        if: needs.changes.outputs.code_changed != 'true'
+        run: echo "Skipped — docs-only change"
 
   # ──────────────────────────────────────────────
   # JupyterLab AI Sync: ビルド検証
@@ -94,25 +146,35 @@ jobs:
   jupyterlab-ai-sync-build:
     name: JupyterLab AI Sync build
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code_changed == 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - uses: actions/setup-python@v5
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install JupyterLab
+        if: needs.changes.outputs.code_changed == 'true'
         run: pip install jupyterlab>=4.0.0
 
       - name: Install and build
+        if: needs.changes.outputs.code_changed == 'true'
         working-directory: jupyterlab-ai-sync
         run: |
           npm install
           npm run build
+
+      - name: Skip (docs-only change)
+        if: needs.changes.outputs.code_changed != 'true'
+        run: echo "Skipped — docs-only change"
 
   # ──────────────────────────────────────────────
   # 統合テスト（機能テスト — 必須）
@@ -120,7 +182,7 @@ jobs:
   integration-test:
     name: Integration test (Docker Compose)
     runs-on: ubuntu-latest
-    needs: [ts-typecheck-and-test, python-lint-and-test]
+    needs: [changes, ts-typecheck-and-test, python-lint-and-test]
     env:
       DATA_ENV: sample
       POSTGRES_DB: analysis_db
@@ -131,34 +193,42 @@ jobs:
       DOCUMENT_SERVER_TOKEN: ci-document-token
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code_changed == 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
+        if: needs.changes.outputs.code_changed == 'true'
         run: npm ci
 
       - uses: actions/setup-python@v5
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install data loader dependencies
+        if: needs.changes.outputs.code_changed == 'true'
         run: pip install psycopg2-binary pyarrow
 
       - name: Build MCP servers
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           npm -w packages/mcp-shared run build
           npm -w jupyter-mcp run build
           npm -w document-mcp run build
 
       - name: Start services
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           docker compose up -d --build --wait
           docker compose ps
 
       - name: Wait for healthy services
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           echo "Waiting for services to become healthy..."
           for i in $(seq 1 30); do
@@ -178,11 +248,13 @@ jobs:
         timeout-minutes: 5
 
       - name: Load sample data into PostgreSQL
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
             python postgres/init/sample/load-data.py
 
       - name: Run MCP integration tests (excluding performance)
+        if: needs.changes.outputs.code_changed == 'true'
         env:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
@@ -193,6 +265,7 @@ jobs:
           npx -w document-mcp vitest run --config vitest.config.integration.ts --exclude '**/performance.test.ts'
 
       - name: Run E2E tests (excluding performance)
+        if: needs.changes.outputs.code_changed == 'true'
         env:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
@@ -204,13 +277,17 @@ jobs:
         if: failure()
         run: docker compose logs --tail=100
 
+      - name: Skip (docs-only change)
+        if: needs.changes.outputs.code_changed != 'true'
+        run: echo "Skipped — docs-only change"
+
   # ──────────────────────────────────────────────
   # パフォーマンステスト（参考 — 失敗しても CI をブロックしない）
   # ──────────────────────────────────────────────
   performance-test:
     name: Performance test (informational)
     runs-on: ubuntu-latest
-    needs: [integration-test]
+    needs: [changes, integration-test]
     continue-on-error: true
     env:
       DATA_ENV: sample
@@ -222,34 +299,42 @@ jobs:
       DOCUMENT_SERVER_TOKEN: ci-document-token
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code_changed == 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - uses: actions/setup-python@v5
+        if: needs.changes.outputs.code_changed == 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install data loader dependencies
+        if: needs.changes.outputs.code_changed == 'true'
         run: pip install psycopg2-binary pyarrow
 
       - name: Install dependencies
+        if: needs.changes.outputs.code_changed == 'true'
         run: npm ci
 
       - name: Build MCP servers
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           npm -w packages/mcp-shared run build
           npm -w jupyter-mcp run build
           npm -w document-mcp run build
 
       - name: Start services
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           docker compose up -d --build --wait
           docker compose ps
 
       - name: Wait for healthy services
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           echo "Waiting for services to become healthy..."
           for i in $(seq 1 30); do
@@ -269,11 +354,13 @@ jobs:
         timeout-minutes: 5
 
       - name: Load sample data into PostgreSQL
+        if: needs.changes.outputs.code_changed == 'true'
         run: |
           PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
             python postgres/init/sample/load-data.py
 
       - name: Run performance tests
+        if: needs.changes.outputs.code_changed == 'true'
         env:
           JUPYTER_SERVER_URL: http://localhost:8888
           DOCUMENT_SERVER_URL: http://localhost:3002
@@ -287,3 +374,7 @@ jobs:
       - name: Show logs on failure
         if: failure()
         run: docker compose logs --tail=100
+
+      - name: Skip (docs-only change)
+        if: needs.changes.outputs.code_changed != 'true'
+        run: echo "Skipped — docs-only change"

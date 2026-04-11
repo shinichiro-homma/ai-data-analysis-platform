@@ -43,6 +43,7 @@ fi
 JUPYTER_URL="${JUPYTER_SERVER_URL:-http://localhost:8888}"
 DOCUMENT_URL="${DOCUMENT_SERVER_URL:-http://localhost:3002}"
 TOKEN="${JUPYTER_TOKEN:-}"
+DOCUMENT_TOKEN="${DOCUMENT_SERVER_TOKEN:-}"
 
 PASS=0
 FAIL=0
@@ -131,7 +132,7 @@ RESULT=$(curl -sf -X PUT "$JUPYTER_URL/api/contents/$SMOKE_WORKSPACE?token=$TOKE
   -H "Content-Type: application/json" \
   -d '{"type": "directory"}' 2>&1) || true
 
-if echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='directory'" 2>/dev/null; then
+if echo "$RESULT" | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='directory'" 2>/dev/null; then
   pass "Workspace created: $SMOKE_WORKSPACE"
   CLEANUP_PATHS+=("$SMOKE_WORKSPACE")
 else
@@ -144,7 +145,7 @@ RESULT=$(curl -sf -X PUT "$JUPYTER_URL/api/contents/$NB_PATH?token=$TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"type": "notebook", "content": {"cells": [], "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}}, "nbformat": 4, "nbformat_minor": 5}}' 2>&1) || true
 
-if echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='notebook'" 2>/dev/null; then
+if echo "$RESULT" | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='notebook'" 2>/dev/null; then
   pass "Notebook created: $NB_PATH"
 else
   fail "Failed to create notebook" "$RESULT"
@@ -160,8 +161,8 @@ SESSION_RESULT=$(curl -sf -X POST "$JUPYTER_URL/api/sessions?token=$TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"path\": \"$NB_PATH\", \"type\": \"notebook\", \"kernel\": {\"name\": \"python3\"}}" 2>&1) || true
 
-KERNEL_ID=$(echo "$SESSION_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['kernel']['id'])" 2>/dev/null) || true
-SESSION_ID=$(echo "$SESSION_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null) || true
+KERNEL_ID=$(echo "$SESSION_RESULT" | uv run python -c "import sys,json; print(json.load(sys.stdin)['kernel']['id'])" 2>/dev/null) || true
+SESSION_ID=$(echo "$SESSION_RESULT" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null) || true
 
 if [[ -n "$KERNEL_ID" ]]; then
   pass "Kernel started: $KERNEL_ID"
@@ -182,7 +183,7 @@ if [[ -n "$KERNEL_ID" ]]; then
     # Try checking via different means - the execute endpoint might not exist
     # Fall back to checking kernel is alive
     KERNEL_STATUS=$(curl -sf "$JUPYTER_URL/api/kernels/$KERNEL_ID?token=$TOKEN" 2>&1) || true
-    if echo "$KERNEL_STATUS" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('execution_state') in ('idle','busy','starting')" 2>/dev/null; then
+    if echo "$KERNEL_STATUS" | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d.get('execution_state') in ('idle','busy','starting')" 2>/dev/null; then
       pass "Kernel is alive (REST execute endpoint not available, but kernel operational)"
     else
       fail "Code execution failed" "$EXEC_RESULT"
@@ -202,7 +203,7 @@ DATA_DIR="$SMOKE_WORKSPACE/data"
 RESULT=$(curl -sf -X PUT "$JUPYTER_URL/api/contents/$DATA_DIR?token=$TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"type": "directory"}' 2>&1) || true
-if echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='directory'" 2>/dev/null; then
+if echo "$RESULT" | uv run python -c "import sys,json; d=json.load(sys.stdin); assert d['type']=='directory'" 2>/dev/null; then
   pass "data/ directory created (SQL results directory writable)"
 else
   fail "Failed to create data/ directory" "$RESULT"
@@ -213,8 +214,8 @@ echo ""
 # 5. Catalog reference
 echo "--- 5. Catalog Reference ---"
 
-CATALOG_RESULT=$(curl -sf "$DOCUMENT_URL/catalog/index" 2>&1) || true
-TABLE_COUNT=$(echo "$CATALOG_RESULT" | python3 -c "
+CATALOG_RESULT=$(curl -sf -H "Authorization: Bearer $DOCUMENT_TOKEN" "$DOCUMENT_URL/catalog/index" 2>&1) || true
+TABLE_COUNT=$(echo "$CATALOG_RESULT" | uv run python -c "
 import sys,json
 d=json.load(sys.stdin)
 tables = d.get('data',{}).get('tables', d) if isinstance(d, dict) else d
@@ -229,8 +230,8 @@ else
 fi
 
 # Also check terms
-TERMS_RESULT=$(curl -sf "$DOCUMENT_URL/glossary/index" 2>&1) || true
-TERM_COUNT=$(echo "$TERMS_RESULT" | python3 -c "
+TERMS_RESULT=$(curl -sf -H "Authorization: Bearer $DOCUMENT_TOKEN" "$DOCUMENT_URL/glossary/index" 2>&1) || true
+TERM_COUNT=$(echo "$TERMS_RESULT" | uv run python -c "
 import sys,json
 d=json.load(sys.stdin)
 terms = d.get('data',{}).get('terms', d) if isinstance(d, dict) else d

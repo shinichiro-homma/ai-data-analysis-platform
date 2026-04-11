@@ -25,25 +25,27 @@ for _mod_name in ("pandas", "sqlalchemy", "sqlalchemy.exc", "tornado", "tornado.
 
 # --- 2. custom_api パッケージ構造の構築 ---
 # 相対インポート（from .base import ...）が動くよう、パッケージを手動構築
-_pkg = _types.ModuleType("custom_api")
-_pkg.__path__ = [str(_ext_dir / "custom_api")]
-_pkg.__package__ = "custom_api"
-sys.modules["custom_api"] = _pkg
+if "custom_api" not in sys.modules:
+    _pkg = _types.ModuleType("custom_api")
+    _pkg.__path__ = [str(_ext_dir / "custom_api")]
+    _pkg.__package__ = "custom_api"
+    sys.modules["custom_api"] = _pkg
 
 # base モジュールのモック（Handler クラス用。純粋関数テストには不要だがインポート時に必要）
-_base_mock = _types.ModuleType("custom_api.base")
-_base_mock.__package__ = "custom_api"
-_base_mock.BaseCustomHandler = type("BaseCustomHandler", (), {})
-_base_mock.resolve_workspace_dir = lambda *a, **kw: None
-_base_mock.validate_timeout = lambda *a, **kw: (30, None)
-_base_mock.validate_workspace_id = lambda *a, **kw: None
-_base_mock.workspace_contents_path = lambda *a, **kw: ""
-_base_mock.utc_now_iso = lambda: "2026-01-01T00:00:00Z"
-_base_mock.WORKSPACE_ROOT_DIR = "/home/jovyan/work/workspaces/sample"
-_base_mock.WORKSPACE_PATH_PREFIX = "workspaces/sample"
-_base_mock.JUPYTER_ROOT_DIR = "/home/jovyan/work"
-_base_mock.validate_kernel_name = lambda *a, **kw: None
-sys.modules["custom_api.base"] = _base_mock
+if "custom_api.base" not in sys.modules:
+    _base_mock = _types.ModuleType("custom_api.base")
+    _base_mock.__package__ = "custom_api"
+    _base_mock.BaseCustomHandler = type("BaseCustomHandler", (), {})
+    _base_mock.resolve_workspace_dir = lambda *a, **kw: None
+    _base_mock.validate_timeout = lambda *a, **kw: (30, None)
+    _base_mock.validate_workspace_id = lambda *a, **kw: None
+    _base_mock.workspace_contents_path = lambda *a, **kw: ""
+    _base_mock.utc_now_iso = lambda: "2026-01-01T00:00:00Z"
+    _base_mock.WORKSPACE_ROOT_DIR = "/home/jovyan/work/workspaces/sample"
+    _base_mock.WORKSPACE_PATH_PREFIX = "workspaces/sample"
+    _base_mock.JUPYTER_ROOT_DIR = "/home/jovyan/work"
+    _base_mock.validate_kernel_name = lambda *a, **kw: None
+    sys.modules["custom_api.base"] = _base_mock
 
 # --- 3. sql_handlers をパッケージ内モジュールとしてロード ---
 _module_path = _ext_dir / "custom_api" / "sql_handlers.py"

@@ -2,7 +2,6 @@
  * notebook_add_cell ツール実装
  */
 
-import { normalizeNotebookPath } from '../utils/path-validator.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -10,7 +9,7 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from '../utils/response-formatter.js';
-import { validateStringParameter } from '../utils/validation.js';
+import { validateStringParameter, validateAndNormalizeNotebookPath } from '../utils/validation.js';
 import { getEffectiveCellCount } from '../utils/notebook-cell-tracker.js';
 import { addCellWithSync } from '../utils/cell-operations.js';
 
@@ -18,16 +17,10 @@ import { addCellWithSync } from '../utils/cell-operations.js';
  * ノートブックにセルを追加する
  */
 export async function executeNotebookAddCell(args: Record<string, unknown>): Promise<McpResponse> {
-  // 入力検証: notebook_path
-  const notebookPathValidation = validateStringParameter(args.notebook_path, 'notebook_path', {
-    required: true,
-    maxLength: 500,
-    allowEmpty: false,
-  });
-  if (!notebookPathValidation.isValid) {
-    return createErrorResponse(notebookPathValidation.errorMessage!, 'VALIDATION_ERROR');
+  const pathResult = validateAndNormalizeNotebookPath(args.notebook_path);
+  if ('error' in pathResult) {
+    return createErrorResponse(pathResult.error, 'VALIDATION_ERROR');
   }
-  const notebookPath = args.notebook_path as string;
 
   // 入力検証: cell_type
   const cellType = args.cell_type as string | undefined;
@@ -57,13 +50,7 @@ export async function executeNotebookAddCell(args: Record<string, unknown>): Pro
     }
   }
 
-  // パストラバーサル攻撃対策（正規化済みパスを以降で使用）
-  let validatedPath: string;
-  try {
-    validatedPath = normalizeNotebookPath(notebookPath);
-  } catch (error) {
-    return createErrorResponse(extractErrorMessage(error), 'VALIDATION_ERROR');
-  }
+  const validatedPath = pathResult.path;
 
   try {
     // 有効セル数を取得（ディスクとメモリの大きい方）
