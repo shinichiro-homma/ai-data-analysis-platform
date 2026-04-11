@@ -15,18 +15,17 @@ JupyterLabのフロントエンド拡張。AIの操作をノートブック上�
 
 ## コマンド
 
+ルートで `uv sync` を実行してから以下を行う（JupyterLab 等はルート venv 経由で解決される）:
+
 ```bash
-# 依存関係インストール
+# 依存関係インストール（初回のみ）
 npm install
 
-# ビルド
-npm run build
+# ビルド（ルート venv の jupyter を使用）
+uv run --project .. npm run build
 
 # JupyterLabにインストール（開発モード）
-jupyter labextension develop . --overwrite
-
-# JupyterLabにインストール（本番）
-pip install .
+uv run jupyter labextension develop . --overwrite
 ```
 
 ## 受信イベント

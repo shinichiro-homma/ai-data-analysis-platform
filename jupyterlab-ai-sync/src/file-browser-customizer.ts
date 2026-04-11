@@ -57,12 +57,7 @@ function findListingItem(target: EventTarget | null): Element | null {
 /**
  * ツリーアイテム行 (div.jp-fb-tree-item) を生成する。
  */
-function createTreeItemEl(
-  name: string,
-  isDir: boolean,
-  path: string,
-  level: number
-): HTMLElement {
+function createTreeItemEl(name: string, isDir: boolean, path: string, level: number): HTMLElement {
   const row = document.createElement('div');
   row.className = 'jp-fb-tree-item';
   row.setAttribute('data-path', path);
@@ -110,7 +105,7 @@ function setExpandIconState(itemEl: Element, expanded: boolean): void {
 function makeToggleTreeExpansion(
   expandedPaths: Map<string, boolean>,
   childContainers: Map<string, HTMLElement>,
-  navigateToFolder: (path: string) => void
+  navigateToFolder: (path: string) => void,
 ) {
   /** ツリー内のダブルクリック判定用タイマー */
   let treeClickTimer: ReturnType<typeof setTimeout> | null = null;
@@ -128,7 +123,7 @@ function makeToggleTreeExpansion(
     itemEl: Element,
     path: string,
     contentsManager: Contents.IManager,
-    level: number
+    level: number,
   ): Promise<void> {
     // Map から既存の子コンテナを探す（DOM 検索ではなく Map で管理）
     const existingContainer = childContainers.get(path);
@@ -266,7 +261,7 @@ const fileBrowserPlugin: JupyterFrontEndPlugin<void> = {
     const { toggleTreeExpansion, cancelTreeClick } = makeToggleTreeExpansion(
       expandedPaths,
       childContainers,
-      navigateToFolder
+      navigateToFolder,
     );
 
     const clickHandler = (e: MouseEvent) => {

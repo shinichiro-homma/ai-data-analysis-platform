@@ -18,7 +18,7 @@ OPTIONS:
   -h, --help  このヘルプを表示
 
 チェック対象:
-  - jupyter-server:       Docker イメージ vs jupyter-server/ ソース
+  - jupyter-server:       Docker イメージ vs jupyter-server/ + jupyterlab-ai-sync/ ソース
   - document-server:      Docker イメージ vs document-server/ ソース
   - document-server (data): YAML データ vs document-server コンテナ起動時刻
   - jupyter-mcp:          ビルド成果物 (dist/) vs jupyter-mcp/src/ ソース
@@ -68,9 +68,11 @@ fi
 # ============================================================
 
 # Check Docker service freshness
+# Usage: check_docker_service <service> <source_dir> [<source_dir2> ...]
 check_docker_service() {
   local service="$1"
-  local source_dir="$2"
+  shift
+  local source_dirs=("$@")
 
   local container_ts
   container_ts=$(container_epoch "$service")
@@ -80,15 +82,21 @@ check_docker_service() {
     return
   fi
 
-  local source_epoch
-  source_epoch=$(newest_file_epoch "$source_dir" "*.ts" "*.py" "*.json" "Dockerfile")
+  local max_source_epoch=0
+  for dir in "${source_dirs[@]}"; do
+    local epoch
+    epoch=$(newest_file_epoch "$dir" "*.ts" "*.py" "*.json" "*.css" "Dockerfile")
+    if [[ -n "$epoch" ]] && [[ "$epoch" -gt "$max_source_epoch" ]]; then
+      max_source_epoch="$epoch"
+    fi
+  done
 
-  if [[ -z "$source_epoch" ]]; then
+  if [[ "$max_source_epoch" -eq 0 ]]; then
     echo "  $service: SKIP (no source files found)"
     return
   fi
 
-  if [[ "$source_epoch" -gt "$container_ts" ]]; then
+  if [[ "$max_source_epoch" -gt "$container_ts" ]]; then
     echo "  $service: STALE (source newer than container)"
     STALE+=("$service")
   else
@@ -310,7 +318,7 @@ echo ""
 # Check Docker services (only if running)
 echo "Docker services:"
 if is_service_running "jupyter-server"; then
-  check_docker_service "jupyter-server" "jupyter-server"
+  check_docker_service "jupyter-server" "jupyter-server" "jupyterlab-ai-sync"
 else
   echo "  jupyter-server: SKIP (not running)"
 fi

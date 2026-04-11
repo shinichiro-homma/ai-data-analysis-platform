@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 REPO_ROOT="$(pwd)"
 source scripts/lib/common.sh
 
-COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server)
+COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync)
 
 usage() {
   cat <<EOF
@@ -14,10 +14,11 @@ Usage: $(basename "$0") [OPTIONS] [COMPONENT...]
 コンポーネントの型チェックとテストを実行します。
 
 COMPONENT:
-  jupyter-mcp       Jupyter MCP サーバー
-  document-mcp      Document MCP サーバー
-  document-server   Document サーバー
-  jupyter-server    Jupyter サーバー
+  jupyter-mcp           Jupyter MCP サーバー
+  document-mcp          Document MCP サーバー
+  document-server       Document サーバー
+  jupyter-server        Jupyter サーバー
+  jupyterlab-ai-sync    JupyterLab AI 同期拡張
   (省略時は全コンポーネント)
 
 OPTIONS:
@@ -210,6 +211,37 @@ FAILED=()
 
 for component in "${TARGETS[@]}"; do
   echo "--- $component ---"
+
+  if [[ "$component" == "jupyterlab-ai-sync" ]]; then
+    if [[ ! -d "$component" ]]; then
+      echo "  SKIP: directory not found"
+      FAILED+=("$component:skip"); continue
+    fi
+    # jupyterlab-ai-sync は npm workspaces 非参加のため node_modules を個別管理する
+    if [[ ! -d "$component/node_modules" ]]; then
+      echo "  Installing npm dependencies..."
+      (cd "$component" && npm install) \
+        || { FAILED+=("$component:install"); echo "  FAILED: npm install"; continue; }
+    fi
+    if $TYPECHECK; then
+      echo "  Type checking..."
+      (cd "$component" && npx tsc --noEmit) \
+        || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
+      echo "  Typecheck OK"
+    fi
+    if $TEST; then
+      if $INTEGRATION; then
+        echo "  SKIP: integration tests not supported for jupyterlab-ai-sync"
+      else
+        echo "  Building labextension (uv run)..."
+        (cd "$component" && uv run --project "$REPO_ROOT" npm run build) \
+          || { FAILED+=("$component:test"); echo "  FAILED: build"; continue; }
+        echo "  Build OK"
+      fi
+    fi
+    echo ""
+    continue
+  fi
 
   if [[ ! -d "$component" ]]; then
     echo "  SKIP: directory not found"
