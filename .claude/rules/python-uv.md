@@ -55,6 +55,8 @@ uv sync
 `python` / `python3` / `pip` / `pip3` の直叩きを検出して exit 2 でブロックする。
 `uv run python ...` / `uv run pip ...` 経由は通過する。
 
+`.claude/hooks/scan-inline-python.sh` が `(uv run )?python3? -c "..."` の長文インライン実行とプロセス置換を `ask` に流す。閾値・対象パターンの詳細は `.claude/rules/adhoc-script-execution.md` を参照。
+
 ## ローカル mypy / pytest の実行
 
 mypy と pytest はルート venv 経由で実行する。per-component `.venv/` は使わない。
