@@ -1,3 +1,8 @@
+---
+name: jupyter-kernel-communication
+description: Jupyter ServerのREST API・WebSocketプロトコル・カーネルライフサイクルを扱う。jupyter-mcpのツール追加時に使用する。
+---
+
 # Jupyter カーネル通信パターン
 
 Jupyter Server の REST API・WebSocket プロトコル・カーネルライフサイクルの実装パターン。jupyter-mcp のツール追加時に参照する。

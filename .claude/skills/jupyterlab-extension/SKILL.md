@@ -1,3 +1,8 @@
+---
+name: jupyterlab-extension
+description: JupyterLab 4.xフロントエンド拡張（jupyterlab-ai-sync）を開発する際のAPI・ビルドシステム・注意点を扱う。
+---
+
 # JupyterLab 4.x Extension Development
 
 JupyterLab 4.x フロントエンド拡張の開発パターン。本プロジェクトの `jupyterlab-ai-sync` で確立されたパターンを基に、JupyterLab 固有の API・ビルドシステム・注意点をまとめる。
