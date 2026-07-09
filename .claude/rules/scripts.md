@@ -16,6 +16,7 @@
 | `scripts/rebuild.sh [SERVICE]` | Docker コンテナのリビルド・起動（postgres データ自動更新付き、MCP は含まない） | `postgres`（DB のみ再初期化）/ `--clean`（常に再初期化）/ `--verify`（完了後にスモークテスト） |
 | `scripts/switch-env.sh [ENV]` | データ環境の切り替え（既存データありならスキップ確認） | `--force-reload`（強制再ロード） |
 | `scripts/manage-known-failures.sh COMMAND` | 既知テスト失敗の管理（CRUD） | `list` / `add --component ... --test-name ... --reason ...` / `remove --id kf-001` / `check {COMPONENT}` |
+| `scripts/manage-workspaces.sh COMMAND` | jupyter-server ワークスペースの管理（再帰削除対応） | `list` / `delete {WORKSPACE_ID}` / `delete-all`（`-y` 確認スキップ、`--dry-run` 対象表示のみ、`--jupyter-url URL` で上書き可） |
 | `scripts/create-test-issue.sh` | テスト失敗の GitHub Issue 起票 | `--component ... --test-name ... --add-known` |
 | `scripts/generate-init-scripts.sh [ENV]` | カタログ YAML から DB 初期化スクリプトを生成 | — |
 | `scripts/convert-csv-to-parquet.py [ENV]` | CSV → Parquet 変換（既存はスキップ） | `--force`（再変換） |
