@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
-    "@vitest/ui": "^1.2.0",
+    "@vitest/ui": "^4.1.10",
     "ws": "^8.19.0"
   }
 }
