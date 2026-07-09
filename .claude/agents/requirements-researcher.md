@@ -2,7 +2,7 @@
 name: requirements-researcher
 description: 要件定義・API仕様・タスク計画の調査を行う。タスク計画作成、バグ修正、タスク完了検証で使用。
 tools: Read, Grep, Glob
-model: opus
+model: haiku
 ---
 
 あなたは要件・仕様の調査専門エージェントです。

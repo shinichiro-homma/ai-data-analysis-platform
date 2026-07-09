@@ -1,3 +1,8 @@
+---
+name: error-handling-and-validation
+description: TypeScript MCPサーバーとPython REST APIのエラーハンドリング・入力バリデーション・セキュリティ対策の統一パターンを実装する際に使用する。
+---
+
 # Error Handling and Validation Skill
 
 TypeScript MCP サーバーと Python REST API サーバーにおける、エラーハンドリング・入力バリデーション・セキュリティ対策の統一パターン。

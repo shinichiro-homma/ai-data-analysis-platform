@@ -156,11 +156,13 @@ gh issue create --title "bug: {バグの概要}" --body-file tmp/issue-body.md
 
 ## 7. コミット
 
-イシュー詳細ファイルをコミットしてください：
+イシュー詳細ファイルをコミットしてください（メッセージ: `docs: Issue #{Issue番号} のバグ報告を作成`）：
 
 ```bash
 git add docs/issues/{Issue番号}-{名前}.md
-git commit -m "docs: Issue #{Issue番号} のバグ報告を作成"
+# メッセージを Write で tmp/commit-msg.txt に書き出してから:
+git commit -F tmp/commit-msg.txt
+rm tmp/commit-msg.txt
 ```
 
 ## 8. 完了報告

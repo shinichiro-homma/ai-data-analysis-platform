@@ -1,3 +1,8 @@
+---
+name: parallel-investigation
+description: カスタムコマンドでドキュメント・コード・API仕様を並列にサブエージェント調査する際のテンプレート集。
+---
+
 # Parallel Investigation Skill
 
 カスタムコマンドで共通的に使われる「並列サブエージェント調査」のテンプレート集。

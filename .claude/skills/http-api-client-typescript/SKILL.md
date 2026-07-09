@@ -1,3 +1,8 @@
+---
+name: http-api-client-typescript
+description: MCPサーバーから外部REST APIサーバーへ接続するTypeScript + axios製HTTPクライアントを実装する際に使用する。
+---
+
 # HTTP API Client (TypeScript + axios)
 
 MCP サーバーから外部 REST API サーバーへ接続する HTTP クライアントの実装パターン。本プロジェクトの `document-mcp/src/document-client/` で確立されたパターンを基にまとめる。

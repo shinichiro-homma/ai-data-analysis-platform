@@ -1,3 +1,8 @@
+---
+name: commit-and-push
+description: コミット＆プッシュの共通手順。変更確認・コミットメッセージ作成・commit/push実行をカスタムコマンドから呼び出す際に使用する。
+---
+
 # Commit and Push Skill
 
 コミット＆プッシュの共通手順。カスタムコマンドから参照される。
@@ -25,8 +30,12 @@
 ### 3. コミット & プッシュ
 
 1. 変更対象のファイルを `git add` する（`.env` や認証情報ファイルは除外）
-2. HEREDOC 形式でコミットを作成する
-3. 呼び出し側から `push: true`（デフォルト）が指定されている場合は `git push` を実行する
+2. `Write` でコミットメッセージを `tmp/commit-msg.txt` に書き出す
+3. `git commit -F tmp/commit-msg.txt` でコミットする（`-m` / heredoc は hook がブロックする）
+4. `rm tmp/commit-msg.txt` でメッセージファイルを削除する
+5. 呼び出し側から `push: true`（デフォルト）が指定されている場合は `git push` を実行する
+
+※ 各コマンドは 1 つずつ別の Bash 呼び出しで実行する（`&&` 連結は hook がブロックする）。
 
 ### 4. 報告
 

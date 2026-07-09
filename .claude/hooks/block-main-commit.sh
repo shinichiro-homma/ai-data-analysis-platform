@@ -15,8 +15,9 @@ if [[ -z "$COMMAND" ]]; then
   exit 0
 fi
 
-# git commit を含むコマンドを検出
-if ! echo "$COMMAND" | grep -qE 'git\s+commit'; then
+# git commit コマンドを検出（先頭一致。複合コマンドは block-compound-commands.sh
+# が上流でブロックするため、文字列内の "git commit" を誤検知しない）
+if ! echo "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+commit'; then
   exit 0
 fi
 

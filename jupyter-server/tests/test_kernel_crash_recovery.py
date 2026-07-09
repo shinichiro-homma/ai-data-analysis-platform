@@ -150,7 +150,7 @@ class TestRestartKernelWrapper:
 
         with patch("custom_api.kernel_executor.KernelExecutor", mock_executor_cls):
             # 実行: workspace_id が登録されているカーネルの再起動
-            asyncio.get_event_loop().run_until_complete(wrapped(self.kernel_id))
+            asyncio.run(wrapped(self.kernel_id))
 
         # Assert: original_restart が呼ばれている
         original_restart.assert_awaited_once_with(self.kernel_id)
@@ -180,7 +180,7 @@ class TestRestartKernelWrapper:
 
         # 実行: workspace_id が登録されていないカーネルの再起動
         kernel_id_no_ws = "kernel-no-workspace"
-        asyncio.get_event_loop().run_until_complete(wrapped(kernel_id_no_ws))
+        asyncio.run(wrapped(kernel_id_no_ws))
 
         # Assert: original_restart が呼ばれている
         original_restart.assert_awaited_once_with(kernel_id_no_ws)
@@ -210,7 +210,7 @@ class TestRestartKernelWrapper:
 
         with patch("custom_api.kernel_executor.KernelExecutor", mock_executor_cls):
             # 実行: sandbox 再注入が失敗しても例外は伝搬しない
-            asyncio.get_event_loop().run_until_complete(wrapped(self.kernel_id))
+            asyncio.run(wrapped(self.kernel_id))
 
         # Assert: original_restart は呼ばれている（再起動自体は成功）
         original_restart.assert_awaited_once_with(self.kernel_id)

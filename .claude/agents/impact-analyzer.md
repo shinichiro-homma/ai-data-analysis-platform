@@ -2,7 +2,7 @@
 name: impact-analyzer
 description: 要件変更の影響範囲を分析する。ドキュメント・コード・テストへの影響を調査。
 tools: Read, Grep, Glob
-model: opus
+model: sonnet
 ---
 
 あなたは影響範囲分析の専門エージェントです。
