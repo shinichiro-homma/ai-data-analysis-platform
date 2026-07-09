@@ -306,6 +306,28 @@ jobs:
         run: echo "Skipped — docs-only change"
 
   # ──────────────────────────────────────────────
+  # npm audit（参考 — 依存の新規公表脆弱性を可視化、失敗しても CI をブロックしない。
+  # 脆弱性 DB は日々更新されるため、コード無変更でも赤になりうる → informational）
+  # ──────────────────────────────────────────────
+  npm-audit:
+    name: npm audit (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      # npm audit は package-lock.json のみで動作するため npm ci は不要
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Audit root workspaces (high 以上)
+        run: npm audit --audit-level=high
+
+      - name: Audit jupyterlab-ai-sync (high 以上)
+        run: npm --prefix jupyterlab-ai-sync audit --audit-level=high
+
+  # ──────────────────────────────────────────────
   # パフォーマンステスト（参考 — 失敗しても CI をブロックしない）
   # ──────────────────────────────────────────────
   performance-test:
