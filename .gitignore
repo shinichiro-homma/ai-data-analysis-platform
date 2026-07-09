@@ -46,7 +46,6 @@ htmlcov/
 jupyterlab-ai-sync/lib/
 jupyterlab-ai-sync/jupyterlab-ai-sync/
 jupyterlab-ai-sync/*.tsbuildinfo
-jupyterlab-ai-sync/package-lock.json
 
 # Jupyter work directory
 jupyter-server/work/
