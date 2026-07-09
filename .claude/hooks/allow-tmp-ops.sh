@@ -44,6 +44,10 @@ esac
 
 HAS_TMP_PATH=0
 for tok in "${TOKENS[@]:1}"; do
+  # .. を含むパスは tmp/ 外を指しうるため自動許可しない（パストラバーサル対策）
+  case "$tok" in
+    *..*) exit 0 ;;
+  esac
   # フラグ（-rf, --force 等）はスキップ
   [[ "$tok" == -* ]] && continue
   # chmod のモード引数（755, +x, u+rwX 等）はスキップ

@@ -88,6 +88,9 @@ run_defer 'rm tmp/$(whoami)'               'rm tmp/$(whoami)'
 run_defer 'ls tmp/（verb 非対象）'          'ls tmp/'
 run_defer 'rm -rf tmp/x && rm -rf src（複合）' 'rm -rf tmp/x && rm -rf src'
 run_defer 'rm /tmp/x（システム /tmp）'      'rm /tmp/x'
+run_defer 'rm -rf tmp/../src（トラバーサル）'      'rm -rf tmp/../src'
+run_defer 'rm -rf tmp/../../other（トラバーサル）' 'rm -rf tmp/../../other'
+run_defer 'rm tmp/a/../../.env（中間 ..）'         'rm tmp/a/../../.env'
 
 echo ""
 echo "=== 結果 ==="
