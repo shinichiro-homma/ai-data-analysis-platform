@@ -103,9 +103,12 @@ run_suite() {
   fi
 }
 
-# python3 フォールバックパスを強制するため、PATH から jq を隠す
-FAKE_PATH_DIR=$(mktemp -d)
-trap 'rm -rf "$FAKE_PATH_DIR"' EXIT
+# python3 フォールバックパスを強制するため、jq を含まない隔離 PATH を用意する。
+# 決め打ちの /usr/bin:/bin は環境によっては jq を含む（macOS 同梱等）ため使わない。
+# 代わりに、run_suite と json.sh が実際に使う外部コマンドのシンボリックリンクだけを
+# 一時ディレクトリに置き、PATH をそのディレクトリ 1 つに絞ることで jq を確実に隠す。
+RESTRICTED_PATH_DIR=$(mktemp -d)
+trap 'rm -rf "$RESTRICTED_PATH_DIR"' EXIT
 
 # 1. jq が利用可能ならまず jq パスを検証
 if command -v jq >/dev/null 2>&1; then
@@ -116,11 +119,16 @@ else
 fi
 
 # 2. python3 パスを強制検証:
-#    PATH を /usr/bin:/bin のみにし、空の FAKE_PATH_DIR を先頭に置くことで jq を隠す
+#    jq を除いた必要コマンドのみを隔離ディレクトリにリンクし、PATH をそこだけにする
 if command -v python3 >/dev/null 2>&1; then
   OLD_PATH="$PATH"
-  # jq のパスを意図的に外した最小 PATH
-  export PATH="$FAKE_PATH_DIR:/usr/bin:/bin"
+  # run_suite が使う外部コマンド（mktemp/tr/grep/rm）と
+  # json.sh のフォールバックが使う python3 のみをリンクする。jq は意図的に除外。
+  for cmd in python3 mktemp tr grep rm; do
+    real="$(command -v "$cmd" 2>/dev/null || true)"
+    [[ -n "$real" ]] && ln -sf "$real" "$RESTRICTED_PATH_DIR/$cmd"
+  done
+  export PATH="$RESTRICTED_PATH_DIR"
   if command -v jq >/dev/null 2>&1; then
     echo ""
     echo "WARNING: 制限 PATH でも jq が見えてしまったため python3 フォールバックは未検証"
