@@ -12,8 +12,7 @@ export const BULK_MAX_ITEMS = 50;
  * 成功時に検証済みの値を型安全に返す
  */
 export type ValidationResult<T = void> =
-  | (T extends void ? { isValid: true } : { isValid: true; value: T })
-  | { isValid: false; errorMessage: string };
+  (T extends void ? { isValid: true } : { isValid: true; value: T }) | { isValid: false; errorMessage: string };
 
 /**
  * 文字列パラメータの共通バリデーション
