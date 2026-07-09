@@ -62,6 +62,9 @@ scripts/manage-known-failures.sh list
 ```
 以下のテスト失敗グループの修正スコープを見積もってください。
 
+## 必読
+- `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること
+
 グループ名: {グループ名}
 根本原因: {原因の説明}
 関連 Issue: {Issue 番号リスト}

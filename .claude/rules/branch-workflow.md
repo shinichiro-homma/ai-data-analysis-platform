@@ -64,8 +64,12 @@ PR 作成後、`gh pr checks {PR番号} --watch` で CI 完了を待機する。
 
 dev の最新状態から新しいブランチを作成する。
 
+各コマンドは別々の Bash 呼び出しで実行する（`&&` 連結は hook がブロックする）。
+
 ```bash
-git checkout dev && git pull origin dev && git checkout -b {ブランチ名}
+git checkout dev
+git pull origin dev
+git checkout -b {ブランチ名}
 ```
 
 ### ブランチ切り替え
@@ -101,11 +105,14 @@ PR 本文は `tmp/pr-body.md` に書き出してから `gh pr create` に渡す�
 
 ユーザーから明示的に依頼された場合のみ実行する。PR 作成直後に自動実行してはならない。バグ修正 PR の場合は、マージ前に `gh issue close {Issue番号}` で Issue をクローズする。
 
+各コマンドは別々の Bash 呼び出しで実行する（シェル変数は Bash 呼び出し間で保持されないため、ブランチ名は先に確認して文字どおり指定する）。
+
 ```bash
-BRANCH=$(git branch --show-current)
+git branch --show-current              # 現在のブランチ名を控える
 gh pr merge {PR番号} --merge --delete-branch   # リモートブランチも削除される
-git checkout dev && git pull origin dev
-git branch -d "$BRANCH"
+git checkout dev
+git pull origin dev
+git branch -d {控えたブランチ名}
 ```
 
 ### main へのリリース

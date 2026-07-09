@@ -1,3 +1,8 @@
+---
+name: mcp-typescript-server
+description: MCPサーバーの構築からツール実装までの全体パターン。新規MCPサーバー作成やツール追加時に使用する。
+---
+
 # MCP TypeScript Server Skill
 
 MCP サーバーの構築からツール実装までの全体パターン。

@@ -181,15 +181,7 @@ export interface UpdateNotebookRequest {
 }
 
 export type CellAction =
-  | 'add'
-  | 'update'
-  | 'delete'
-  | 'reorder'
-  | 'merge'
-  | 'split'
-  | 'change_type'
-  | 'copy'
-  | 'clear_output';
+  'add' | 'update' | 'delete' | 'reorder' | 'merge' | 'split' | 'change_type' | 'copy' | 'clear_output';
 
 export interface CellOperationRequest {
   action: CellAction;

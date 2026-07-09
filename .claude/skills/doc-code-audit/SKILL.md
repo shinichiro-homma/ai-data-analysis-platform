@@ -1,3 +1,8 @@
+---
+name: doc-code-audit
+description: ドキュメントとコードの整合性（欠落・陳腐化・冗長）を監査する共通ロジック。audit-docs / auto-audit-docs コマンドから使用する。
+---
+
 # Doc-Code Consistency Audit Skill
 
 ドキュメントとコードの整合性を監査するための共通ロジック。

@@ -52,6 +52,7 @@ Issue の内容から、以下を特定してください：
 | C: API 仕様の確認 | `api` または `mcp` バグのみ | `requirements-researcher` | `haiku` |
 
 まず `.claude/skills/parallel-investigation/SKILL.md` を読み、テンプレートを確認してください。
+全 Agent 共通で「`.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること」をプロンプトに含めてください。
 
 ### Agent A — ソースコード調査
 

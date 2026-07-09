@@ -27,6 +27,11 @@ if echo "$COMMAND" | grep -q -- '--rebuild'; then
   exit 0
 fi
 
+# hooks コンポーネントのテストは Docker 環境と無関係なのでスキップ
+if echo "$COMMAND" | grep -qE 'scripts/test\.sh([[:space:]]+--[a-z-]+)*[[:space:]]+hooks([[:space:]]|$)'; then
+  exit 0
+fi
+
 # プロジェクトディレクトリに移動
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 

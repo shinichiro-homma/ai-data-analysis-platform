@@ -28,6 +28,8 @@ Skills は、繰り返し参照する外部ドキュメントやベストプラ�
 │  # コマンド共通パターン
 ├── task-plan-creation/                ← タスク計画作成（調査・テンプレート・レビュー）
 ├── parallel-investigation/            ← 並列サブエージェント調査テンプレート
+├── review-loop/                       ← 強モデルレビュー→軽量モデル修正→再レビューの共通ループ
+├── commit-and-push/                   ← コミット＆プッシュの共通手順
 └── doc-code-audit/                    ← ドキュメント・コード整合性監査
 ```
 
@@ -45,6 +47,8 @@ Skills は、繰り返し参照する外部ドキュメントやベストプラ�
 | `yaml-catalog-management` | データカタログ YAML スキーマと DB 反映フロー |
 | `task-plan-creation` | タスク計画作成の共通スキル（調査手順・テンプレート・報告形式） |
 | `parallel-investigation` | カスタムコマンドで使う並列サブエージェント調査テンプレート |
+| `review-loop` | 強モデルレビュー→軽量モデル修正→再レビュー→エスカレーションの共通ループ |
+| `commit-and-push` | コミット＆プッシュの共通手順（-F 方式、カスタムコマンドから参照） |
 | `doc-code-audit` | ドキュメント・コード整合性監査の共通ロジック（audit-docs / auto-audit-docs 用） |
 
 ## Skill の追加方法

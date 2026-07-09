@@ -1,10 +1,15 @@
 #!/bin/bash
-set -euo pipefail
 
 # python / python3 / pip / pip3 の直叩きを検出してブロックする hook。
-# uv run python / uv run pip 経由は通過させる。
+# uv run 経由は通過させる。
 #
 # ルール: .claude/rules/python-uv.md
+#
+# 前提: 複合コマンド（パイプ・チェーン）は block-compound-commands.sh が
+#       上流でブロックするため、ここに届くのは単一コマンドのみ。
+#       よって先頭のコマンド名だけを検査すればよい。
+#       （旧実装はコマンド文字列全体を substring 照合していたため、
+#         文字列リテラル内の "python3 -c" 等を誤検知していた）
 #
 # フック応答:
 #   exit 0 = 許可（直叩きなし）
@@ -20,17 +25,26 @@ if [[ -z "$COMMAND" ]]; then
   exit 0
 fi
 
-# uv run 経由の python/pip 呼び出しを除外（macOS 互換: \b を使わず空白/EOL で終端を判定）
-stripped=$(printf '%s' "$COMMAND" | sed -E 's/uv[[:space:]]+run[[:space:]]+(python3?|pip3?)([[:space:]]|$)/UV_RUN_OK\2/g')
+# 先頭の空白を除去
+STRIPPED=$(echo "$COMMAND" | sed 's/^[[:space:]]*//')
 
-# コメント（# 以降）を除去して純粋な実行コマンド部分のみチェック
-# ※ '#' を含む行でも非コメント部分に python3 があればブロック対象
-stripped=$(printf '%s' "$stripped" | sed -E 's/#.*//')
+# 先頭の環境変数代入を前方から除去: VAR=value VAR2=value ... command
+while echo "$STRIPPED" | grep -qE '^[A-Za-z_][A-Za-z_0-9]*=[^ ]*[[:space:]]+'; do
+  STRIPPED=$(echo "$STRIPPED" | sed 's/^[A-Za-z_][A-Za-z_0-9]*=[^ ]* *//')
+done
 
-# 残った文字列に対し、単語境界で python/pip が出現するか検出
-# トークン境界: 行頭、空白、セミコロン、アンパサンド、パイプ、バッククオート、括弧
-if printf '%s' "$stripped" | grep -qE '(^|[[:space:];&|`(])((/[^[:space:]]*/)?python3?|(/[^[:space:]]*/)?pip3?)([[:space:];&|`)]|$)'; then
-  cat >&2 <<EOF
+# uv 経由（uv run python / uv run pip / uv add 等）は許可
+if echo "$STRIPPED" | grep -qE '^uv([[:space:]]|$)'; then
+  exit 0
+fi
+
+# 先頭トークンの basename で判定（/usr/bin/python3 や .venv/bin/python も対象）
+FIRST_TOKEN="${STRIPPED%%[[:space:]]*}"
+BASE="${FIRST_TOKEN##*/}"
+
+case "$BASE" in
+  python | python2 | python3 | pip | pip3)
+    cat >&2 <<EOF
 ========================================
  BLOCKED: python/pip の直叩きは禁止されています
 ========================================
@@ -40,13 +54,15 @@ uv run 経由で実行してください:
 
   python script.py        → uv run python script.py
   python3 -c "..."        → uv run python -c "..."
-  pip install foo         → uv run pip install foo（または uv add --dev foo）
+  pip install foo         → uv add --dev foo（または uv run pip install foo）
+  .venv/bin/python x.py   → uv run python x.py
 
 詳細: .claude/rules/python-uv.md
 ========================================
 EOF
-  echo "Offending command: $COMMAND" >&2
-  exit 2
-fi
+    echo "Offending command: $COMMAND" >&2
+    exit 2
+    ;;
+esac
 
 exit 0

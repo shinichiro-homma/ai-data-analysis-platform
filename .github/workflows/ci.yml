@@ -44,6 +44,24 @@ jobs:
           echo "$CHANGED"
 
   # ──────────────────────────────────────────────
+  # Claude Code hooks: シェルテスト（常時実行 — .claude/ 変更は
+  # code_changed=false になるため、このジョブだけは変更検出に依らず回す）
+  # ──────────────────────────────────────────────
+  hooks-test:
+    name: Claude hooks tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run hook tests
+        run: |
+          set -e
+          for f in .claude/hooks/tests/*.test.sh; do
+            echo "=== $f"
+            bash "$f"
+          done
+
+  # ──────────────────────────────────────────────
   # TypeScript: format + 型チェック + ユニットテスト
   # ──────────────────────────────────────────────
   ts-typecheck-and-test:
@@ -65,7 +83,7 @@ jobs:
 
       - name: Prettier check
         if: needs.changes.outputs.code_changed == 'true'
-        run: scripts/lint.sh jupyter-mcp document-mcp mcp-shared
+        run: scripts/lint.sh jupyter-mcp document-mcp mcp-shared jupyterlab-ai-sync
 
       - name: Build mcp-shared
         if: needs.changes.outputs.code_changed == 'true'
@@ -107,15 +125,11 @@ jobs:
         if: needs.changes.outputs.code_changed == 'true'
         uses: astral-sh/setup-uv@v4
 
+      # 依存はすべてルート venv（uv.lock）で固定する。pip での並行インストールは
+      # バージョンドリフト（pytest-asyncio 更新による破壊等）を招くため行わない。
       - name: Sync root venv (uv)
         if: needs.changes.outputs.code_changed == 'true'
         run: uv sync
-
-      - name: Install component dependencies
-        if: needs.changes.outputs.code_changed == 'true'
-        run: |
-          pip install -e "document-server[dev]" types-PyYAML
-          pip install pytest pytest-asyncio sqlparse
 
       - name: Ruff format + lint check
         if: needs.changes.outputs.code_changed == 'true'
@@ -123,18 +137,17 @@ jobs:
 
       - name: Mypy (document-server)
         if: needs.changes.outputs.code_changed == 'true'
-        working-directory: document-server
-        run: mypy src/
+        run: uv run mypy document-server/src
 
       - name: Test document-server
         if: needs.changes.outputs.code_changed == 'true'
         working-directory: document-server
-        run: pytest
+        run: uv run --project .. pytest
 
       - name: Test jupyter-server
         if: needs.changes.outputs.code_changed == 'true'
         working-directory: jupyter-server
-        run: pytest
+        run: uv run --project .. pytest
 
       - name: Skip (docs-only change)
         if: needs.changes.outputs.code_changed != 'true'
@@ -161,16 +174,23 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install JupyterLab
+      # JupyterLab はルート venv（uv.lock）のものを使う（pip 直インストールの
+      # バージョンドリフトを防ぐ）。ビルドは python-uv.md のルールに従い
+      # --project .. でルート venv を明示する
+      - name: Install uv
         if: needs.changes.outputs.code_changed == 'true'
-        run: pip install jupyterlab>=4.0.0
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync root venv (uv)
+        if: needs.changes.outputs.code_changed == 'true'
+        run: uv sync
 
       - name: Install and build
         if: needs.changes.outputs.code_changed == 'true'
         working-directory: jupyterlab-ai-sync
         run: |
-          npm install
-          npm run build
+          npm ci
+          uv run --project .. npm run build
 
       - name: Skip (docs-only change)
         if: needs.changes.outputs.code_changed != 'true'
@@ -210,9 +230,13 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install data loader dependencies
+      - name: Install uv
         if: needs.changes.outputs.code_changed == 'true'
-        run: pip install psycopg2-binary pyarrow
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync root venv (uv)
+        if: needs.changes.outputs.code_changed == 'true'
+        run: uv sync
 
       - name: Build MCP servers
         if: needs.changes.outputs.code_changed == 'true'
@@ -251,7 +275,7 @@ jobs:
         if: needs.changes.outputs.code_changed == 'true'
         run: |
           PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
-            python postgres/init/sample/load-data.py
+            uv run python postgres/init/sample/load-data.py
 
       - name: Run MCP integration tests (excluding performance)
         if: needs.changes.outputs.code_changed == 'true'
@@ -312,9 +336,13 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install data loader dependencies
+      - name: Install uv
         if: needs.changes.outputs.code_changed == 'true'
-        run: pip install psycopg2-binary pyarrow
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync root venv (uv)
+        if: needs.changes.outputs.code_changed == 'true'
+        run: uv sync
 
       - name: Install dependencies
         if: needs.changes.outputs.code_changed == 'true'
@@ -357,7 +385,7 @@ jobs:
         if: needs.changes.outputs.code_changed == 'true'
         run: |
           PGHOST=localhost PGPORT=5432 PGUSER=jupyter PGPASSWORD=ci-test-password PGDATABASE=analysis_db \
-            python postgres/init/sample/load-data.py
+            uv run python postgres/init/sample/load-data.py
 
       - name: Run performance tests
         if: needs.changes.outputs.code_changed == 'true'

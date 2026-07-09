@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 REPO_ROOT="$(pwd)"
 source scripts/lib/common.sh
 
-COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync)
+COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync hooks)
 
 usage() {
   cat <<EOF
@@ -19,6 +19,7 @@ COMPONENT:
   document-server       Document サーバー
   jupyter-server        Jupyter サーバー
   jupyterlab-ai-sync    JupyterLab AI 同期拡張
+  hooks                 Claude Code hooks（.claude/hooks/tests/*.test.sh）
   (省略時は全コンポーネント)
 
 OPTIONS:
@@ -111,15 +112,20 @@ if $LINT; then
   # Map test.sh component names to lint.sh component names
   # test.sh targets: jupyter-mcp, document-mcp, document-server, jupyter-server
   # lint.sh also supports: mcp-shared, scripts
+  # hooks はシェルスクリプト group のため lint.sh の対象外（スキップする）
   LINT_TARGETS=()
   for _t in "${TARGETS[@]}"; do
+    [[ "$_t" == "hooks" ]] && continue
     LINT_TARGETS+=("$_t")
   done
   # Always include mcp-shared and scripts when running all components
   if [[ ${#TARGETS[@]} -eq ${#COMPONENTS[@]} ]]; then
     LINT_TARGETS+=("mcp-shared" "scripts")
   fi
-  if scripts/lint.sh "${LINT_TARGETS[@]}"; then
+  if [[ ${#LINT_TARGETS[@]} -eq 0 ]]; then
+    echo "  SKIP: no lint targets (hooks only)"
+    echo ""
+  elif scripts/lint.sh "${LINT_TARGETS[@]}"; then
     echo ""
   else
     echo ""
@@ -211,6 +217,45 @@ FAILED=()
 
 for component in "${TARGETS[@]}"; do
   echo "--- $component ---"
+
+  if [[ "$component" == "hooks" ]]; then
+    HOOKS_TEST_DIR=".claude/hooks/tests"
+    if [[ ! -d "$HOOKS_TEST_DIR" ]]; then
+      echo "  SKIP: directory not found"
+      FAILED+=("$component:skip"); continue
+    fi
+    if $TYPECHECK; then
+      echo "  SKIP: typecheck not applicable (shell scripts)"
+    fi
+    if $TEST; then
+      if $INTEGRATION; then
+        echo "  SKIP: integration tests not supported for hooks"
+      else
+        echo "  Running hook tests..."
+        HOOKS_TEST_FAILED=false
+        shopt -s nullglob
+        HOOK_TEST_FILES=("$HOOKS_TEST_DIR"/*.test.sh)
+        shopt -u nullglob
+        if [[ ${#HOOK_TEST_FILES[@]} -eq 0 ]]; then
+          echo "  SKIP: no test files found in $HOOKS_TEST_DIR"
+        else
+          for test_file in "${HOOK_TEST_FILES[@]}"; do
+            echo "  - $(basename "$test_file")"
+            if ! bash "$test_file"; then
+              HOOKS_TEST_FAILED=true
+            fi
+            echo ""
+          done
+        fi
+        if $HOOKS_TEST_FAILED; then
+          FAILED+=("$component:test"); echo "  FAILED: hook tests"; continue
+        fi
+        echo "  Test OK"
+      fi
+    fi
+    echo ""
+    continue
+  fi
 
   if [[ "$component" == "jupyterlab-ai-sync" ]]; then
     if [[ ! -d "$component" ]]; then
