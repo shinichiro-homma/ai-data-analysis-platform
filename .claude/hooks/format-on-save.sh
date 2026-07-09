@@ -41,8 +41,10 @@ case "$EXT" in
     npx --prefix "$PROJECT_DIR" prettier --write "$FILE_PATH" 2>/dev/null
     ;;
   py)
-    ruff format "$FILE_PATH" 2>/dev/null
-    ruff check --fix "$FILE_PATH" 2>/dev/null
+    # ruff はルート venv（uv 管理）のものを使う。素の ruff は PATH に無いと
+    # 無言で no-op になるため、uv run --project で確実に解決する。
+    uv run --project "$PROJECT_DIR" ruff format "$FILE_PATH" 2>/dev/null
+    uv run --project "$PROJECT_DIR" ruff check --fix "$FILE_PATH" 2>/dev/null
     ;;
 esac
 

@@ -52,26 +52,27 @@ uv sync
 ## フック
 
 `.claude/hooks/block-direct-python.sh` が PreToolUse フックとして登録されており、
-`python` / `python3` / `pip` / `pip3` の直叩きを検出して exit 2 でブロックする。
+コマンド先頭の `python` / `python3` / `pip` / `pip3`（`/usr/bin/python3` や `.venv/bin/python` などのパス指定を含む）を検出して exit 2 でブロックする。
 `uv run python ...` / `uv run pip ...` 経由は通過する。
+複合コマンドは `.claude/hooks/block-compound-commands.sh` が上流でブロックするため、先頭判定で十分となる。
 
 `.claude/hooks/scan-inline-python.sh` が `(uv run )?python3? -c "..."` の長文インライン実行とプロセス置換を `ask` に流す。閾値・対象パターンの詳細は `.claude/rules/adhoc-script-execution.md` を参照。
 
 ## ローカル mypy / pytest の実行
 
 mypy と pytest はルート venv 経由で実行する。per-component `.venv/` は使わない。
+**手動では実行せず `scripts/test.sh` を使うこと**（`cd <component> && uv run ...` のような複合コマンドは hook がブロックする。スクリプト内部では以下のロジックで実行される）。
 
 ```bash
-# 型チェック（ルートから実行）
+# 型チェック（scripts/test.sh 内部: ルートから実行）
 uv run mypy <component>/src
 
-# テスト（コンポーネントディレクトリに cd してから実行）
+# テスト（scripts/test.sh 内部: コンポーネントディレクトリに cd してから実行）
 cd <component> && uv run --project <repo_root> pytest
 ```
 
 - `src/` が存在しないコンポーネント（jupyter-server 等）の mypy はスキップする
 - pytest は `cd <component>` で rootdir を合わせてから `uv run --project <repo_root>` でルート venv を利用する
-- `scripts/test.sh` はこのルールに従って自動実行する
 
 ## jupyterlab-ai-sync ビルド
 
@@ -80,14 +81,14 @@ cd <component> && uv run --project <repo_root> pytest
 `--project <repo_root>` を明示してルート venv を使わせる。
 
 ```bash
-# jupyterlab-ai-sync のビルド（リポジトリルートから実行）
+# jupyterlab-ai-sync のビルド（scripts/test.sh 内部の実装）
 (cd jupyterlab-ai-sync && uv run --project .. npm run build)
 
 # 開発モードインストール
 uv run jupyter labextension develop . --overwrite
 ```
 
-`scripts/test.sh jupyterlab-ai-sync` はこのルールに従って自動実行する。
+手動では実行せず `scripts/test.sh jupyterlab-ai-sync` を使うこと（複合コマンドは hook がブロックする）。
 
 ## Docker 経路の例外
 

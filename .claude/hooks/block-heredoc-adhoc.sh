@@ -25,12 +25,9 @@ if ! echo "$COMMAND" | grep -qE '<<-?[[:space:]]*["'"'"']?[A-Za-z_][A-Za-z0-9_]*
   exit 0
 fi
 
-# git commit のヒアドキュメント（CLAUDE.md で推奨されている形式）は例外
-if echo "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+commit'; then
-  exit 0
-fi
+# git commit の heredoc 例外は廃止（prefer-commit-file.sh が -F 方式へ誘導する）
 
-# それ以外の heredoc はブロックし、修正手順を Claude に返す
+# heredoc はブロックし、修正手順を Claude に返す
 cat >&2 <<'EOF'
 ========================================
  BLOCKED: ヒアドキュメントを使ったアドホック実行は禁止されています
@@ -48,7 +45,8 @@ cat >&2 <<'EOF'
 使い終わった tmp/ スクリプトは削除してください。
 tmp/ は .gitignore 済みなのでコミットされません。
 
-例外: git commit のヒアドキュメントのみ許可されています。
+git commit のメッセージは tmp/commit-msg.txt に書き出して
+git commit -F tmp/commit-msg.txt で渡してください。
 gh pr create / gh issue create の本文は tmp/ ファイルに書き出し、
 --body-file tmp/pr-body.md で渡してください。
 
