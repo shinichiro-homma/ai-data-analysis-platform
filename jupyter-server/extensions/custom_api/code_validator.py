@@ -97,6 +97,10 @@ BLOCKED_OS_FUNCTIONS = {
     "remove",
     "unlink",
     "rmdir",
+    "rename",
+    "replace",
+    "link",
+    "symlink",
 }
 
 # os.exec*, os.spawn* は前方一致で検出

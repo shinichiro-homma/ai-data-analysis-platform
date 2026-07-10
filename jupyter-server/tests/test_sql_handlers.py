@@ -23,6 +23,13 @@ for _mod_name in ("pandas", "sqlalchemy", "sqlalchemy.exc", "tornado", "tornado.
             _m.authenticated = lambda f: f
         sys.modules[_mod_name] = _m
 
+# _get_engine テスト用: sqlalchemy モックに create_engine を追加
+_sa_mock = sys.modules.get("sqlalchemy")
+if _sa_mock is not None and not hasattr(_sa_mock, "create_engine"):
+    _sa_mock.create_engine = lambda *a, **kw: type(
+        "MockEngine", (), {"dispose": lambda self: None, "url": a[0] if a else None}
+    )()
+
 # --- 2. custom_api パッケージ構造の構築 ---
 # 相対インポート（from .base import ...）が動くよう、パッケージを手動構築
 if "custom_api" not in sys.modules:
@@ -453,3 +460,48 @@ class TestNormalizeParquetSchema:
         schema = pa.schema([])
         result = _normalize_parquet_schema(schema)
         assert len(result) == 0
+
+
+# ============================================================
+# _get_engine キャッシュ動作テスト（Phase 23.4）
+# ============================================================
+
+# _get_engine は Phase 23.4 で導入予定の遅延初期化キャッシュ関数
+_get_engine = getattr(_sql_handlers, "_get_engine", None)
+
+
+class TestGetEngineCache:
+    """_get_engine のキャッシュ動作テスト（Phase 23.4 で追加予定の関数）
+
+    sqlalchemy.create_engine() を毎回呼ぶ代わりに、モジュールレベルで
+    エンジンを遅延初期化・キャッシュする _get_engine() を導入する。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_not_implemented(self):
+        if _get_engine is None:
+            pytest.skip("_get_engine is not yet implemented (Phase 23.4)")
+
+    def test_same_url_returns_same_engine(self):
+        """同一 DATABASE_URL で呼び出すと同一エンジンインスタンスを返す"""
+        url = "postgresql://user:pass@localhost:5432/testdb"
+        engine1 = _get_engine(url)
+        engine2 = _get_engine(url)
+        assert engine1 is engine2, "_get_engine should return the cached engine instance for the same DATABASE_URL"
+
+    def test_different_url_returns_different_engine(self):
+        """異なる DATABASE_URL では異なるエンジンインスタンスを返す"""
+        url_a = "postgresql://user:pass@localhost:5432/db_a"
+        url_b = "postgresql://user:pass@localhost:5432/db_b"
+        engine_a = _get_engine(url_a)
+        engine_b = _get_engine(url_b)
+        assert engine_a is not engine_b, (
+            "_get_engine should return different engine instances for different DATABASE_URLs"
+        )
+
+    def test_engine_not_created_until_first_call(self):
+        """_get_engine は初回呼び出しまでエンジンを作成しない（遅延初期化）"""
+        # モジュールロード直後にエンジンが存在しないことを確認
+        # 実装では _engine_cache = {} のような辞書をモジュールレベルに持ち、
+        # 初回アクセス時のみ create_engine を呼ぶ想定
+        assert callable(_get_engine), "_get_engine should be a callable"

@@ -97,8 +97,24 @@ def _setup_workspace_sandbox():
             _deny(path)
         return _orig_chdir(path)
 
+    _orig_rename = _os.rename
+    _orig_replace = _os.replace
+
+    def _make_path_checked_op(orig, op_name):
+        def _wrapper(src, dst, *args, **kwargs):
+            src_real = _os.path.realpath(str(src))
+            dst_real = _os.path.realpath(str(dst))
+            if _is_denied(src_real) or _is_denied(dst_real):
+                raise PermissionError(
+                    f"Access denied: {{op_name}} involves another workspace: {{src}} -> {{dst}}"
+                )
+            return orig(src, dst, *args, **kwargs)
+        return _wrapper
+
     _b.open = _sandbox_open
     _os.chdir = _sandbox_chdir
+    _os.rename = _make_path_checked_op(_orig_rename, "rename")
+    _os.replace = _make_path_checked_op(_orig_replace, "replace")
 
     # globals() はカーネルの user_ns を返す。builtins パッチが効かない環境でも
     # user_ns の 'open' がビルトイン検索より先に参照されるため、確実に制限できる
@@ -142,6 +158,10 @@ def _setup_workspace_sandbox():
     # os モジュールの危険関数をブロック
     _os.system = _blocked("os.system")
     _os.popen = _blocked("os.popen")
+
+    # os.link と os.symlink は正当な用途がないためブロック
+    _os.link = _blocked("os.link")
+    _os.symlink = _blocked("os.symlink")
 
     for _attr in ("fork", "forkpty", "kill", "killpg"):
         if hasattr(_os, _attr):

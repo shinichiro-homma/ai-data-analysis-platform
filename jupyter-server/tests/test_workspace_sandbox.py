@@ -248,3 +248,119 @@ class TestWorkspaceFileAccessRegression:
         """他のワークスペースへの chdir は PermissionError"""
         with pytest.raises(PermissionError, match="another workspace"):
             os.chdir(str(self.other_ws))
+
+
+class TestRenameReplaceLinkSymlinkBlocked:
+    """os.rename, os.replace, os.link, os.symlink が sandbox でブロックされるケース。
+
+    Phase 23.5: workspace_sandbox.py にパッチを追加し、
+    他ワークスペースへの rename/replace/link/symlink を拒否する。
+    自ワークスペース内での操作は許可する。
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_sandbox(self, tmp_path):
+        ws_root = tmp_path / "workspaces"
+        self.ws_dir = ws_root / "ws-001"
+        self.other_ws = ws_root / "ws-002"
+        self.ws_dir.mkdir(parents=True)
+        self.other_ws.mkdir(parents=True)
+        # 自ワークスペースにファイルを作成
+        (self.ws_dir / "source.txt").write_text("source data")
+        (self.other_ws / "target.txt").write_text("target data")
+        self.ns = _exec_sandbox(str(self.ws_dir), "ws-001")
+
+    def test_os_rename_to_other_workspace_blocked(self):
+        """os.rename で他ワークスペースへの移動は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.rename(
+                str(self.ws_dir / "source.txt"),
+                str(self.other_ws / "moved.txt"),
+            )
+
+    def test_os_rename_from_other_workspace_blocked(self):
+        """os.rename で他ワークスペースからの移動は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.rename(
+                str(self.other_ws / "target.txt"),
+                str(self.ws_dir / "stolen.txt"),
+            )
+
+    def test_os_replace_to_other_workspace_blocked(self):
+        """os.replace で他ワークスペースへの置換は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.replace(
+                str(self.ws_dir / "source.txt"),
+                str(self.other_ws / "replaced.txt"),
+            )
+
+    def test_os_replace_from_other_workspace_blocked(self):
+        """os.replace で他ワークスペースからの置換は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.replace(
+                str(self.other_ws / "target.txt"),
+                str(self.ws_dir / "stolen.txt"),
+            )
+
+    def test_os_link_to_other_workspace_blocked(self):
+        """os.link で他ワークスペースへのハードリンク作成は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.link(
+                str(self.ws_dir / "source.txt"),
+                str(self.other_ws / "linked.txt"),
+            )
+
+    def test_os_link_from_other_workspace_blocked(self):
+        """os.link で他ワークスペースからのハードリンク作成は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.link(
+                str(self.other_ws / "target.txt"),
+                str(self.ws_dir / "linked.txt"),
+            )
+
+    def test_os_symlink_to_other_workspace_blocked(self):
+        """os.symlink で他ワークスペースへのシンボリックリンク作成は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.symlink(
+                str(self.ws_dir / "source.txt"),
+                str(self.other_ws / "symlinked.txt"),
+            )
+
+    def test_os_symlink_from_other_workspace_blocked(self):
+        """os.symlink で他ワークスペースからのシンボリックリンク作成は PermissionError"""
+        with pytest.raises(PermissionError):
+            os.symlink(
+                str(self.other_ws / "target.txt"),
+                str(self.ws_dir / "symlinked.txt"),
+            )
+
+
+class TestRenameReplaceWithinOwnWorkspaceAllowed:
+    """自ワークスペース内での rename/replace は許可されること。
+
+    Phase 23.5: パス検査付きで、自ワークスペース内の操作は許可する。
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_sandbox(self, tmp_path):
+        ws_root = tmp_path / "workspaces"
+        self.ws_dir = ws_root / "ws-001"
+        self.ws_dir.mkdir(parents=True)
+        (self.ws_dir / "file_a.txt").write_text("data a")
+        self.ns = _exec_sandbox(str(self.ws_dir), "ws-001")
+
+    def test_os_rename_within_own_workspace_allowed(self):
+        """自ワークスペース内の rename は許可"""
+        src = self.ws_dir / "file_a.txt"
+        dst = self.ws_dir / "file_b.txt"
+        os.rename(str(src), str(dst))
+        assert dst.exists()
+        assert not src.exists()
+
+    def test_os_replace_within_own_workspace_allowed(self):
+        """自ワークスペース内の replace は許可"""
+        src = self.ws_dir / "file_a.txt"
+        dst = self.ws_dir / "file_replaced.txt"
+        os.replace(str(src), str(dst))
+        assert dst.exists()
+        assert not src.exists()

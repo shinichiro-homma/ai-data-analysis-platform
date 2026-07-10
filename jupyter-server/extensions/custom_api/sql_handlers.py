@@ -434,37 +434,63 @@ def _export_sql_sync(database_url: str, sql: str, timeout: int, output_path, exp
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラーなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # 読み取り専用トランザクション
-            conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
+    engine = _get_engine(database_url)
+    with engine.connect() as conn:
+        # 読み取り専用トランザクション
+        conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
 
-            # PostgreSQL statement_timeout を設定（ミリ秒単位）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
+        # PostgreSQL statement_timeout を設定（ミリ秒単位）
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
 
-            if export_format == "parquet":
-                row_count = _write_parquet_chunked(conn, sql, output_path)
-            else:
-                row_count = _write_csv_chunked(conn, sql, output_path)
+        if export_format == "parquet":
+            row_count = _write_parquet_chunked(conn, sql, output_path)
+        else:
+            row_count = _write_csv_chunked(conn, sql, output_path)
 
-            return {"row_count": row_count}
-    finally:
-        engine.dispose()
+        return {"row_count": row_count}
 
 
-def _create_sql_engine(database_url: str):
-    """SQLAlchemy エンジンを作成する。"""
-    return sqlalchemy.create_engine(
-        database_url,
-        connect_args={"connect_timeout": 5},
-        pool_size=1,
-        max_overflow=0,
-    )
+# コネクションプール化されたエンジンキャッシュ
+_engine_cache: dict[str, object] = {}
+_engine_lock = __import__("threading").Lock()
+
+
+def _get_engine(database_url: str):
+    """プール化された SQLAlchemy エンジンを取得する。初回呼び出し時に作成しキャッシュする。
+
+    DATABASE_URL ごとにエンジンをキャッシュし、同一 URL に対しては同一インスタンスを返す。
+    URL が変わった場合は古いエンジンを dispose して新規作成する。
+
+    スレッドプール（run_in_executor）から同時呼び出しされるため、
+    double-checked locking で排他制御する。
+    """
+    # 高速パス: ロックなしでキャッシュ参照
+    cached = _engine_cache.get(database_url)
+    if cached is not None:
+        return cached
+    # スローパス: ロック取得して再チェック・作成
+    with _engine_lock:
+        cached = _engine_cache.get(database_url)
+        if cached is not None:
+            return cached
+        # 既存の別 URL のエンジンを dispose
+        for url, eng in list(_engine_cache.items()):
+            if url != database_url and hasattr(eng, "dispose"):
+                eng.dispose()
+                del _engine_cache[url]
+        engine = sqlalchemy.create_engine(
+            database_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=2,
+            connect_args={"connect_timeout": 5},
+        )
+        _engine_cache[database_url] = engine
+        return engine
 
 
 def _execute_sql_sync(database_url: str, sql: str, timeout: int, max_rows: int) -> dict:
@@ -478,32 +504,29 @@ def _execute_sql_sync(database_url: str, sql: str, timeout: int, max_rows: int) 
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラー、テーブルが存在しないなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # 読み取り専用トランザクション（SQLインジェクションの多層防御）
-            conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
+    engine = _get_engine(database_url)
+    with engine.connect() as conn:
+        # 読み取り専用トランザクション（SQLインジェクションの多層防御）
+        conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
 
-            # PostgreSQL statement_timeout を設定（ミリ秒単位）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
+        # PostgreSQL statement_timeout を設定（ミリ秒単位）
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
 
-            result = conn.execute(sqlalchemy.text(sql))
-            columns = list(result.keys())
+        result = conn.execute(sqlalchemy.text(sql))
+        columns = list(result.keys())
 
-            # max_rows + 1 行フェッチして、切り捨てが発生するか確認
-            rows = result.fetchmany(max_rows + 1)
-            truncated = len(rows) > max_rows
-            if truncated:
-                rows = rows[:max_rows]
+        # max_rows + 1 行フェッチして、切り捨てが発生するか確認
+        rows = result.fetchmany(max_rows + 1)
+        truncated = len(rows) > max_rows
+        if truncated:
+            rows = rows[:max_rows]
 
-            df = pd.DataFrame(rows, columns=columns)
-            return {"df": df, "truncated": truncated}
-    finally:
-        engine.dispose()
+        df = pd.DataFrame(rows, columns=columns)
+        return {"df": df, "truncated": truncated}
 
 
 def _execute_non_select_sync(database_url: str, sql: str, timeout: int) -> dict:
@@ -517,21 +540,18 @@ def _execute_non_select_sync(database_url: str, sql: str, timeout: int) -> dict:
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラーなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # ※ read_only は設定しない（書き込み操作を許可）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
-            result = conn.execute(sqlalchemy.text(sql))
-            conn.commit()
-            affected_rows = result.rowcount if result.rowcount >= 0 else 0
-            return {"affected_rows": affected_rows}
-    finally:
-        engine.dispose()
+    engine = _get_engine(database_url)
+    with engine.connect() as conn:
+        # ※ read_only は設定しない（書き込み操作を許可）
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
+        result = conn.execute(sqlalchemy.text(sql))
+        conn.commit()
+        affected_rows = result.rowcount if result.rowcount >= 0 else 0
+        return {"affected_rows": affected_rows}
 
 
 class SqlExecuteHandler(BaseCustomHandler):

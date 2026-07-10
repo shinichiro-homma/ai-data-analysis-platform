@@ -300,8 +300,8 @@ class TestKernelRestartHandlerSandboxReinjection:
         # KeyError 等で存在しないカーネルを検出して 404 を返す
         # ここでは既存ロジックの動作確認として、KernelRestartHandler のコードパスを検証
 
-        # handlers.py を読み込んで KernelRestartHandler.post のシグネチャを確認
-        _handlers_path = _ext_dir / "custom_api" / "handlers.py"
+        # kernel_handlers.py を読み込んで KernelRestartHandler.post のシグネチャを確認
+        _handlers_path = _ext_dir / "custom_api" / "kernel_handlers.py"
         source = _handlers_path.read_text()
 
         # check_kernel_exists が呼ばれていることを確認（コード検査）

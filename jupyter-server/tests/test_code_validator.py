@@ -517,3 +517,73 @@ class TestErrorCode:
         result = validate_code("!ls")
         assert result.valid is False
         assert result.error is not None
+
+
+# ============================================================
+# 異常系: os.rename / os.replace / os.link / os.symlink（Phase 23.5）
+# ============================================================
+
+
+class TestBlockedOsRenameReplace:
+    """os.rename, os.replace, os.link, os.symlink が拒否されること。
+
+    Phase 23.5 で BLOCKED_OS_FUNCTIONS に rename/replace/link/symlink を追加する。
+    """
+
+    def test_os_rename(self):
+        result = validate_code("import os\nos.rename('a.txt', 'b.txt')")
+        assert result.valid is False, (
+            "os.rename should be blocked but was allowed. BLOCKED_OS_FUNCTIONS does not yet include 'rename'."
+        )
+        assert result.error is not None
+        assert result.blocked_item is not None
+
+    def test_os_replace(self):
+        result = validate_code("import os\nos.replace('a.txt', 'b.txt')")
+        assert result.valid is False, (
+            "os.replace should be blocked but was allowed. BLOCKED_OS_FUNCTIONS does not yet include 'replace'."
+        )
+        assert result.error is not None
+        assert result.blocked_item is not None
+
+    def test_os_link(self):
+        result = validate_code("import os\nos.link('a.txt', 'b.txt')")
+        assert result.valid is False, (
+            "os.link should be blocked but was allowed. BLOCKED_OS_FUNCTIONS does not yet include 'link'."
+        )
+        assert result.error is not None
+        assert result.blocked_item is not None
+
+    def test_os_symlink(self):
+        result = validate_code("import os\nos.symlink('a.txt', 'b.txt')")
+        assert result.valid is False, (
+            "os.symlink should be blocked but was allowed. BLOCKED_OS_FUNCTIONS does not yet include 'symlink'."
+        )
+        assert result.error is not None
+        assert result.blocked_item is not None
+
+    def test_from_os_import_rename(self):
+        result = validate_code("from os import rename")
+        assert result.valid is False, (
+            "from os import rename should be blocked. 'rename' is not yet in the blocked list."
+        )
+        assert result.error is not None
+
+    def test_from_os_import_replace(self):
+        result = validate_code("from os import replace")
+        assert result.valid is False, (
+            "from os import replace should be blocked. 'replace' is not yet in the blocked list."
+        )
+        assert result.error is not None
+
+    def test_from_os_import_link(self):
+        result = validate_code("from os import link")
+        assert result.valid is False, "from os import link should be blocked. 'link' is not yet in the blocked list."
+        assert result.error is not None
+
+    def test_from_os_import_symlink(self):
+        result = validate_code("from os import symlink")
+        assert result.valid is False, (
+            "from os import symlink should be blocked. 'symlink' is not yet in the blocked list."
+        )
+        assert result.error is not None

@@ -27,3 +27,15 @@
 | 21.3 | 変更通知 + 再読込の完全同期 | [ ] | AI がセルを追加するとブラウザのノートブックに反映される。ブラウザが対象ノートブックを開いていなくても実行出力がファイルに保存される（Issue #76 の異常系） | 差分イベント12種を廃止し `notebook_changed`（seq 付き）へ。ブラウザは `context.revert()` |
 | 21.4 | 再接続時の再同期 | [ ] | WebSocket 切断中に AI がセルを追加しても、再接続後にブラウザ表示が実ファイルと一致する（異常系） | 状態照会 API + seq ギャップ検出 + ロック状態再適用 |
 | 21.5 | 同期再設計の統合テストとドキュメント整合 | [ ] | ロック強制・通知再読込・再接続再同期の統合テストが `scripts/test.sh jupyter-mcp --integration` で成功する | 要件定義・API 契約の総点検を含む |
+
+## Phase 23: jupyter-server 堅牢化
+
+不変条件 I3/I6/I7 の既知違反を解消し、handlers.py モノリスを分割する。実装順は 23.1 → 23.2 → 23.3 → 23.4 → 23.5（23.1 のカーネルロックが 23.2 の前提、23.3 の分割が 23.4/23.5 の前提）。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 23.1 | カーネル単位の実行直列化ロック | [x] | 同一カーネルに2つの execute を並行送信し、各レスポンスの出力が混線せず正しい結果を返す（異常系: ロック待ちタイムアウト） | kernel_executor.py に asyncio.Lock 辞書を導入。I6 解消 |
+| 23.2 | async ハンドラ内の同期 I/O オフロード | [x] | 大きな CSV（10万行）のプレビューが他リクエストをブロックせず完了する（異常系: ファイル不在時のエラー応答） | handlers.py preview / workspace_handlers.py を run_in_executor 化。I3 解消 |
+| 23.3 | handlers.py の分割 | [x] | `scripts/test.sh jupyter-server` が分割前後で全パス。handlers.py が 500 行以下になる | kernel/cell_actions/contents/preview の4モジュールに分割 |
+| 23.4 | SQL コネクションプール化 | [x] | SQL 実行が共有プールを使い、リクエスト間で接続が再利用される（異常系: DB 接続不能時に明確なエラー） | アプリ起動時に1回だけ engine 生成。sql_handlers.py 改修 |
+| 23.5 | sandbox の os.rename/os.replace ブロック追加 | [x] | カーネル内で `os.rename('/other_ws/file', 'local')` を実行すると PermissionError になる | workspace_sandbox.py + code_validator.py にパッチ追加。shutil は import 段階でブロック済み |
