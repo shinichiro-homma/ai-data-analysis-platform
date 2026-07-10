@@ -4,6 +4,8 @@
 
 生成AIがJupyter環境を操作するためのMCPサーバー。jupyter-serverのREST APIをラップし、MCPツールとして提供する。
 
+> **入出力スキーマ・パラメータ・デフォルト値・上限値・エラーの詳細は `jupyter-mcp/src/tools/*.ts` の zod スキーマとツール定義が正（Single Source of Truth）**。本ドキュメントは機能要件（Why・受け入れ条件）とツール一覧のみを扱い、実装詳細は転記しない。
+
 ## 機能要件
 
 ### F1: セッション管理
@@ -59,7 +61,7 @@
 - 戻り値には実際に作成されたノートブックのパス、ワークスペースID、作成日時を含む
 
 #### F3.2: セル操作
-- セルの追加（code/markdown） ✓ notebook_add_cell で実装済み
+- セルの追加（code/markdown）
 - セルの一覧取得（ソース・出力・実行回数を含む）
 - セルの編集（既存セルのソースコードを更新）
 - セルの削除
@@ -139,9 +141,44 @@
 #### F7.3: get_image ツールによる画像取得
 - `execute_code` のレスポンスに含まれる `file_path` を指定して、画像データを MCP の image content type で取得できる
 - AIクライアント（Claude Desktop等）がビジョン機能で画像を分析したい場合に使用する
-- Jupyter Contents API 経由でファイルを取得し、MCP の image content type（`type: "image"`, `data: base64`, `mimeType`）で返す
+- Jupyter Contents API 経由でファイルを取得し、MCP の image content type で返す
 - テキストレスポンス（`type: "text"`）に base64 データを含めない（コンテキストウィンドウ節約の方針を維持）
 - `execute_code` のテキストレスポンスには引き続き `file_path` のみを含める
+
+### F8: ワークスペース管理
+
+チャット（AI会話セッション）ごとに独立した作業空間を提供する。ワークスペースはファイルシステム上のディレクトリとして永続化され、MCP再起動後も利用可能。
+
+#### F8.1: ワークスペース作成
+- 新しいワークスペース（独立した作業空間）を作成できる
+- ワークスペースはファイルシステム上のサブディレクトリとして作成される
+- ワークスペースIDと名前を返却する
+- 同一名でも別のワークスペースとして作成される（IDで一意に識別）
+- ワークスペース作成時に `data/` と `output/` サブディレクトリが自動作成される
+  - `data/`: 分析用入力データの配置場所
+  - `output/`: 分析結果の出力先
+- オプションで `summary`（作業内容の概要）と `status`（ステータス）を指定できる
+
+#### F8.2: ワークスペース一覧
+- 既存のワークスペース一覧を取得できる
+- 各ワークスペースの名前、作成日時、ファイル数、サマリ、ステータスを返却する
+- MCP再起動後も、ディスク上に存在するワークスペースを列挙できる
+
+#### F8.4: ワークスペースメタデータ更新
+- 既存ワークスペースの `summary` と `status` を更新できる
+- `summary` は作業内容の概要
+- `status` は許可された値のいずれかを指定する
+
+#### F8.5: ワークスペースサマリ生成
+- ワークスペースの作業内容に基づいて検証レポートを生成するためのテンプレートと評価基準を取得する
+- ユーザーから明示的にサマリ作成を依頼された場合のみ使用する
+- レスポンスに含まれるテンプレートに従ってレポートを生成し、SUMMARY.md としてワークスペースに保存する
+- テンプレートと評価基準はツール定義（description）には含めず、ツール実行時にサーバーから返却される
+
+#### F8.3: ワークスペースの永続性
+- ワークスペースのディレクトリとその中のファイル（ノートブック等）はディスク上に永続化される
+- MCP/クライアント再起動後も `workspace_list` で既存ワークスペースを発見でき、`session_create` で新規セッションを紐付けられる
+- カーネル（セッション）はアイドルタイムアウト後に停止するが、ファイルは保持される
 
 ### F9: SQL実行・データ取得
 
@@ -153,8 +190,8 @@
 - 非SELECT命令は結果セットを返さないため、CSV保存は行わない（affected_rows を返却）
 
 #### F9.2: 実行制御
-- タイムアウト設定が可能（デフォルト値・最大値は `jupyter-mcp/src/tools/execute-sql.ts` を参照）
-- 結果行数の上限を設定可能（デフォルト値は `jupyter-mcp/src/tools/execute-sql.ts` を参照）
+- タイムアウト設定が可能
+- 結果行数の上限を設定可能
 
 #### F9.3: 実行クエリの保存
 - execute_sql で実行したSQLクエリを、ワークスペースの `data/queries/` ディレクトリに `.sql` ファイルとして保存する
@@ -176,7 +213,7 @@
 - execute_sql と同様に、危険なSQL命令句はブラックリスト方式で拒否される（jupyter-server側で判定）
 
 #### F11.2: エクスポート実行制御
-- タイムアウト設定が可能（デフォルト値・最大値は `jupyter-mcp/src/tools/export-sql.ts` を参照）
+- タイムアウト設定が可能
 - SELECT文のみエクスポート対象（非SELECT文はバリデーションエラー）
 
 #### F11.3: 実行クエリの保存
@@ -186,6 +223,8 @@
 
 ### F10: 外部データアップロード 【未実装】
 
+ステータス: 未実装（対応する MCP ツールは未登録）。
+
 #### F10.1: 外部データのアップロード
 - チャットから提供されたファイル（CSV、Excel等）をワークスペースの `data/` ディレクトリにアップロードできる
 - ホスト側のファイルパス（source_path）を受け取り、MCPサーバーが直接読み取ってアップロードする
@@ -193,891 +232,45 @@
 - 保存後、ファイルパス・ファイルサイズを返却する
 - カタログで `data_source.type: external` として定義されているデータを、分析時に提供する際に使用する
 
-### F8: ワークスペース管理
-
-チャット（AI会話セッション）ごとに独立した作業空間を提供する。ワークスペースはファイルシステム上のディレクトリとして永続化され、MCP再起動後も利用可能。
-
-#### F8.1: ワークスペース作成
-- 新しいワークスペース（独立した作業空間）を作成できる
-- ワークスペースはファイルシステム上のサブディレクトリとして作成される
-- ワークスペースIDと名前を返却する
-- 同一名でも別のワークスペースとして作成される（IDで一意に識別）
-- ワークスペース作成時に `data/` と `output/` サブディレクトリが自動作成される
-  - `data/`: 分析用入力データの配置場所
-  - `output/`: 分析結果の出力先
-- オプションで `summary`（作業内容の概要）と `status`（ステータス）を指定できる（文字数制限は `jupyter-mcp/src/utils/validation.ts` を参照）
-
-#### F8.2: ワークスペース一覧
-- 既存のワークスペース一覧を取得できる
-- 各ワークスペースの名前、作成日時、ファイル数、サマリ、ステータスを返却する
-- MCP再起動後も、ディスク上に存在するワークスペースを列挙できる
-
-#### F8.4: ワークスペースメタデータ更新
-- 既存ワークスペースの `summary` と `status` を更新できる
-- `summary` は作業内容の概要（文字数制限は `jupyter-mcp/src/utils/validation.ts` を参照）
-- `status` の許可値は `jupyter-mcp/src/utils/validation.ts` の `VALID_WORKSPACE_STATUSES` を参照
-
-#### F8.5: ワークスペースサマリ生成
-- ワークスペースの作業内容に基づいて検証レポートを生成するためのテンプレートと評価基準を取得する
-- ユーザーから明示的にサマリ作成を依頼された場合のみ使用する
-- レスポンスに含まれるテンプレートに従ってレポートを生成し、SUMMARY.md としてワークスペースに保存する
-- テンプレートと評価基準はツール定義（description）には含めず、ツール実行時にサーバーから返却される
-
-#### F8.3: ワークスペースの永続性
-- ワークスペースのディレクトリとその中のファイル（ノートブック等）はディスク上に永続化される
-- MCP/クライアント再起動後も `workspace_list` で既存ワークスペースを発見でき、`session_create` で新規セッションを紐付けられる
-- カーネル（セッション）はアイドルタイムアウト後に停止するが、ファイルは保持される
-
-## MCPツール定義
-
-> 各ツールの `description` はコード（`jupyter-mcp/src/tools/index.ts`）を参照。以下では inputSchema（パラメータ構造）のみを定義する。
-
-### workspace_create
-
-新しいワークスペース（チャット独立の作業空間）を作成する。
-
-```typescript
-{
-  name: "workspace_create",
-  inputSchema: {
-    type: "object",
-    properties: {
-      name: {
-        type: "string",
-        description: "ワークスペース名"
-      },
-      summary: {
-        type: "string",
-        description: "ワークスペースの作業内容の概要"
-      },
-      status: {
-        type: "string",
-        description: "ワークスペースのステータス（デフォルト: not_started）。許可値は jupyter-mcp/src/utils/validation.ts の VALID_WORKSPACE_STATUSES を参照"
-      }
-    },
-    required: ["name"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/workspace-create.ts` を参照。`data_path` / `output_path` はカーネルの作業ディレクトリからの相対パスで、カーネル内のコードでそのまま使用できる（例: `open('data/input.csv')`）。
-
-### workspace_list
-
-既存のワークスペース一覧を取得する。MCP再起動後も、ディスク上に存在するワークスペースを列挙できる。
-
-```typescript
-{
-  name: "workspace_list",
-  inputSchema: {
-    type: "object",
-    properties: {}
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/workspace-list.ts` を参照。
-
-### workspace_update
-
-既存ワークスペースのメタデータ（summary, status）を更新する。
-
-```typescript
-{
-  name: "workspace_update",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "更新対象のワークスペースID"
-      },
-      summary: {
-        type: "string",
-        description: "ワークスペースの作業内容の概要"
-      },
-      status: {
-        type: "string",
-        description: "ワークスペースのステータス。許可値は jupyter-mcp/src/utils/validation.ts の VALID_WORKSPACE_STATUSES を参照"
-      }
-    },
-    required: ["workspace_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/workspace-update.ts` を参照。
-
-### workspace_summarize
-
-ワークスペースの作業内容をサマリーする。ユーザーから明示的に依頼された場合のみ使用する。
-
-```typescript
-{
-  name: "workspace_summarize",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "サマリー対象のワークスペースID"
-      }
-    },
-    required: ["workspace_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/workspace-summarize.ts` を参照。サーバー側に格納されたテンプレートと評価基準を返却する。AIはこのレスポンスに従ってレポートを生成し、SUMMARY.md としてワークスペースに保存する。
-
-### session_create
-
-新しい分析セッションを作成する。
-
-```typescript
-{
-  name: "session_create",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "ワークスペースID。カーネルの作業ディレクトリがワークスペースに設定される"
-      },
-      notebook_path: {
-        type: "string",
-        description: "関連付けるノートブックのパス（ワークスペース内の相対パス）。指定するとユーザーがそのノートブックを開いたときに同じカーネルを共有できる"
-      }
-    },
-    required: ["workspace_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/session-create.ts` を参照。`notebook_path` は `notebook_path` パラメータを指定した場合のみ返却される。`browser_url` は `notebook_path` 指定時はノートブックを直接開くURL、未指定時はワークスペースディレクトリを開くURLを返却する。
-
-### session_list
-
-アクティブなセッション一覧を取得する。
-
-```typescript
-{
-  name: "session_list",
-  inputSchema: {
-    type: "object",
-    properties: {}
-  }
-}
-```
-
-### session_connect
-
-既存のセッションに接続する。ブラウザで開いているノートブックと同じカーネルを使用できる。
-
-```typescript
-{
-  name: "session_connect",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "接続したいノートブックのパス（例: analysis.ipynb）"
-      },
-      kernel_id: {
-        type: "string",
-        description: "接続したいカーネルのID。notebook_path の代わりに指定可能"
-      }
-    },
-    required: []
-  }
-}
-```
-
-> `notebook_path` または `kernel_id` のどちらかを指定する必要がある（両方未指定の場合はバリデーションエラー）。
-
-**戻り値・エラー時:** `jupyter-mcp/src/tools/session-connect.ts` を参照。
-
-### session_delete
-
-セッションを終了する。
-
-```typescript
-{
-  name: "session_delete",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "終了するセッションID"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-### execute_code
-
-Pythonコードを実行する。
-
-```typescript
-{
-  name: "execute_code",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      code: {
-        type: "string",
-        description: "実行するPythonコード。シェルコマンド実行（!command、subprocess、os.system、ctypes等）はブロックされます"
-      },
-      timeout: {
-        type: "number",
-        description: "タイムアウト秒数（デフォルト値・最大値は jupyter-mcp/src/tools/execute-code.ts を参照）"
-      },
-      cell_index: {
-        type: "number",
-        description: "実行対象のセルインデックス（notebook_add_cellの戻り値のcell_indexを指定。省略時は自動検出）"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値・エラー時:** `jupyter-mcp/src/tools/execute-code.ts` を参照。`images` 配列の各要素はファイルパス、MIMEタイプ、説明のみを含む。base64データは含まない。
-
-### get_variables
-
-定義済み変数の一覧を取得する。
-
-```typescript
-{
-  name: "get_variables",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/get-variables.ts` を参照。
-
-### get_dataframe_info
-
-DataFrameの詳細情報を取得する。
-
-```typescript
-{
-  name: "get_dataframe_info",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      variable_name: {
-        type: "string",
-        description: "DataFrame 変数名"
-      },
-      include_head: {
-        type: "boolean",
-        description: "先頭行を含めるか"
-      },
-      head_rows: {
-        type: "number",
-        description: "先頭何行を取得するか"
-      }
-    },
-    required: ["session_id", "variable_name"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/get-dataframe-info.ts` を参照。
-
-### notebook_create
-
-新規ノートブックを作成する。ワークスペース内に作成される。同名ファイルが既に存在する場合はサーバー側で自動連番（`{name}_2.ipynb`, `{name}_3.ipynb`, ...）が付与される。
-
-```typescript
-{
-  name: "notebook_create",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "ワークスペースID"
-      },
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      name: {
-        type: "string",
-        description: "ノートブック名（拡張子 .ipynb は不要）"
-      }
-    },
-    required: ["workspace_id", "session_id", "name"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-create.ts` を参照。同名ファイル存在時はサーバー側で自動連番が付与され、実際のパスが戻り値に含まれる。
-
-### notebook_add_cell
-
-ノートブックにセルを追加する。
-
-```typescript
-{
-  name: "notebook_add_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      },
-      cell_type: {
-        type: "string",
-        enum: ["code", "markdown"],
-        description: "セルの種類（code または markdown）"
-      },
-      source: {
-        type: "string",
-        description: "セルの内容"
-      },
-      position: {
-        type: "number",
-        description: "挿入位置（0-indexed、省略時は末尾に追加）"
-      }
-    },
-    required: ["notebook_path", "cell_type", "source"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-add-cell.ts` を参照。`cell_index` は追加されたセルの実際のインデックス（0-indexed）で、`execute_code` の `cell_index` パラメータに渡して実行できる。
-
-### notebook_list_cells
-
-ノートブックの全セル一覧を取得する。各セルのソースコード、出力、実行回数を含む。過去に書いたコードを確認し、重複を避けるために使用する。
-
-```typescript
-{
-  name: "notebook_list_cells",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      }
-    },
-    required: ["notebook_path"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-list-cells.ts` を参照。
-
-### notebook_edit_cell
-
-ノートブックの既存セルのソースコードを編集する。
-
-```typescript
-{
-  name: "notebook_edit_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      },
-      cell_index: {
-        type: "number",
-        description: "編集対象のセルインデックス（0-indexed）"
-      },
-      source: {
-        type: "string",
-        description: "新しいセルの内容"
-      }
-    },
-    required: ["notebook_path", "cell_index", "source"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-edit-cell.ts` を参照。
-
-### notebook_delete_cell
-
-ノートブックのセルを削除する。
-
-```typescript
-{
-  name: "notebook_delete_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      },
-      cell_index: {
-        type: "number",
-        description: "削除対象のセルインデックス（0-indexed）"
-      }
-    },
-    required: ["notebook_path", "cell_index"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-delete-cell.ts` を参照。
-
-### notebook_execute_cell
-
-ノートブックの指定セルをカーネルで再実行する。セルのソースコードを取得してカーネルで実行し、セルの出力と実行回数を更新する。
-
-```typescript
-{
-  name: "notebook_execute_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      },
-      session_id: {
-        type: "string",
-        description: "セッションID（カーネルでの実行に必要）"
-      },
-      cell_index: {
-        type: "number",
-        description: "実行対象のセルインデックス（0-indexed）"
-      },
-      timeout: {
-        type: "number",
-        description: "タイムアウト秒数（デフォルト値は jupyter-mcp/src/tools/notebook-execute-cell.ts を参照）"
-      }
-    },
-    required: ["notebook_path", "session_id", "cell_index"]
-  }
-}
-```
-
-**戻り値:** `jupyter-mcp/src/tools/notebook-execute-cell.ts` を参照。
-
-### file_list
-
-ワークスペース内のファイル一覧を取得する。
-
-```typescript
-{
-  name: "file_list",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "ワークスペースID"
-      },
-      path: {
-        type: "string",
-        description: "ワークスペース内の相対ディレクトリパス（省略時はワークスペースルート）"
-      }
-    },
-    required: ["workspace_id"]
-  }
-}
-```
-
-### execute_sql
-
-SQL命令を実行する。SELECT文の場合は結果をワークスペースの `data/` ディレクトリにCSVファイルとして保存する。危険な操作はブラックリスト方式で拒否する（対象リストは `jupyter-server/extensions/custom_api/sql_handlers.py` の `BLOCKED_COMMANDS` を参照）。
-
-```typescript
-{
-  name: "execute_sql",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      sql: {
-        type: "string",
-        description: "実行するSQL文。ブロック対象の操作は拒否される（対象リストはコード参照）"
-      },
-      filename: {
-        type: "string",
-        description: "保存先ファイル名（data/ディレクトリ内、例: 'transactions.csv'）"
-      },
-      timeout: {
-        type: "number",
-        description: "タイムアウト秒数（デフォルト値・最大値は jupyter-mcp/src/tools/execute-sql.ts を参照）"
-      },
-      max_rows: {
-        type: "number",
-        description: "最大取得行数（デフォルト値は jupyter-mcp/src/tools/execute-sql.ts を参照）"
-      }
-    },
-    required: ["session_id", "sql", "filename"]
-  }
-}
-```
-
-**戻り値・エラー時:** `jupyter-mcp/src/tools/execute-sql.ts` を参照。SELECT文はCSV保存＋`query_file_path`を返却、非SELECT文は`affected_rows`を返却（CSV保存なし）。クエリファイルは `data/queries/{連番}_{filename}.sql` に保存され、メタデータがSQLコメントとして記載される。
-
-### export_sql
-
-SQLクエリの結果をデータセットとしてワークスペースにファイル保存する。分析で使用するデータセットの作成・保存に使用する。結果はデフォルトでParquet形式、指定によりCSV形式で保存される。行数制限なし・ストリーミング処理のため大規模データにも対応。集計結果など少量のデータには execute_sql を使うこと。
-
-```typescript
-{
-  name: "export_sql",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      sql: {
-        type: "string",
-        description: "実行するSELECT文。ブロック対象の操作は拒否される（対象リストはコード参照）"
-      },
-      filename: {
-        type: "string",
-        description: "保存先ファイル名（data/ディレクトリ内、例: 'purchase_history.parquet'）"
-      },
-      format: {
-        type: "string",
-        enum: ["parquet", "csv"],
-        description: "出力形式（デフォルト: parquet）。ユーザーから指示があった場合のみ csv を指定"
-      },
-      timeout: {
-        type: "number",
-        description: "タイムアウト秒数（デフォルト値・最大値は jupyter-mcp/src/tools/export-sql.ts を参照）"
-      }
-    },
-    required: ["session_id", "sql", "filename"]
-  }
-}
-```
-
-**戻り値・エラー時:** `jupyter-mcp/src/tools/export-sql.ts` を参照。
-
-### notebook_reorder_cell
-
-ノートブック内のセルを別の位置に移動する。
-
-```typescript
-{
-  name: "notebook_reorder_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックパス（例: analysis.ipynb）"
-      },
-      cell_index: {
-        type: "number",
-        description: "移動元のセルインデックス（0始まり）"
-      },
-      to_index: {
-        type: "number",
-        description: "移動先のインデックス（0始まり）"
-      }
-    },
-    required: ["notebook_path", "cell_index", "to_index"]
-  }
-}
-```
-
-### notebook_execute_batch
-
-ノートブックのセルを一括実行する。全セル / ここまで / これ以降の3モードをサポート。
-
-```typescript
-{
-  name: "notebook_execute_batch",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス（例: analysis.ipynb）"
-      },
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      },
-      mode: {
-        type: "string",
-        enum: ["all", "up_to", "from"],
-        description: "実行モード（all: 全セル、up_to: 指定セルまで、from: 指定セル以降）"
-      },
-      cell_index: {
-        type: "number",
-        description: "基準セルインデックス（mode が up_to または from の場合に必須）"
-      },
-      timeout: {
-        type: "number",
-        description: "セルあたりのタイムアウト秒数"
-      }
-    },
-    required: ["notebook_path", "session_id", "mode"]
-  }
-}
-```
-
-**戻り値:** 実行されたセル数、成功数、失敗したセルのインデックス（成功時は null）。
-
-### notebook_merge_cells
-
-複数の隣接セルを1つに結合する。
-
-```typescript
-{
-  name: "notebook_merge_cells",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      start_index: {
-        type: "number",
-        description: "結合開始セルインデックス（0-indexed）"
-      },
-      end_index: {
-        type: "number",
-        description: "結合終了セルインデックス（0-indexed、この位置のセルを含む）"
-      }
-    },
-    required: ["notebook_path", "start_index", "end_index"]
-  }
-}
-```
-
-### notebook_split_cell
-
-セルを指定行で2つに分割する。
-
-```typescript
-{
-  name: "notebook_split_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      cell_index: {
-        type: "number",
-        description: "分割対象のセルインデックス（0-indexed）"
-      },
-      split_line: {
-        type: "number",
-        description: "分割行番号（1-indexed、この行から下が新しいセルになる）"
-      }
-    },
-    required: ["notebook_path", "cell_index", "split_line"]
-  }
-}
-```
-
-### notebook_change_cell_type
-
-セルのタイプを変更する（code ↔ markdown）。
-
-```typescript
-{
-  name: "notebook_change_cell_type",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      cell_index: {
-        type: "number",
-        description: "対象セルインデックス（0-indexed）"
-      },
-      new_type: {
-        type: "string",
-        enum: ["code", "markdown"],
-        description: "変更後のセルタイプ"
-      }
-    },
-    required: ["notebook_path", "cell_index", "new_type"]
-  }
-}
-```
-
-### notebook_copy_cell
-
-セルを指定位置にコピー（複製）する。
-
-```typescript
-{
-  name: "notebook_copy_cell",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      source_index: {
-        type: "number",
-        description: "コピー元セルインデックス（0-indexed）"
-      },
-      target_index: {
-        type: "number",
-        description: "コピー先インデックス（0-indexed、省略時はソースの直後に挿入）"
-      }
-    },
-    required: ["notebook_path", "source_index"]
-  }
-}
-```
-
-### notebook_clear_outputs
-
-セルの出力をクリアする。
-
-```typescript
-{
-  name: "notebook_clear_outputs",
-  inputSchema: {
-    type: "object",
-    properties: {
-      notebook_path: {
-        type: "string",
-        description: "ノートブックのパス"
-      },
-      cell_index: {
-        type: "number",
-        description: "対象セルインデックス（省略時は全セルの出力をクリア）"
-      }
-    },
-    required: ["notebook_path"]
-  }
-}
-```
-
-### kernel_restart
-
-カーネルを再起動する（変数・実行状態をリセット）。
-
-```typescript
-{
-  name: "kernel_restart",
-  inputSchema: {
-    type: "object",
-    properties: {
-      session_id: {
-        type: "string",
-        description: "セッションID"
-      }
-    },
-    required: ["session_id"]
-  }
-}
-```
-
-### data_preview
-
-ワークスペース内のデータファイルをプレビューする。
-
-```typescript
-{
-  name: "data_preview",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "ワークスペースID"
-      },
-      file_path: {
-        type: "string",
-        description: "ワークスペース内の相対ファイルパス（例: data/sales.csv）"
-      },
-      head_rows: {
-        type: "number",
-        description: "取得する先頭行数（デフォルト値・最大値は jupyter-mcp/src/tools/data-preview.ts を参照）"
-      }
-    },
-    required: ["workspace_id", "file_path"]
-  }
-}
-```
-
-### file_read
-
-ワークスペース内のテキストファイルの内容を取得する（ノートブック以外）。
-
-```typescript
-{
-  name: "file_read",
-  inputSchema: {
-    type: "object",
-    properties: {
-      workspace_id: {
-        type: "string",
-        description: "ワークスペースID"
-      },
-      file_path: {
-        type: "string",
-        description: "ワークスペース内の相対ファイルパス（例: scripts/analysis.py）"
-      }
-    },
-    required: ["workspace_id", "file_path"]
-  }
-}
-```
-
-## 画像ファイル管理
-
-画像はワークスペースの `output/` ディレクトリにファイルとして永続化する。`execute_code` のテキストレスポンスにはファイルパスのみを返却し、base64データは含めない（コンテキストウィンドウ節約）。AIクライアントが画像を視覚的に確認したい場合は、`get_image` ツールで画像データを MCP の image content type として取得できる。
-
-> 画像ファイルパス形式・対応画像形式・生成フローの詳細は `jupyter-mcp/src/tools/execute-code.ts` および `jupyter-mcp/src/tools/get-image.ts` を参照。
-
-### get_image
-
-`execute_code` のレスポンスに含まれる画像の `file_path` を指定して、画像データを取得する。レスポンスは MCP の image content type で返し、AIクライアントのビジョン機能で画像を分析できる。
-
-**パラメータ:**
-| パラメータ | 型 | 必須 | 説明 |
-|-----------|------|------|------|
-| `file_path` | string | ✓ | 画像ファイルパス（`execute_code` の `images[].file_path` 値を指定） |
-
-**レスポンス:** `jupyter-mcp/src/tools/get-image.ts` を参照。成功時は MCP image content type（base64エンコードデータ）で返却。AIクライアントはビジョン機能で画像を処理でき、base64テキストがコンテキストに展開されることはない。
+## ツール一覧
+
+`jupyter-mcp/src/tools/index.ts` の `registerTools()`（`toolRegistry`）で登録されている全ツール。各ツールの description・入出力スキーマは同ファイルおよび `src/tools/*.ts` が正（CI がこの表とコードを機械照合する）。
+
+| ツール | F番号 | 目的 |
+|--------|-------|------|
+| `workspace_create` | F8.1 | ワークスペース（チャット独立の作業空間）を作成する |
+| `workspace_update` | F8.4 | ワークスペースのメタデータ（summary/status）を更新する |
+| `workspace_list` | F8.2 | 既存のワークスペース一覧を取得する |
+| `workspace_summarize` | F8.5 | ワークスペースの検証レポート用テンプレート・評価基準を取得する |
+| `notebook_create` | F3.1 | 新規ノートブックをワークスペース内に作成する |
+| `notebook_add_cell` | F3.2 | ノートブックにセル（code/markdown）を追加する |
+| `notebook_list_cells` | F3.2 | ノートブックの全セル一覧（ソース・出力・実行回数）を取得する |
+| `notebook_edit_cell` | F3.2 | 既存セルのソースコードを編集する |
+| `notebook_delete_cell` | F3.2 | 指定セルを削除する |
+| `notebook_reorder_cell` | F3.2 | セルを別の位置に移動する |
+| `notebook_execute_cell` | F2.2, F3.2 | 指定セルをカーネルで再実行し出力を更新する |
+| `notebook_execute_batch` | F3.2 | セルを一括実行する（全セル / ここまで / これ以降） |
+| `session_create` | F1.1, F1.5 | 分析セッション（カーネル）を作成する |
+| `session_list` | F1.3 | アクティブなセッション一覧を取得する |
+| `session_delete` | F1.2 | セッションを終了しリソースを解放する |
+| `session_connect` | F1.4 | 既存セッション/カーネルに接続する |
+| `execute_code` | F2.1, F7.1 | Pythonコードを実行し結果と画像参照を返す |
+| `get_variables` | F4.1 | セッション内の変数一覧を取得する |
+| `get_dataframe_info` | F4.2 | DataFrameの詳細情報（shape/columns/head/統計）を取得する |
+| `file_list` | F5.1 | ワークスペース内のファイル一覧を取得する |
+| `execute_sql` | F9.1, F9.2, F9.3 | SQLを実行しSELECT結果をCSV保存する |
+| `export_sql` | F11.1, F11.2, F11.3 | SQL結果を大規模データセットとして Parquet/CSV でエクスポートする |
+| `get_image` | F7.3 | 生成画像を MCP image content type で取得する |
+| `data_preview` | F4.3 | ワークスペース内のデータファイル（CSV/Parquet）をプレビューする |
+| `file_read` | F5.2 | ワークスペース内のテキストファイルの内容を取得する |
+| `notebook_merge_cells` | F3.2 | 隣接する複数セルを1つに結合する |
+| `notebook_split_cell` | F3.2 | セルを指定行で2つに分割する |
+| `notebook_change_cell_type` | F3.2 | セルのタイプを変更する（code ↔ markdown） |
+| `notebook_copy_cell` | F3.2 | セルを指定位置にコピー（複製）する |
+| `notebook_clear_outputs` | F3.2 | セルの出力をクリアする（単一セル / 全セル） |
+| `kernel_restart` | F3.3 | カーネルを再起動し変数・実行状態をリセットする |
+
+> `ai_edit_start` / `ai_edit_end`（F6.1）とカーネル中断は独立した MCP ツールとしては提供しない（前者は `handleToolCall` の内部自動処理、後者はユーザーが JupyterLab UI から実行）。
 
 ## 非機能要件
 
