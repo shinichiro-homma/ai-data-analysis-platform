@@ -14,14 +14,7 @@
 
 ## 開発コマンド
 
-```bash
-# 全体起動
-docker-compose up -d
-
-# 個別起動（各ディレクトリ内で）
-npm run dev        # MCPサーバー
-jupyter lab        # jupyter-server
-```
+**ビルド・テスト・Docker 操作は `scripts/` 配下のスクリプトを使う**（`npm run build` / `npm test` / `docker-compose build` 等を直接実行しない）。スクリプト一覧と使い分けは `.claude/rules/scripts.md` を参照。
 
 ## 初回セットアップ
 
@@ -45,7 +38,7 @@ bash scripts/bootstrap.sh
 | [プロジェクト全体像](docs/overview.md) | アーキテクチャ、ユースケースフロー、データフロー |
 | [ドキュメント構成マップ](docs/STRUCTURE.md) | ファイル一覧と役割、更新の依存関係、Single Source of Truth の定義 |
 | [開発プラン](docs/plan/README.md) | タスク一覧と進捗管理（dev ブランチのみ） |
-| [API仕様](docs/design/api-contracts.md) | REST API の詳細仕様 |
+| [API契約](docs/design/api-contracts.md) | REST API エンドポイント一覧（詳細はコードが正） |
 
 ### 要件定義
 

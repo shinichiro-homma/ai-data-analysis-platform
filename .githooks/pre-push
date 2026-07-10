@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# pre-push: push 前にドキュメント整合性を機械検証する。
+#           CI の doc-consistency ジョブと同じチェック（標準ライブラリのみで高速）。
+#           NG の場合は push を中止する。
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CHECKER="$REPO_ROOT/scripts/check-docs-consistency.py"
+
+# チェッカーが存在しない古いブランチでは何もしない
+[[ -f "$CHECKER" ]] || exit 0
+
+if command -v uv >/dev/null 2>&1; then
+  uv run python "$CHECKER"
+else
+  python3 "$CHECKER"
+fi

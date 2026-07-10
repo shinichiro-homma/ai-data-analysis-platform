@@ -1,3 +1,12 @@
+---
+paths:
+  - "scripts/**"
+  - "**/package.json"
+  - "docker-compose.yml"
+  - "**/Dockerfile"
+  - ".github/workflows/**"
+---
+
 # スクリプト利用ルール
 
 ビルド・テスト・Docker 操作には `scripts/` 配下のスクリプトを使うこと。
@@ -12,6 +21,7 @@
 | `scripts/test.sh [COMPONENT]` | lint + 型チェック + テスト | `--no-lint` / `--typecheck`（型のみ）/ `--rebuild`（MCP・Docker 自動判定）/ `--integration`（Docker 必要、`--rebuild` と併用可）/ `--health`（既知障害と照合して分類） |
 | `scripts/smoke-test.sh` | Docker 環境のスモークテスト | — |
 | `scripts/check-freshness.sh` | Docker 環境の鮮度チェック | `--strict`（古いと exit 1）/ `--rebuild`（古ければ自動リビルド） |
+| `scripts/check-docs-consistency.py` | ドキュメント整合性の機械検証（MCPツール名・エンドポイント・リンク切れ。CI でも常時実行） | `uv run python scripts/check-docs-consistency.py` で実行 |
 | `scripts/rebuild-mcp.sh [SERVER]` | MCP サーバーのビルド | — |
 | `scripts/rebuild.sh [SERVICE]` | Docker コンテナのリビルド・起動（postgres データ自動更新付き、MCP は含まない） | `postgres`（DB のみ再初期化）/ `--clean`（常に再初期化）/ `--verify`（完了後にスモークテスト） |
 | `scripts/switch-env.sh [ENV]` | データ環境の切り替え（既存データありならスキップ確認） | `--force-reload`（強制再ロード） |

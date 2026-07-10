@@ -181,14 +181,7 @@ scripts/test.sh --health {コンポーネント名}
 
 ## 6. コミット
 
-`tests/known-failures.json` の変更をコミットしてください（メッセージ: `test: テスト失敗の Issue 起票と既知障害登録`）：
-
-```bash
-git add tests/known-failures.json
-# メッセージを Write で tmp/commit-msg.txt に書き出してから:
-git commit -F tmp/commit-msg.txt
-rm tmp/commit-msg.txt
-```
+`.claude/skills/commit-and-push/SKILL.md` の手順に従い、`tests/known-failures.json` のみをステージしてコミットする。パラメータ: context `test: テスト失敗の Issue 起票と既知障害登録`、push `false`、agent `none`。
 
 ## 7. 完了報告
 
