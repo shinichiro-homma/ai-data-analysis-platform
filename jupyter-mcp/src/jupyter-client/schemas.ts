@@ -81,7 +81,7 @@ export const ExecuteResultSchema = z
     result: z.unknown(),
     images: z.array(ImageOutputSchema),
     execution_time_ms: z.number(),
-    error: ExecutionErrorSchema.optional(),
+    error: ExecutionErrorSchema.nullable().optional(),
   })
   .strip();
 
@@ -288,7 +288,7 @@ export const CellExecuteBatchResponseSchema = z
     executed_cells: z.number(),
     success_count: z.number(),
     failed_cell: z.number().nullable(),
-    error: ExecutionErrorSchema.optional(),
+    error: ExecutionErrorSchema.nullable().optional(),
   })
   .strip();
 

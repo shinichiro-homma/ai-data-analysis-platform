@@ -87,7 +87,7 @@ export interface ExecuteResult {
   result: unknown;
   images: ImageOutput[];
   execution_time_ms: number;
-  error?: ExecutionError;
+  error?: ExecutionError | null;
 }
 
 // =============================================================================
@@ -618,7 +618,7 @@ export interface CellExecuteBatchResponse {
   executed_cells: number;
   success_count: number;
   failed_cell: number | null;
-  error?: ExecutionError;
+  error?: ExecutionError | null;
 }
 
 // =============================================================================
