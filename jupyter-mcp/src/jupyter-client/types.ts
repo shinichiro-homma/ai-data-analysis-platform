@@ -133,7 +133,7 @@ export type ContentType = 'notebook' | 'file' | 'directory';
 export interface ContentItem {
   name: string;
   type: ContentType;
-  size?: number;
+  size?: number | null;
   modified_at: string;
 }
 

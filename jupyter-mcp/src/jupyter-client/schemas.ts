@@ -108,7 +108,7 @@ const ContentTypeEnum = z.enum(['notebook', 'file', 'directory']);
 const ContentItemSchema = z.object({
   name: z.string(),
   type: ContentTypeEnum,
-  size: z.number().optional(),
+  size: z.number().nullable().optional(),
   modified_at: z.string(),
 });
 
