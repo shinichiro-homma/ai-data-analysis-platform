@@ -47,9 +47,7 @@ docker-compose down
 
 ## API一覧
 
-`/health`, `/api/kernels`, `/api/kernels/{id}`, `/api/kernels/{id}/execute`, `/api/kernels/{id}/interrupt`, `/api/kernels/{id}/restart`, `/api/kernels/{id}/restart-and-run-all`, `/api/kernels/{id}/variables`, `/api/kernels/{id}/variables/{name}`, `/api/custom/contents`, `/api/custom/contents/{path}`, `/api/custom/contents/{path}/preview`, `/api/custom/contents/{path}/cells`, `/api/custom/contents/{path}/cells/{index}/execute`, `/api/custom/contents/{path}/cells/execute-batch`, `/api/custom/contents/{path}/cells/clear-all-outputs`, `/api/workspaces`, `/api/workspaces/{workspace_id}`, `/api/workspaces/{workspace_id}/summarize`, `/api/custom/sessions`, `/api/sql/execute`, `/api/sql/export`, `WS /api/ai/events`, `/api/ai/events/broadcast`
-
-> 各エンドポイントの詳細は [docs/design/api-contracts.md](../docs/design/api-contracts.md) を参照。
+ルート定義（パス・ハンドラの対応）は `extensions/custom_api/handlers.py` の `get_handlers()` が正。各ハンドラの実装は同ディレクトリの `handlers.py` / `session_handlers.py` / `sql_handlers.py` / `workspace_handlers.py` / `ai_events.py` を参照。契約仕様（メソッド・ステータスコード・入出力）は [docs/design/api-contracts.md](../docs/design/api-contracts.md) を参照。
 
 ## ポート
 

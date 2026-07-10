@@ -46,9 +46,7 @@ npm run typecheck
 
 ## MCPツール一覧
 
-`workspace_create`, `workspace_list`, `workspace_update`, `workspace_summarize`, `session_create`, `session_list`, `session_connect`, `session_delete`, `execute_code`, `get_variables`, `get_dataframe_info`, `notebook_create`, `notebook_add_cell`, `notebook_list_cells`, `notebook_edit_cell`, `notebook_delete_cell`, `notebook_execute_cell`, `notebook_reorder_cell`, `notebook_execute_batch`, `notebook_merge_cells`, `notebook_split_cell`, `notebook_change_cell_type`, `notebook_copy_cell`, `notebook_clear_outputs`, `kernel_restart`, `file_list`, `file_read`, `data_preview`, `execute_sql`, `export_sql`, `get_image`
-
-> 各ツールの詳細は [docs/requirements/jupyter-mcp.md](../docs/requirements/jupyter-mcp.md) を参照。
+ツールの一覧と入出力スキーマは `src/tools/index.ts`（登録・`registerTools` / `handleToolCall`）と `src/tools/*.ts`（各ツール定義）が正。機能要件との対応は [docs/requirements/jupyter-mcp.md](../docs/requirements/jupyter-mcp.md) のツール一覧表を参照。
 
 ## 要件定義
 

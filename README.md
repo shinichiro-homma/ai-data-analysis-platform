@@ -174,57 +174,9 @@ pwd                        # プロジェクトルートで実行 → <PROJECT_P
 
 ## MCPツール一覧
 
-### jupyter-mcp（分析実行制御）
-
-| ツール | 概要 |
-|--------|------|
-| `workspace_create` | ワークスペース作成 |
-| `workspace_list` | ワークスペース一覧 |
-| `workspace_update` | ワークスペース更新 |
-| `workspace_summarize` | 検証レポート用テンプレート取得 |
-| `session_create` | セッション作成 |
-| `session_list` | セッション一覧 |
-| `session_connect` | 既存セッション接続 |
-| `session_delete` | セッション終了 |
-| `execute_code` | Pythonコード実行 |
-| `get_variables` | 変数一覧取得 |
-| `get_dataframe_info` | DataFrame情報取得 |
-| `notebook_create` | ノートブック作成 |
-| `notebook_add_cell` | セル追加 |
-| `notebook_list_cells` | セル一覧取得 |
-| `notebook_edit_cell` | セル編集 |
-| `notebook_delete_cell` | セル削除 |
-| `notebook_execute_cell` | セル再実行 |
-| `notebook_reorder_cell` | セル並び替え |
-| `notebook_execute_batch` | セル一括実行 |
-| `notebook_merge_cells` | セル結合 |
-| `notebook_split_cell` | セル分割 |
-| `notebook_change_cell_type` | セルタイプ変更 |
-| `notebook_copy_cell` | セルコピー |
-| `notebook_clear_outputs` | 出力クリア |
-| `kernel_restart` | カーネル再起動 |
-| `file_list` | ファイル一覧取得 |
-| `file_read` | ファイル読み取り |
-| `data_preview` | データプレビュー |
-| `execute_sql` | SQL実行・結果確認 |
-| `export_sql` | SQLデータエクスポート |
-| `get_image` | 画像取得 |
-
-> 詳細は [docs/requirements/jupyter-mcp.md](docs/requirements/jupyter-mcp.md) を参照。
-
-### document-mcp（カタログ・用語集・ロジック参照）
-
-| ツール | 概要 |
-|--------|------|
-| `get_table_index` | テーブルインデックス取得 |
-| `get_table_detail` | テーブル詳細取得 |
-| `get_term_index` | 用語インデックス取得 |
-| `get_term_detail` | 用語詳細取得 |
-| `get_logic_index` | ロジックインデックス取得 |
-| `get_logic_detail` | ロジックメタ情報取得 |
-| `get_logic_code` | ロジックコード取得 |
-
-> 詳細は [docs/requirements/document-mcp.md](docs/requirements/document-mcp.md) を参照。
+各ツールの定義（名前・description・入出力スキーマ）はコードが正:
+`jupyter-mcp/src/tools/`（登録は `index.ts`）、`document-mcp/src/tools/`（登録は `index.ts`）。
+機能要件とツールの対応は [docs/requirements/jupyter-mcp.md](docs/requirements/jupyter-mcp.md) / [docs/requirements/document-mcp.md](docs/requirements/document-mcp.md) を参照。
 
 ## 使い方
 

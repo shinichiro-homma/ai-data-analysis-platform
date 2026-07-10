@@ -35,9 +35,8 @@ npm run typecheck  # 型チェック
 
 ## MCPツール一覧
 
-`get_table_index`, `get_table_detail`, `get_term_index`, `get_term_detail`, `get_logic_index`, `get_logic_detail`, `get_logic_code`
+ツールの一覧と入出力スキーマは `src/tools/index.ts`（登録・`registerTools` / `handleToolCall`）と `src/tools/*.ts`（各ツール定義）が正。機能要件との対応は [docs/requirements/document-mcp.md](../docs/requirements/document-mcp.md) のツール一覧表を参照。
 
-> 各ツールの詳細は [docs/requirements/document-mcp.md](../docs/requirements/document-mcp.md) を参照。
 > 一括取得の上限や戻り値の構造は `src/utils/validation.ts`・`src/utils/response-formatter.ts` を参照。
 
 ## 要件定義

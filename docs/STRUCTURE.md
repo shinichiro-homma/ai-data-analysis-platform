@@ -2,11 +2,15 @@
 
 要件・仕様を変更する際は、以下の依存関係に基づいて関連ファイルを更新すること。
 
+## 大原則: コードが正（Single Source of Truth）
+
+実装の詳細（ツール/APIの入出力スキーマ、パラメータ、デフォルト値、エラーコード等）は**ソースコードが正**であり、ドキュメントには記載しない。ドキュメントが持つのは「コードから読み取れない情報」（Why、機能分類、受け入れ条件、未実装要件）と、コードとの対応を保つための**最小限の一覧表**（CI で自動照合される）のみ。判定基準は `.claude/rules/documentation.md` を参照。
+
 ## ファイル一覧と役割
 
 ```
 CLAUDE.md                           ← 全体概要（コンポーネント表、開発ドキュメントへのリンク）
-README.md                           ← GitHub 向け README（概要、セットアップ、ツール一覧）
+README.md                           ← GitHub 向け README（概要、セットアップ）
 │
 ├── .claude/
 │   ├── agents/                    ← サブエージェント定義
@@ -14,13 +18,12 @@ README.md                           ← GitHub 向け README（概要、セッ�
 │   ├── hooks/                      ← フック（PreToolUse / PostToolUse）
 │   ├── rules/                      ← 開発ルール
 │   └── skills/                     ← 専門知識・実装パターン
-│       └── mcp-typescript-server/  ← MCP SDK の Skill
 │
 ├── docs/
 │   ├── overview.md                 ← 全体像、アーキテクチャ、ユースケースフロー、データフロー
 │   ├── STRUCTURE.md                ← このファイル（ドキュメント構成マップ、更新の依存関係）
 │   │
-│   ├── requirements/               ← 各コンポーネントの要件定義（正）
+│   ├── requirements/               ← 各コンポーネントの要件定義（F番号・Why・受け入れ条件）
 │   │   ├── jupyter-server.md
 │   │   ├── jupyter-mcp.md
 │   │   ├── jupyterlab-ai-sync.md
@@ -28,115 +31,92 @@ README.md                           ← GitHub 向け README（概要、セッ�
 │   │   └── document-mcp.md
 │   │
 │   ├── design/
-│   │   └── api-contracts.md        ← REST API の詳細仕様（正）
+│   │   └── api-contracts.md        ← REST API のエンドポイント一覧（詳細はコード）
 │   │
-│   ├── plan/                       ← 開発タスク一覧、進捗管理
-│   │   ├── README.md               ← インデックス（カテゴリ別リンク）
-│   │   ├── 01-jupyter.md           ← Jupyter 関連タスク
-│   │   ├── 02-document.md          ← Document 関連タスク
-│   │   ├── 03-workspace.md         ← Workspace 関連タスク
-│   │   └── 04-infrastructure.md    ← Infrastructure 関連タスク
+│   ├── plan/                       ← 開発タスク一覧（進行中・未着手のみ）
+│   │   ├── README.md               ← インデックス、アーカイブ規約
+│   │   ├── 01-jupyter.md 〜 04-infrastructure.md
+│   │   └── archive/                ← 完了 Phase の記録
 │   │
-│   ├── tasks/                      ← タスクごとの詳細な開発計画
-│   │   ├── README.md               ← タスク詳細の管理方法
-│   │   ├── _template.md            ← テンプレート
-│   │   ├── jupyter/                ← Jupyter 関連タスク詳細
-│   │   ├── document/               ← Document 関連タスク詳細
-│   │   ├── workspace/              ← Workspace 関連タスク詳細
-│   │   └── infrastructure/         ← Infrastructure 関連タスク詳細
+│   ├── tasks/                      ← タスクごとの詳細な開発計画（現役のみ）
+│   │   └── archive/                ← 完了タスクの詳細計画
+│   │
+│   ├── issues/                     ← 未解決の既知バグ・Issue 詳細
+│   │   └── archive/                ← 解決済み Issue
 │   │
 │   ├── guides/                     ← 運用ガイド
-│   │   └── add-table.md            ← テーブル追加手順
-│   │
 │   └── PLAN.md                     ← リダイレクト（→ plan/README.md）
 │
-├── .mainignore                     ← main ブランチに含めないファイルの一覧
-├── scripts/
-│   └── promote-to-main.sh         ← dev → main プロモーションスクリプト
+├── scripts/                        ← ビルド・テスト・運用スクリプト（.claude/rules/scripts.md）
 │
-├── jupyter-server/
-│   └── CLAUDE.md                   ← コンポーネント概要
-│
-├── jupyter-mcp/
-│   └── CLAUDE.md                   ← コンポーネント概要、MCPツール一覧
-│
-├── jupyterlab-ai-sync/
-│   └── CLAUDE.md                   ← コンポーネント概要、受信イベント一覧
-│
-├── document-server/
-│   └── CLAUDE.md                   ← コンポーネント概要、API一覧
-│
-└── document-mcp/
-    └── CLAUDE.md                   ← コンポーネント概要、MCPツール一覧
+└── {component}/CLAUDE.md           ← コンポーネント概要、コマンド、環境変数、コードへのポインタ
 ```
-
-## 更新の依存関係
-
-以下の表に従って、変更内容に応じた関連ファイルを**すべて**更新すること。
-
-| 変更内容 | 更新が必要なファイル |
-|----------|---------------------|
-| **MCPツールの追加・変更** | `docs/requirements/{component}-mcp.md` → `{component}-mcp/CLAUDE.md` → `README.md`（ツール一覧） → `docs/plan/`（タスク追加） |
-| **REST APIの追加・変更** | `docs/requirements/{component}-server.md` → `docs/design/api-contracts.md` → `{component}-server/CLAUDE.md` → `docs/plan/` |
-| **アーキテクチャ変更** | `docs/overview.md` → 影響する全 `requirements/*.md` → 影響する全 `*/CLAUDE.md` → `CLAUDE.md`（該当すれば） → `README.md` |
-| **データフロー変更** | `docs/overview.md` → 関連する `requirements/*.md` |
-| **新コンポーネント追加** | `CLAUDE.md` → `README.md` → `docs/overview.md` → `docs/requirements/{new}.md`（新規作成） → `{new}/CLAUDE.md`（新規作成） → `docs/plan/` |
-| **要件定義リンクの追加・削除** | `CLAUDE.md`（要件定義セクション） + `README.md`（要件定義セクション） |
-| **開発タスクの追加・変更** | `docs/plan/` 内の該当ファイル |
-
-## 各ファイルの更新ポイント
-
-### CLAUDE.md
-- コンポーネント表（名前、概要、ポート）
-- 新コンポーネント追加時に更新
-
-### README.md
-- コンポーネント表（名前、概要、ポート）
-- **MCPツール一覧**（ツール名＋1行概要、詳細は要件定義へ参照）
-- アーキテクチャ図（`docs/overview.md` へのリンク参照のみ）
-- セットアップ手順
-- MCPツール追加・変更、コンポーネント追加時に更新
-
-### docs/overview.md
-- アーキテクチャ図
-- ユースケースフロー
-- コンポーネント詳細（責務のみ。技術スタック・ツール一覧は含めない）
-- データフロー
-- 非機能要件
-
-### docs/requirements/*.md（正）
-- 機能要件（F1, F2, ...）
-- 非機能要件
-- ツール/API定義（入出力スキーマ）
-- 技術スタック
-- 受け入れ条件
-
-### docs/design/api-contracts.md（正）
-- エンドポイント一覧
-- リクエスト/レスポンス形式
-- エラーコード
-
-### */CLAUDE.md（各コンポーネント）
-- コンポーネント概要
-- コマンド一覧
-- 環境変数
-- ツール/API一覧（簡易版、要件定義への参照リンク付き）
-
-### docs/plan/（開発プラン）
-- `README.md` — インデックス（カテゴリ別リンク）
-- `01-jupyter.md` — Jupyter 関連タスク一覧・ステータス
-- `02-document.md` — Document 関連タスク一覧・ステータス
-- `03-workspace.md` — Workspace 関連タスク一覧・ステータス
-- `04-infrastructure.md` — Infrastructure 関連タスク一覧・ステータス
 
 ## Single Source of Truth（正）の定義
 
 | 情報 | 正 | サマリー/参照を置いてよい場所 |
 |------|-----|------------------------------|
-| MCPツール定義（入出力スキーマ） | `docs/requirements/*-mcp.md` | `*/CLAUDE.md`（名前リスト）、`README.md`（名前＋1行概要） |
-| REST API仕様 | `docs/design/api-contracts.md` | `*/CLAUDE.md`（エンドポイント名リスト） |
+| ツール/APIの入出力スキーマ・パラメータ・デフォルト値・エラーコード | **コード**（`jupyter-mcp/src/tools/`, `document-mcp/src/tools/`, `document-server/src/`, `jupyter-server/extensions/`） | なし（ドキュメントはコードへのポインタのみ） |
+| MCPツールの一覧（名前と目的） | `docs/requirements/*-mcp.md` の「ツール一覧」表（**CI がコードと照合**） | — |
+| REST API エンドポイントの一覧（メソッド・パス・目的） | `docs/design/api-contracts.md` の一覧表（**CI がコードと照合**） | — |
+| 機能要件（F番号・Why・受け入れ条件・未実装要件） | `docs/requirements/*.md` | `docs/overview.md`（責務レベルの要約） |
 | 技術スタック | `docs/requirements/*.md` | `*/CLAUDE.md`（簡易版） |
 | 開発コマンド | `*/CLAUDE.md` | — |
 | 環境変数 | `*/CLAUDE.md` | `docs/requirements/*.md`（要件としての説明のみ） |
 | アーキテクチャ図 | `docs/overview.md` | `README.md`（リンク参照のみ） |
 | コンポーネント表 | `CLAUDE.md` | `README.md`（同一内容を意図的に二重管理: 外部公開用） |
+
+## 更新の依存関係
+
+| 変更内容 | 更新が必要なファイル |
+|----------|---------------------|
+| **MCPツールの追加・削除・改名** | コード（正） → `docs/requirements/{component}-mcp.md` のツール一覧表（名前と目的の行を追加/削除。CI が同期を検証） |
+| **REST APIの追加・削除・パス変更** | コード（正） → `docs/design/api-contracts.md` のエンドポイント一覧表（CI が同期を検証） |
+| **パラメータ・スキーマ・デフォルト値・エラーコードの変更** | コードのみ（ドキュメント更新不要） |
+| **要件の変更（機能追加・仕様変更）** | `.claude/rules/requirement-workflow.md` に従う: `docs/requirements/*.md` → 必要に応じて `docs/overview.md` → `docs/plan/`（タスク追加） |
+| **アーキテクチャ変更** | `docs/overview.md` → 影響する `requirements/*.md` → 影響する `*/CLAUDE.md` → `CLAUDE.md` / `README.md`（該当すれば） |
+| **新コンポーネント追加** | `CLAUDE.md` → `README.md` → `docs/overview.md` → `docs/requirements/{new}.md`（新規） → `{new}/CLAUDE.md`（新規） → `docs/plan/` |
+| **開発タスクの追加・変更・完了** | `docs/plan/` 内の該当ファイル（完了時は `docs/plan/README.md` のアーカイブ規約に従う） |
+
+## CI による整合性検証
+
+`scripts/check-docs-consistency.py`（CI: doc-consistency ジョブ）が PR ごとに以下を機械的に検証する。
+
+1. **MCPツール名の同期** — コードに登録されたツール名と `docs/requirements/*-mcp.md` のツール一覧表が一致すること
+2. **REST エンドポイントの同期** — コードのルート定義と `docs/design/api-contracts.md` の一覧表が一致すること
+3. **Markdown リンク** — `docs/` 配下・ルートの `*.md` の相対リンクが切れていないこと
+
+このため、ツール一覧表・エンドポイント一覧表は以下の形式を守ること:
+
+- ツール一覧表: `## ツール一覧` セクション配下の表。1列目がバッククォート付きツール名（例: `` `execute_code` ``）
+- エンドポイント一覧表: コンポーネントごとのセクション配下の表。`| メソッド | パス | 目的 |` 形式
+
+意味レベルの乖離（説明文とロジックの不一致等）は CI では検知できないため、`/custom-audit-docs`（`.claude/skills/doc-code-audit/SKILL.md`）と `/custom-complete-task` 内の整合性チェックで検査する。
+
+## 各ファイルの更新ポイント
+
+### CLAUDE.md（ルート）
+- コンポーネント表（名前、概要、ポート）。新コンポーネント追加時に更新
+
+### README.md
+- コンポーネント表、セットアップ手順、アーキテクチャ図へのリンク。ツール/API の詳細一覧は持たない（コードと requirements へのポインタのみ）
+
+### docs/overview.md
+- アーキテクチャ図、ユースケースフロー、コンポーネント詳細（責務のみ。技術スタック・ツール一覧は含めない）、データフロー、非機能要件
+
+### docs/requirements/*.md
+- 機能要件（F番号、Why、受け入れ条件）、非機能要件、未実装の将来要件（ステータス明記）
+- MCPコンポーネントは「ツール一覧」表（名前・対応F番号・1行の目的。**CI 照合対象**）
+- 入出力スキーマ・デフォルト値等の実装詳細は書かない（コードが正）
+
+### docs/design/api-contracts.md
+- コンポーネント別のエンドポイント一覧表（メソッド・パス・目的。**CI 照合対象**）
+- コンポーネント間の契約に関する設計方針（認証方式、エラーレスポンスの共通形式の考え方等、Why レベルのみ）
+- リクエスト/レスポンスの詳細スキーマは書かない（コードが正）
+
+### */CLAUDE.md（各コンポーネント）
+- コンポーネント概要、コマンド一覧、環境変数
+- ツール/API はコード内の定義場所へのポインタのみ（一覧は持たない）
+
+### docs/plan/（開発プラン）
+- 進行中・未着手タスクのみ。完了分は `archive/` へ（規約は `plan/README.md`）
