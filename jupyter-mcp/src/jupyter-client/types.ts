@@ -10,9 +10,9 @@ export type KernelStatus = 'starting' | 'idle' | 'busy' | 'dead';
 
 export interface Kernel {
   id: string;
-  name: string;
+  name?: string;
   status: KernelStatus;
-  started_at: string;
+  started_at?: string;
   execution_count?: number;
 }
 

@@ -16,9 +16,9 @@ const KernelStatusEnum = z.enum(['starting', 'idle', 'busy', 'dead']);
 export const KernelSchema = z
   .object({
     id: z.string(),
-    name: z.string(),
+    name: z.string().optional(),
     status: KernelStatusEnum,
-    started_at: z.string(),
+    started_at: z.string().optional(),
     execution_count: z.number().optional(),
   })
   .strip();
