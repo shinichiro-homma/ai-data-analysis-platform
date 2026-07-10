@@ -1,6 +1,6 @@
 # 0001: AI 同期は jupyter-mcp からのイベントブロードキャストで実現する
 
-- Status: 再検討中（2026-07-10 の横断レビューで構造問題が判明。同期再設計タスクで後継 ADR を作成予定）
+- Status: 廃止（→ [0002](0002-ai-sync-notify-reload.md)）
 - 日付: 2026-07-10（タスク 8.2 実装時 2026-03 頃の判断を後追いで文書化）
 - 関連: 旧タスク Jupyter Phase 8（`docs/plan/archive/01-jupyter.md`）
 
