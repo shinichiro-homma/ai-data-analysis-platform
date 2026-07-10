@@ -9,10 +9,13 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter, validateNumberParameter } from '../utils/validation.js';
 import { resolveSession } from '../utils/session-resolver.js';
 import { toImageReference } from '../image-store/index.js';
+import type { ImageOutput } from '../jupyter-client/types.js';
 import { getContentsWithTimeout } from '../utils/notebook-helpers.js';
 import { getEffectiveCellCount, findPendingCellIndex, consumePendingCell } from '../utils/notebook-cell-tracker.js';
 import { addCellWithSync } from '../utils/cell-operations.js';
@@ -164,7 +167,9 @@ export async function executeExecuteCode(args: Record<string, unknown>): Promise
 
       // 画像をImageReference形式に変換（ファイルはjupyter-server側で保存済み）
       // file_path が null の画像はスキップ（ワークスペース解決に失敗した場合）
-      const imageReferences = result.images.filter((img) => img.file_path != null).map((img) => toImageReference(img));
+      const imageReferences = result.images
+        .filter((img): img is ImageOutput & { file_path: string } => img.file_path != null)
+        .map((img) => toImageReference(img));
 
       return createSuccessResponse({
         stdout,
@@ -317,3 +322,29 @@ async function broadcastOutputEvents(
 
   return lastResult;
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'execute_code',
+    description:
+      "Executes Python code for data analysis, aggregation, and visualization. pandas, matplotlib, etc. are available. Returns execution results and chart images. Automatically adds a notebook cell if none exists. CSVs saved by execute_sql can be loaded via pd.read_csv('data/filename.csv'). Use get_image to view chart images. [Security] Shell commands (!command, subprocess, os.system, ctypes) are blocked by AST inspection + sandbox.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+        code: {
+          type: 'string',
+          description: 'Python code to execute. Shell commands (!command, subprocess, os.system, ctypes) are blocked',
+        },
+        timeout: { type: 'number', description: 'Timeout in seconds (default: 30, max: 300)' },
+        cell_index: {
+          type: 'number',
+          description:
+            'Cell index to execute (use cell_index from notebook_add_cell return value. Auto-detected if omitted)',
+        },
+      },
+      required: ['session_id'],
+    },
+  },
+  execute: executeExecuteCode,
+};

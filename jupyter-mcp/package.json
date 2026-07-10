@@ -20,7 +20,8 @@
   "dependencies": {
     "@ai-data-analysis/mcp-shared": "*",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",

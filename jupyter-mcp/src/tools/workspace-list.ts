@@ -2,6 +2,8 @@
  * workspace_list ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
   createSuccessResponse,
@@ -10,6 +12,7 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from '../utils/response-formatter.js';
+import type { McpToolResult } from '../utils/response-formatter.js';
 import { toKernelRelativePath } from '../utils/workspace-path.js';
 import { registerWorkspacePath } from '../utils/workspace-path-store.js';
 
@@ -42,3 +45,17 @@ export async function executeWorkspaceList(_args: Record<string, unknown>): Prom
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'workspace_list',
+    description:
+      'Retrieves the list of existing workspaces. Workspaces persist on disk and can be rediscovered after MCP restart.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  execute: executeWorkspaceList,
+};

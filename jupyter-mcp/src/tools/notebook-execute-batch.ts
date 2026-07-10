@@ -2,12 +2,14 @@
  * notebook_execute_batch ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import {
   createSuccessResponse,
   createErrorResponse,
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import {
   validateStringParameter,
@@ -103,3 +105,31 @@ export async function executeNotebookExecuteBatch(args: Record<string, unknown>)
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_execute_batch',
+    description:
+      'Executes multiple cells in a notebook at once. Supports three modes: all (execute all cells), up_to (execute from the first cell to the specified index inclusive), from (execute from the specified index to the last cell inclusive). Markdown cells are skipped. Stops on the first error and returns the failed cell index.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        session_id: { type: 'string', description: 'Session ID' },
+        mode: {
+          type: 'string',
+          enum: ['all', 'up_to', 'from'],
+          description:
+            'Execution mode: all = all cells, up_to = first cell to cell_index (inclusive), from = cell_index to last cell (inclusive)',
+        },
+        cell_index: {
+          type: 'number',
+          description: 'Reference cell index (0-indexed). Required when mode is up_to or from',
+        },
+        timeout: { type: 'number', description: 'Timeout in seconds per cell (default: 30, max: 300)' },
+      },
+      required: ['notebook_path', 'session_id', 'mode'],
+    },
+  },
+  execute: executeNotebookExecuteBatch,
+};

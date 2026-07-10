@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter } from '../utils/validation.js';
 import { resolveKernelId } from '../utils/session-resolver.js';
 
@@ -51,3 +53,19 @@ export async function executeGetVariables(args: Record<string, unknown>): Promis
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'get_variables',
+    description:
+      'Retrieves the list of variables defined in the session. Returns variable name, type, and approximate size.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+      },
+      required: ['session_id'],
+    },
+  },
+  execute: executeGetVariables,
+};

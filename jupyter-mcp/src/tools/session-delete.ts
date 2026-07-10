@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter } from '../utils/validation.js';
 
 interface SessionDeleteArgs {
@@ -46,3 +48,18 @@ export async function executeSessionDelete(args: Record<string, unknown>): Promi
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'session_delete',
+    description: 'Terminates an analysis session and releases resources.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID to terminate' },
+      },
+      required: ['session_id'],
+    },
+  },
+  execute: executeSessionDelete,
+};

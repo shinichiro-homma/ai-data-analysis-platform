@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateNumberParameter, validateFilename, validateSqlToolCommonParams } from '../utils/validation.js';
 import { resolveWorkspaceIdOrError } from '../utils/session-resolver.js';
 import { resolveWorkspacePath } from '../utils/workspace-path-store.js';
@@ -87,7 +89,7 @@ export async function executeExportSql(args: Record<string, unknown>): Promise<M
       executionTimeMs: result.execution_time_ms,
     });
 
-    const { success, ...resultData } = result;
+    const { success: _success, ...resultData } = result;
 
     return createSuccessResponse({
       ...resultData,
@@ -97,3 +99,32 @@ export async function executeExportSql(args: Record<string, unknown>): Promise<M
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'export_sql',
+    description: `Executes a SQL query and exports results as Parquet/CSV to the workspace's data/ directory. No row limit, streaming processing — ideal for dataset creation. Default format is Parquet; use CSV only when specified.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure\n(2) Call get_logic_index to check for reusable existing logic\n\nResponse:\n{\n  "file_path": "export file path (loadable via pd.read_parquet in execute_code)",\n  "row_count": "number of exported rows",\n  "file_size_bytes": "file size"\n}`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+        sql: {
+          type: 'string',
+          description: 'SELECT query to export. Dangerous operations (DELETE, ALTER, GRANT, REVOKE, etc.) are rejected',
+        },
+        filename: {
+          type: 'string',
+          description: "Output file path in data/ directory (e.g., 'purchase_history.parquet')",
+        },
+        format: {
+          type: 'string',
+          enum: ['parquet', 'csv'],
+          description: 'Output format (default: parquet). Use csv only when user specifies',
+        },
+        timeout: { type: 'number', description: 'Timeout in seconds (default: 300, max: 600)' },
+      },
+      required: ['session_id', 'sql', 'filename'],
+    },
+  },
+  execute: executeExportSql,
+};

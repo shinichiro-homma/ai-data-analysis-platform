@@ -2,6 +2,8 @@
  * workspace_update ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+
 import { jupyterClient } from '../jupyter-client/client.js';
 import type { UpdateWorkspaceRequest } from '../jupyter-client/types.js';
 import {
@@ -11,7 +13,8 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from '../utils/response-formatter.js';
-import { validateWorkspaceId, validateWorkspaceMetadata } from '../utils/validation.js';
+import type { McpToolResult } from '../utils/response-formatter.js';
+import { validateWorkspaceId, validateWorkspaceMetadata, WORKSPACE_STATUS_SCHEMA } from '../utils/validation.js';
 
 interface WorkspaceUpdateArgs {
   workspace_id?: string;
@@ -63,3 +66,30 @@ export async function executeWorkspaceUpdate(args: Record<string, unknown>): Pro
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'workspace_update',
+    description:
+      'Updates workspace metadata (summary and/or status). Use to record analysis progress and current state. At least one of summary or status must be specified.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: {
+          type: 'string',
+          description: 'Workspace ID',
+        },
+        summary: {
+          type: 'string',
+          description: 'Updated summary of the analysis (max 200 characters)',
+        },
+        status: {
+          ...WORKSPACE_STATUS_SCHEMA,
+          description: 'Updated workspace status',
+        },
+      },
+      required: ['workspace_id'],
+    },
+  },
+  execute: executeWorkspaceUpdate,
+};

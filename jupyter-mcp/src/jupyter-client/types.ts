@@ -69,7 +69,7 @@ export interface Output {
 }
 
 export interface ImageOutput {
-  file_path: string; // workspaces/{workspace_id}/output/exec-{N}-img-{NNN}.{ext}
+  file_path: string | null; // workspaces/{workspace_id}/output/exec-{N}-img-{NNN}.{ext} （ワークスペース解決失敗時は null）
   mime_type: string;
   description: string;
 }

@@ -2,15 +2,10 @@
  * notebook_copy_cell ツール実装
  */
 
-import {
-  createSuccessResponse,
-  createErrorResponse,
-  extractErrorCode,
-  extractErrorMessage,
-  type McpResponse,
-} from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import { validateAndNormalizeNotebookPath, validateCellIndexParam } from '../utils/validation.js';
-import { jupyterClient } from '../jupyter-client/client.js';
+import { operateCellWithSync } from '../utils/cell-operations.js';
 
 /**
  * セルを指定位置にコピー（複製）する
@@ -40,29 +35,37 @@ export async function executeNotebookCopyCell(args: Record<string, unknown>): Pr
     targetIndex = targetIndexResult.index;
   }
 
-  try {
-    // REST API でセルをコピー
-    await jupyterClient.operateCell(validatedPath, {
-      action: 'copy',
-      index: sourceIndex,
-      to_index: targetIndex,
-    });
-
-    // AI同期イベントを配信（ブラウザにリアルタイム反映）
-    await jupyterClient.postAiEvent({
-      type: 'cell_copied',
-      notebook_path: validatedPath,
-      source_index: sourceIndex,
-      target_index: targetIndex,
-    });
-
-    return createSuccessResponse({
+  return operateCellWithSync(
+    validatedPath,
+    { action: 'copy', index: sourceIndex, to_index: targetIndex },
+    { type: 'cell_copied', notebook_path: validatedPath, source_index: sourceIndex, target_index: targetIndex },
+    {
       notebook_path: validatedPath,
       source_index: sourceIndex,
       target_index: targetIndex,
       message: `ノートブック "${validatedPath}" のセル ${sourceIndex} を位置 ${targetIndex} にコピーしました`,
-    });
-  } catch (error) {
-    return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
-  }
+    },
+  );
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_copy_cell',
+    description:
+      'Copies a cell to a specified position within a notebook. The copied cell has its outputs and execution_count cleared (for code cells). If target_index is omitted, the cell is copied immediately after the source cell.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        source_index: { type: 'number', description: 'Cell index to copy (0-indexed)' },
+        target_index: {
+          type: 'number',
+          description:
+            'Position to insert the copied cell (0-indexed). If omitted, the cell is inserted immediately after the source cell',
+        },
+      },
+      required: ['notebook_path', 'source_index'],
+    },
+  },
+  execute: executeNotebookCopyCell,
+};

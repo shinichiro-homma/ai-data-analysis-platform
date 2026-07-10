@@ -2,19 +2,14 @@
  * notebook_split_cell ツール実装
  */
 
-import {
-  createSuccessResponse,
-  createErrorResponse,
-  extractErrorCode,
-  extractErrorMessage,
-  type McpResponse,
-} from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import {
   validateAndNormalizeNotebookPath,
   validateCellIndexParam,
   validatePositiveIntegerParam,
 } from '../utils/validation.js';
-import { jupyterClient } from '../jupyter-client/client.js';
+import { operateCellWithSync } from '../utils/cell-operations.js';
 
 /**
  * 1つのセルを指定行で2つに分割する
@@ -38,29 +33,37 @@ export async function executeNotebookSplitCell(args: Record<string, unknown>): P
   }
   const splitLine = splitLineResult.value;
 
-  try {
-    // REST API でセルを分割
-    await jupyterClient.operateCell(validatedPath, {
-      action: 'split',
-      index: cellIndex,
-      split_line: splitLine,
-    });
-
-    // AI同期イベントを配信（ブラウザにリアルタイム反映）
-    await jupyterClient.postAiEvent({
-      type: 'cell_split',
-      notebook_path: validatedPath,
-      cell_index: cellIndex,
-      split_line: splitLine,
-    });
-
-    return createSuccessResponse({
+  return operateCellWithSync(
+    validatedPath,
+    { action: 'split', index: cellIndex, split_line: splitLine },
+    { type: 'cell_split', notebook_path: validatedPath, cell_index: cellIndex, split_line: splitLine },
+    {
       notebook_path: validatedPath,
       cell_index: cellIndex,
       split_line: splitLine,
       message: `ノートブック "${validatedPath}" のセル ${cellIndex} を行 ${splitLine} で分割しました`,
-    });
-  } catch (error) {
-    return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
-  }
+    },
+  );
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_split_cell',
+    description:
+      'Splits a single cell in a notebook into two cells at the specified line. Lines before split_line go to the first cell, lines from split_line onward go to the second cell.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        cell_index: { type: 'number', description: 'Cell index to split (0-indexed)' },
+        split_line: {
+          type: 'number',
+          description:
+            'Line number at which to split (1-indexed: line 1 means first line goes to first cell, remainder to second cell). Must be between 1 and total_lines-1',
+        },
+      },
+      required: ['notebook_path', 'cell_index', 'split_line'],
+    },
+  },
+  execute: executeNotebookSplitCell,
+};

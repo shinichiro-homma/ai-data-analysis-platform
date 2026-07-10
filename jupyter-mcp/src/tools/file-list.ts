@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter, validateWorkspaceId } from '../utils/validation.js';
 import { normalizePath } from '../utils/path-validator.js';
 import { ValidationError } from '../utils/errors.js';
@@ -86,3 +88,23 @@ export async function executeFileList(args: Record<string, unknown>): Promise<Mc
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'file_list',
+    description:
+      'Retrieves the file list within the specified workspace. Use to verify notebook creation or list data files.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: { type: 'string', description: 'Workspace ID' },
+        path: {
+          type: 'string',
+          description: 'Relative directory path within workspace (defaults to workspace root)',
+        },
+      },
+      required: ['workspace_id'],
+    },
+  },
+  execute: executeFileList,
+};

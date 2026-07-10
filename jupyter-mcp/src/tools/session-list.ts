@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { kernelsToSessionList } from '../utils/session-formatter.js';
 import { logger } from '../utils/logger.js';
 
@@ -37,3 +39,12 @@ export async function executeSessionList(args: Record<string, unknown>): Promise
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'session_list',
+    description: 'Retrieves the list of active analysis sessions.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  execute: executeSessionList,
+};
