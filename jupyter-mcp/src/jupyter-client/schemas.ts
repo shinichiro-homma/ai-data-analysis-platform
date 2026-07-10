@@ -76,11 +76,11 @@ const ExecutionErrorSchema = z.object({
 export const ExecuteResultSchema = z
   .object({
     success: z.boolean(),
-    execution_count: z.number(),
-    outputs: z.array(OutputSchema),
-    result: z.unknown(),
-    images: z.array(ImageOutputSchema),
-    execution_time_ms: z.number(),
+    execution_count: z.number().default(0),
+    outputs: z.array(OutputSchema).default([]),
+    result: z.unknown().default(null),
+    images: z.array(ImageOutputSchema).default([]),
+    execution_time_ms: z.number().default(0),
     error: ExecutionErrorSchema.nullable().optional(),
   })
   .strip();
