@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16
+    # digest 固定: postgres:16 (2026-07-10 時点)
+    image: postgres:16@sha256:be01cf82fc7dbba824acf0a82e150b4b360f3ff93c6631d7844af431e841a95c
     container_name: analysis-db
     environment:
       - DATA_ENV=${DATA_ENV}

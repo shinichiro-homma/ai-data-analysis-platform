@@ -17,6 +17,9 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "style": "style/index.css",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc && jupyter labextension build .",
     "build:lib": "tsc",

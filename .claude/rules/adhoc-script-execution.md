@@ -33,7 +33,7 @@ paths:
 tmp/ スクリプトからの外向き通信は、以下のホストのみ許可する:
 
 - `localhost`, `127.0.0.1`
-- docker-compose 内のサービス名: `jupyter-server`, `document-server`, `postgres`, `jupyter-mcp`, `document-mcp`
+- docker compose 内のサービス名: `jupyter-server`, `document-server`, `postgres`, `jupyter-mcp`, `document-mcp`
 
 **外部インターネット通信は禁止**（npm レジストリ、GitHub API 等を含む）。必要な場合は `scripts/` 配下の正式スクリプトまたは `npm`/`gh` コマンドを使う。
 

@@ -15,7 +15,7 @@ description: Vitest（TypeScript）・pytest（Python）・E2Eテストの実装
 |---------------|-------------------|------|
 | Vitest (TypeScript) | jupyter-mcp, document-mcp | MCP ツールのユニットテスト、結合テスト |
 | pytest (Python) | document-server | REST API のユニットテスト、Router テスト |
-| Vitest (E2E) | tests/e2e/ | docker-compose 上の全サービス横断テスト |
+| Vitest (E2E) | tests/e2e/ | docker compose 上の全サービス横断テスト |
 
 ## テスト構造の原則
 
@@ -30,7 +30,7 @@ description: Vitest（TypeScript）・pytest（Python）・E2Eテストの実装
 |---------|------|----------------|
 | `reference/vitest-mcp-testing.md` | jupyter-mcp / document-mcp のユニットテスト、モックパターン、エラーケース網羅、Vitest 設定の使い分け | MCP ツールのユニットテストを書く／拡充するとき |
 | `reference/pytest-testing.md` | document-server の pytest 構成、conftest.py フィクスチャパターン、Router テストテンプレート | document-server の REST API テストを書くとき |
-| `reference/e2e-testing.md` | tests/e2e/ の構成、API クライアントヘルパー、シナリオベース・パフォーマンステストのパターン | docker-compose 環境全体を横断する E2E テストを書くとき |
+| `reference/e2e-testing.md` | tests/e2e/ の構成、API クライアントヘルパー、シナリオベース・パフォーマンステストのパターン | docker compose 環境全体を横断する E2E テストを書くとき |
 | `reference/integration-testing.md` | TypeScript の結合テスト（実サーバー接続）の構造・前提条件 | jupyter-mcp/document-mcp の結合テスト（Docker必要）を書くとき |
 
 ---

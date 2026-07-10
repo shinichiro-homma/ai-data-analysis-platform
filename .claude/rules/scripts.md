@@ -10,7 +10,7 @@ paths:
 # スクリプト利用ルール
 
 ビルド・テスト・Docker 操作には `scripts/` 配下のスクリプトを使うこと。
-`npm run build` / `npm run typecheck` / `npm test` / `docker-compose build` 等を直接実行しない。
+`npm run build` / `npm run typecheck` / `npm test` / `docker compose build` 等を直接実行しない。
 
 ## スクリプト一覧
 

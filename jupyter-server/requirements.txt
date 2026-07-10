@@ -20,8 +20,11 @@ pymysql==1.1.2
 # SQL解析
 sqlparse==0.5.5
 
-# Parquet書き出し
-pyarrow==19.0.1
+# Parquet書き出し（uv.lock と統一）
+pyarrow==23.0.1
+
+# JupyterLab バージョン固定（ベースイメージ同梱を上書き。uv.lock と統一）
+jupyterlab==4.5.6
 
 # ユーティリティ
 python-dotenv==1.2.1

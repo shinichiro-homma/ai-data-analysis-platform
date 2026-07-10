@@ -89,7 +89,7 @@ jest.spyOn(axios, 'post').mockResolvedValue({ data: { /* ... */ } });
 | リアルタイム同期（AI 側の操作が JupyterLab に即時反映されるか） | CLI ツールやスクリプトの動作 |
 | WebSocket 通信の結果確認、エラー表示、画面遷移 | |
 
-事前に `docker-compose ps` で必要サービスの起動を確認する。JupyterLab は `http://localhost:8888`。
+事前に `docker compose ps` で必要サービスの起動を確認する。JupyterLab は `http://localhost:8888`。
 
 ## セキュリティテスト
 

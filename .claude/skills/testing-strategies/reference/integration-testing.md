@@ -4,7 +4,7 @@
 
 ### 前提条件
 
-- `docker-compose up -d` でサービスが起動していること
+- `docker compose up -d` でサービスが起動していること
 - 環境変数 `JUPYTER_SERVER_URL`, `JUPYTER_TOKEN` が設定されていること（`.env` ファイル経由）
 
 ### テスト構造

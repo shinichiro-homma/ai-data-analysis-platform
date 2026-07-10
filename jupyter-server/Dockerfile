@@ -1,7 +1,8 @@
 # jupyter-server Dockerfile
 # AI Data Analysis Platform - Jupyter環境
 
-FROM jupyter/scipy-notebook:python-3.11
+# digest 固定: jupyter/scipy-notebook:python-3.11 (2026-07-10 時点)
+FROM jupyter/scipy-notebook:python-3.11@sha256:fca4bcc9cbd49d9a15e0e4df6c666adf17776c950da9fa94a4f0a045d5c4ad33
 
 # 追加のPythonパッケージをインストール
 COPY jupyter-server/requirements.txt /home/jovyan/requirements.txt
@@ -28,7 +29,7 @@ COPY jupyter-server/templates /home/jovyan/templates
 USER root
 COPY jupyterlab-ai-sync /tmp/jupyterlab-ai-sync
 RUN cd /tmp/jupyterlab-ai-sync && \
-    npm install && \
+    npm ci && \
     npm run build && \
     pip install . && \
     rm -rf /tmp/jupyterlab-ai-sync

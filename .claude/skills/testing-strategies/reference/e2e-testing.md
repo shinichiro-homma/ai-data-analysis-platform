@@ -11,13 +11,13 @@ tests/e2e/
 └── performance.test.ts              # API 応答時間テスト（NF1: 200ms 以内）
 ```
 
-E2E テストは docker-compose で起動した全サービスに対して実行する。
+E2E テストは docker compose で起動した全サービスに対して実行する。
 
 ### テスト実行コマンド
 
 ```bash
 # 前提: 全サービス起動
-docker-compose up -d
+docker compose up -d
 
 # E2E テスト実行
 cd tests/e2e
