@@ -4,7 +4,7 @@
 検証内容（docs/STRUCTURE.md「CI による整合性検証」が仕様の正）:
 
 1. MCP ツール名の同期
-   {mcp}/src/tools/index.ts に登録されたツール名と、
+   {mcp}/src/tools/*.ts の toolEntry 定義に含まれるツール名と、
    docs/requirements/{mcp}.md の「## ツール一覧」表の一致を双方向で検証する。
 
 2. REST エンドポイントの同期
@@ -44,10 +44,13 @@ def fail(msg: str) -> None:
 # ──────────────────────────────────────────────
 
 
-def extract_registered_tools(index_ts: Path) -> set[str]:
-    """src/tools/index.ts のツール定義から name: '...' を抽出する。"""
-    text = index_ts.read_text(encoding="utf-8")
-    return set(re.findall(r"^\s*name: '([a-z0-9_]+)'", text, re.MULTILINE))
+def extract_registered_tools(tools_dir: Path) -> set[str]:
+    """src/tools/*.ts のツール定義から name: '...' を抽出する。"""
+    tools: set[str] = set()
+    for ts_file in sorted(tools_dir.glob("*.ts")):
+        text = ts_file.read_text(encoding="utf-8")
+        tools.update(re.findall(r"^\s*name: '([a-z0-9_]+)'", text, re.MULTILINE))
+    return tools
 
 
 def extract_tool_table(requirements_md: Path) -> set[str]:
@@ -73,12 +76,12 @@ def extract_tool_table(requirements_md: Path) -> set[str]:
 
 def check_mcp_tools() -> None:
     for component in MCP_COMPONENTS:
-        index_ts = ROOT / component / "src" / "tools" / "index.ts"
+        tools_dir = ROOT / component / "src" / "tools"
         requirements_md = ROOT / "docs" / "requirements" / f"{component}.md"
-        if not index_ts.exists():
-            fail(f"{component}: {index_ts.relative_to(ROOT)} が存在しない")
+        if not tools_dir.exists():
+            fail(f"{component}: {tools_dir.relative_to(ROOT)} が存在しない")
             continue
-        code_tools = extract_registered_tools(index_ts)
+        code_tools = extract_registered_tools(tools_dir)
         doc_tools = extract_tool_table(requirements_md)
         if not code_tools:
             fail(
