@@ -62,6 +62,25 @@ jobs:
           done
 
   # ──────────────────────────────────────────────
+  # ドキュメント整合性（常時実行 — docs のみの変更でも検証する）
+  # コードが正（docs/STRUCTURE.md）: MCPツール名・REST エンドポイント・
+  # Markdown リンクをコードと機械照合し、乖離があれば FAIL する
+  # ──────────────────────────────────────────────
+  doc-consistency:
+    name: Doc consistency check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # 標準ライブラリのみで動作するため uv sync は不要
+      - name: Check docs consistency
+        run: python scripts/check-docs-consistency.py
+
+  # ──────────────────────────────────────────────
   # TypeScript: format + 型チェック + ユニットテスト
   # ──────────────────────────────────────────────
   ts-typecheck-and-test:

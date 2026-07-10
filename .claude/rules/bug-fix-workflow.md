@@ -72,3 +72,5 @@ Issue #{番号} を起票しました: {タイトル}
 3. `/custom-complete-task` — 完了検証 + ステータス更新 + コミット + PR 作成 + CI 待機
 
 設計と実装を同一セッションで行わないこと（実装に十分なコンテキストウィンドウを確保するため）。
+
+Issue 完了時（`/custom-complete-task`）には、`docs/plan/README.md` の「アーカイブ規約」に従い、`docs/issues/` の該当ファイル（参照する添付画像を含む）を `docs/issues/archive/` へ移動する。

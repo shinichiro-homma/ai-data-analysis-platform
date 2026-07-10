@@ -1,5 +1,7 @@
 # document-mcp 要件定義
 
+> **実装詳細はコードが正（SSoT）**: ツールの入出力スキーマ・パラメータ・デフォルト値・上限値・レスポンス構造・エラーメッセージは `document-mcp/src/tools/*.ts` の zod スキーマおよび `execute` 実装が正。本ドキュメントは Why・機能分類・受け入れ条件と、コードとの対応を保つツール一覧のみを記載する。
+
 ## 概要
 
 生成AIエージェントがデータ分析を自律的に実行するために必要な**コンテキスト情報**を提供するMCPサーバー。document-serverのREST APIをラップし、MCPツールとしてAIエージェントに提供する。
@@ -49,12 +51,11 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 
 ### F1: テーブルインデックス取得（第1層）
 
-コンテキストを圧迫しないよう、軽量なインデックス情報のみを返却する。
+**Why:** コンテキストを圧迫しないよう、まず軽量なインデックス情報のみでカタログ全体を把握できるようにする。
 
 #### F1.1: 全テーブルインデックス
-- カタログ内の全テーブルのインデックスを取得
-- 返却情報: テーブル名、表示名、概要、カテゴリ
-- カラム情報や統計量は含まない
+- カタログ内の全テーブルのインデックス（名前・概要レベル）を取得
+- 詳細情報（カラム定義・統計量）は含まず、次のテーブル特定に必要な最小限に絞る
 
 ### F2: テーブル詳細取得（第2層）
 
@@ -62,91 +63,50 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 
 #### F2.1: テーブル詳細取得（一括対応）
 - 指定テーブル（複数指定可）のカタログ情報を取得
-- 基本情報、データソース、カラム定義、基本統計量（テーブル固有の拡張統計項目を含む）、テーブルレベル注意点の5セクションで構成
-- カラム定義にはkey_type/key_types（結合キー種別）とdomain（値のドメイン定義）を含む
-- key_typesは条件付きキー種別で、別カラムの値によってキー種別が異なる場合に使用する（key_typeと排他）。conditionがnullの場合はデフォルトのキー種別を表す
-- domainには2つのバリアントがある: マスタ参照型（master_table, master_column, label_column）と固定値リスト型（values配列）
-- `data_source.type` が `csv` のテーブルも取得可能。CSVファイルをデータソースとするテーブルの場合、`file_path` と `encoding` フィールドが含まれる
-- `data_source.type` が `external` のテーブルも取得可能。外部データの場合、DBにはテーブルが存在せず、カタログ定義（スキーマ情報）のみを保持する
-- external型の `data_source` には `format`（ファイル形式: csv, excel等）と `description`（データの説明）フィールドが含まれる
+- 基本情報・データソース・カラム定義・基本統計量・テーブルレベル注意点で構成
+- テーブル結合の判断に必要な結合キー種別（key_type/条件付き key_types）と値のドメイン定義（domain）を含む
+- DB 実体のあるテーブルに加え、CSV データソース（`csv`）および DB に実体を持たない外部データ定義（`external`）も取得できる
 
 ### F3: 用語インデックス取得（第1層）
 
 #### F3.1: 用語インデックス（検索対応）
-- 用語集の用語インデックスを取得
-- 返却情報: 用語名、一行説明
-- オプションの query パラメータで部分一致検索できる（検索対象は `docs/requirements/document-server.md` F3.1 を参照）
-- query 指定時はヒットした用語のみ返却、省略時は全件返却
+- 用語集の用語インデックス（名前・一行説明）を取得
+- オプションの query で部分一致検索できる（検索対象は `docs/requirements/document-server.md` F3.1 を参照）。省略時は全件返却
 
 ### F4: 用語詳細取得（第2層）
 
 #### F4.1: 用語詳細取得（一括対応）
-- 指定用語（複数指定可）の詳細情報を取得
-- 返却情報: 用語名、別名（aliases）、定義、関連用語、値の体系
+- 指定用語（複数指定可）の詳細情報（定義・別名・関連用語・値の体系）を取得
 
 ### F5: ロジックインデックス取得（第1層）
 
 #### F5.1: 全ロジックインデックス
-- 既存ロジックの全インデックスを取得
-- 返却情報: ロジック名、概要、カテゴリ
+- 既存ロジックの全インデックス（名前・概要レベル）を取得
 
 ### F6: ロジック詳細取得（第2層）
 
 #### F6.1: ロジック詳細取得（一括対応）
-- 指定ロジック（複数指定可）のメタ情報を取得
-- 返却情報: 説明、ファイルパス、言語、usage_type、入力テーブル、出力説明、利用コンテキスト、関連ロジック、注意点
-- コード本体は含まない（F7で別途取得）
+- 指定ロジック（複数指定可）のメタ情報を取得。AI が再利用可否（usage_type）や入出力を判断できる情報を含む
+- コード本体は含まない（F7 で別途取得）
 
 ### F7: ロジックコード取得
 
 #### F7.1: ロジックコード取得
 - 指定ロジックのコードファイルの中身を取得
-- 返却情報: ロジック名、言語、コード本体
 
-## MCPツール定義
+## ツール一覧
 
-### get_table_index（第1層：テーブルインデックス）
+各ツールの name・description・inputSchema・戻り値構造は `document-mcp/src/tools/index.ts` の `toolRegistry` および `src/tools/*.ts` が正。
 
-全テーブルのインデックスを取得する。最初にカタログ全体を把握するために使用。
-
-> ツール定義（name, description, inputSchema）: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-
-### get_table_detail（第2層：テーブル詳細）
-
-指定テーブルのカタログ情報を取得する。複数テーブルを一度に取得できる。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-> 戻り値の構造: `document-mcp/src/tools/table-detail.ts` の `execute` 関数を参照
-
-### get_term_index（第1層：用語インデックス）
-
-用語のインデックスを取得する。AIが業務用語を把握するために使用。オプションで検索クエリを指定して、用語名および別名（aliases）で部分一致検索できる。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-
-### get_term_detail（第2層：用語詳細）
-
-指定用語の詳細情報を取得する。複数用語を一度に取得できる。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-
-### get_logic_index（第1層：ロジックインデックス）
-
-既存ロジックの全インデックスを取得する。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-
-### get_logic_detail（第2層：ロジック詳細）
-
-指定ロジックのメタ情報を取得する。複数ロジックを一度に取得できる。コード本体は含まない。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
-
-### get_logic_code（ロジックコード取得）
-
-指定ロジックのコードファイルの中身を取得する。
-
-> ツール定義: `document-mcp/src/tools/index.ts` の `toolRegistry` を参照
+| ツール | F番号 | 目的 |
+|--------|-------|------|
+| `get_table_index` | F1 | 全テーブルのインデックス（第1層）を取得し、カタログ全体を把握する |
+| `get_table_detail` | F2 | 指定テーブルのカタログ詳細（第2層）を一括取得する |
+| `get_term_index` | F3 | 用語インデックス（第1層）を取得する。query で部分一致検索可能 |
+| `get_term_detail` | F4 | 指定用語の詳細（第2層）を一括取得する |
+| `get_logic_index` | F5 | 既存ロジックのインデックス（第1層）を取得する |
+| `get_logic_detail` | F6 | 指定ロジックのメタ情報（第2層）を一括取得する（コード本体を除く） |
+| `get_logic_code` | F7 | 指定ロジックのコードファイル本体を取得する |
 
 ## 非機能要件
 
@@ -162,13 +122,13 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 - 用語・テーブル・ロジックが見つからない場合は明確なメッセージを返却
 - 一括取得で一部のみ見つからない場合は、見つかったものと見つからなかったもの両方を返却
 
-### NF3: ログ
+### NF3: ログ（未実装）
 
-- 全ツール呼び出しの開始・完了・エラーをログ出力する
-- ログレベル: 呼び出し開始・完了は `info`、エラーは `error`
-- ログに含める情報: ツール名、取得対象の名前（分析改善のため）、実行時間
-- ログ出力先: stderr（MCP SDKの標準）
-- **実装方針:** MCP SDK の標準ログ機構を使用（実装詳細は `packages/mcp-shared/src/logger.ts` を参照）
+**ステータス: 未実装**（`docs/plan/02-document.md` Phase 8）。`logger` 基盤は存在するがツール実行層では未使用。
+
+- 全ツール呼び出しの開始・完了・エラーをログ出力する（開始・完了は `info`、エラーは `error`）
+- ログには分析改善のためツール名・取得対象名・実行時間を含める
+- 出力先は stderr（MCP SDK の標準）。実装は `packages/mcp-shared/src/logger.ts` を利用する方針
 
 ## 技術仕様
 
@@ -206,16 +166,12 @@ AIエージェント ←(MCP)→ Document MCP ←(REST)→ document-server ←(�
 
 ### AC2: データカタログ
 - [ ] get_table_index で全テーブルのインデックスが取得できる（外部データ定義を含む）
-- [ ] get_table_detail で指定テーブルの全情報が取得できる
-- [ ] get_table_detail で複数テーブルを一度に取得できる
-- [ ] カラム定義（key_type/key_types, domain含む）、data_source、statistics（additional含む）、notes_table_levelが含まれる
-- [ ] statistics に additional（テーブル固有の拡張統計項目）が定義されている場合、テーブル詳細レスポンスに含まれる
-- [ ] statistics に additional が未定義の場合でも、固定フィールド（row_count, date_range, update_frequency）のみで正常に返却される
-- [ ] 条件付きkey_types（配列形式）を持つカラムが正しく返却される
-- [ ] key_types の condition が null（デフォルトキー種別）のエントリが正しく返却される
-- [ ] DomainValues 型（固定値リスト）の domain を持つカラムが正しく返却される
-- [ ] `data_source.type` が `csv` のテーブル詳細が正しく返却される（file_path, encoding フィールド含む）
-- [ ] `data_source.type` が `external` のテーブル詳細が正しく返却される（format, description フィールド含む）
+- [ ] get_table_detail で指定テーブル（複数指定含む）の詳細情報が取得できる
+- [ ] カラム定義・data_source・statistics・notes_table_level が含まれる
+- [ ] 条件付き key_types（condition が null のデフォルトを含む）および固定値リスト型 domain を持つカラムが正しく返却される
+- [ ] `data_source.type` が `csv` および `external` のテーブル詳細が正しく返却される
+
+> 各セクションの具体的なフィールド構成・任意項目（statistics.additional 等）の取り扱いは `document-mcp/src/tools/table-detail.ts` の zod スキーマが正。
 
 ### AC3: 既存ロジック
 - [ ] get_logic_index で全ロジックのインデックスが取得できる

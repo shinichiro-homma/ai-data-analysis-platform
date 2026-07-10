@@ -63,15 +63,7 @@
 ### 「適用する」が選択された場合
 
 1. 該当するカテゴリファイル（`docs/plan/01-jupyter.md` 等）に変更を適用する（Edit ツールを使用）
-2. コミット＆プッシュする（メッセージ: `docs: 開発プランを更新 - {変更内容の要約}`。各コマンドは別々の Bash 呼び出しで実行）：
-
-```bash
-git add docs/plan/
-# メッセージを Write で tmp/commit-msg.txt に書き出してから:
-git commit -F tmp/commit-msg.txt
-rm tmp/commit-msg.txt
-git push
-```
+2. `.claude/skills/commit-and-push/SKILL.md` の手順に従い、`docs/plan/` の変更をステージしてコミット＆プッシュする。パラメータ: context `docs: 開発プランを更新 - {変更内容の要約}`、push `true`、agent `none`。
 
 ### 「修正する」が選択された場合
 

@@ -183,3 +183,5 @@ lint 失敗時は `.claude/rules/lint.md` に従うこと。
 次のステップとして `/custom-complete-task` で完了検証・コミット・PR 作成に進めます。
 （リファクタが必要な場合は先に `/custom-refactor $ARGUMENTS`）
 ```
+
+**注意:** イシューファイルの `docs/issues/archive/` への退避は完了時に行う（`docs/plan/README.md` の「アーカイブ規約」に従い `/custom-complete-task` が実施）。このコマンドでは移動しないこと。

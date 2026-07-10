@@ -30,19 +30,7 @@ uv run jupyter labextension develop . --overwrite
 
 ## 受信イベント
 
-| イベント | 説明 |
-|---------|------|
-| `ai_edit_start` | ノートブックをロック（ミドルウェアが自動配信） |
-| `cell_added` | セルをUIに追加 |
-| `cell_edited` | セルの内容を更新 |
-| `cell_deleted` | セルをUIから削除 |
-| `cell_reordered` | セルの並び順を変更 |
-| `cell_execute_start` | セルを実行中状態にする |
-| `cell_output` | セルに出力を追加（ストリーミング） |
-| `cell_execute_end` | セルの実行中状態を解除 |
-| `ai_edit_end` | ノートブックのロックを解除（ミドルウェアが自動配信） |
-
-ペイロードの詳細は `src/websocket-client.ts` のメッセージハンドリングを参照。
+受信イベントの一覧・ペイロード型・ディスパッチは `src/notebook-updater.ts` が正（`handleEvent()` の `switch (event.type)` と各 `*Event` インターフェース定義）。基底の `AiEvent` 型と WebSocket 受信処理は `src/websocket-client.ts` を参照。機能要件との対応は [docs/requirements/jupyterlab-ai-sync.md](../docs/requirements/jupyterlab-ai-sync.md) を参照。
 
 ## 要件定義
 

@@ -37,17 +37,7 @@ uv run mypy src/                                           # 型チェック
 
 ## 主要API
 
-| エンドポイント | 説明 |
-|---------------|------|
-| `GET /catalog/index` | テーブルインデックス |
-| `POST /catalog/tables` | テーブル詳細（一括取得対応、上限は `src/models.py` 参照） |
-| `GET /glossary/index` | 用語インデックス（query パラメータで検索可能、上限は `src/routers/terms.py` 参照） |
-| `POST /glossary/terms` | 用語詳細（一括取得対応、上限は `src/models.py` 参照） |
-| `GET /logic/index` | ロジックインデックス |
-| `POST /logic/meta` | ロジックメタ（一括取得対応、上限は `src/models.py` 参照） |
-| `GET /logic/code/{logic_name}` | ロジックコード（バリデーションは `src/routers/logic.py` 参照） |
-| `POST /admin/reload` | カタログ・用語集・ロジックの再読み込み |
-| `GET /health` | ヘルスチェック |
+エンドポイント定義（パス・メソッド・パラメータ制約・レスポンス）はコードが正: `src/routers/tables.py`（prefix `/catalog`）、`src/routers/terms.py`（prefix `/glossary`）、`src/routers/logic.py`（prefix `/logic`）、`src/routers/admin.py`（prefix `/admin`）。ルーターの登録と `/health` は `src/main.py`、一括取得の上限は `src/models.py` を参照。契約仕様は [docs/requirements/document-server.md](../docs/requirements/document-server.md) を参照。
 
 ## 要件定義
 

@@ -156,14 +156,7 @@ gh issue create --title "bug: {バグの概要}" --body-file tmp/issue-body.md
 
 ## 7. コミット
 
-イシュー詳細ファイルをコミットしてください（メッセージ: `docs: Issue #{Issue番号} のバグ報告を作成`）：
-
-```bash
-git add docs/issues/{Issue番号}-{名前}.md
-# メッセージを Write で tmp/commit-msg.txt に書き出してから:
-git commit -F tmp/commit-msg.txt
-rm tmp/commit-msg.txt
-```
+`.claude/skills/commit-and-push/SKILL.md` の手順に従い、イシュー詳細ファイル（`docs/issues/{Issue番号}-{名前}.md`）のみをステージしてコミットする。パラメータ: context `docs: Issue #{Issue番号} のバグ報告を作成`、push `false`、agent `none`。
 
 ## 8. 完了報告
 

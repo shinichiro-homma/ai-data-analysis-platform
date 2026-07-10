@@ -11,7 +11,7 @@
 | アーキテクチャ | コンポーネント構成、データフロー、技術スタック | `docs/overview.md`, `CLAUDE.md` |
 | 要件・仕様 | 機能要件、MCP ツール仕様、API 仕様 | `docs/requirements/*.md`, `docs/design/api-contracts.md` |
 | 開発フロー | コマンドの使い方、ルール、ワークフロー | `docs/COMMANDS.md`, `docs/RULES.md`, `.claude/rules/*.md` |
-| 進捗・タスク | タスク状況、計画、次にやること | `docs/plan/README.md`, `docs/plan/*.md`, `docs/tasks/**/*.md` |
+| 進捗・タスク | タスク状況、計画、次にやること | `docs/plan/README.md`, `docs/plan/*.md`, `docs/tasks/**/*.md`（過去の完了経緯を問われた場合のみ `docs/plan/archive/*.md` / `docs/tasks/archive/**/*.md`） |
 | 実装詳細 | コードの構造、具体的な実装方法 | `*/CLAUDE.md`, ソースコード |
 
 複数カテゴリにまたがる場合は、すべてのカテゴリを対象とする。
@@ -47,6 +47,7 @@
 ```
 
 **注意:**
+- 進捗・タスクの質問では、`docs/plan/` カテゴリファイル（進行中・未着手のみ）で通常は完結する。完了済みタスクの過去の経緯を問われた場合のみ `docs/plan/archive/` / `docs/tasks/archive/` を参照する
 - 質問が広範な場合は、カテゴリ別に複数のサブエージェントを並列で起動してよい（最大3並列）
 - 質問が具体的で対象ファイルが明確な場合は、サブエージェントを使わず直接 Read で確認してもよい
 

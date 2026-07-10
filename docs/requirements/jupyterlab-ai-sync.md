@@ -1,5 +1,7 @@
 # jupyterlab-ai-sync 要件定義
 
+> **実装が正**: イベント型の定義とディスパッチ（`handleEvent()`、各 `*Event` 型）は `src/notebook-updater.ts`、WebSocket 接続（接続URL・トークン取得・再接続）は `src/websocket-client.ts` が正。本書はイベントのペイロード形式・型定義をミラーしない。
+
 ## 概要
 
 JupyterLabのフロントエンド拡張。AIがノートブックを操作している様子をブラウザ上でリアルタイムに表示し、AI操作中はユーザーの入力を制御する。
@@ -31,16 +33,9 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - 認証トークンを使用して接続する
 
 #### F1.2: イベント処理
-- 以下のイベントタイプを受信・処理する:
-  - `ai_edit_start` - AI編集開始（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
-  - `cell_added` - セル追加
-  - `cell_edited` - セル内容の更新
-  - `cell_deleted` - セル削除
-  - `cell_reordered` - セル並び替え
-  - `cell_execute_start` - セル実行開始
-  - `cell_output` - セル出力（ストリーミング）
-  - `cell_execute_end` - セル実行完了
-  - `ai_edit_end` - AI編集終了（jupyter-mcp の handleToolCall ミドルウェアが自動配信）
+- AI操作イベント（セルの追加・編集・削除・並び替え、実行開始/出力/完了、AI編集の開始/終了）を受信し、種別ごとに対応する処理へディスパッチする
+- AI編集の開始/終了イベントは jupyter-mcp の handleToolCall ミドルウェアが自動配信する（AI 側が明示送信するのではなく、ノートブック編集系ツール実行に紐づく）
+- 受信するイベント種別の一覧・ペイロード形式・ディスパッチは `src/notebook-updater.ts`（`handleEvent()`・`*Event` 型）が正
 
 ### F2: ノートブックUIのリアルタイム更新
 
@@ -50,13 +45,9 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - 追加されたセルにスクロールする
 
 #### F2.2: セル実行結果の反映
-- `cell_execute_start`イベントを受信したら、対象セルの executionCount を null に設定して実行中状態（[*] 表示）にする
-- `cell_output`イベントを受信したら、セルの出力エリアにストリーミング追加する
-  - `stream` タイプ: stdout/stderrテキストを追加
-  - `display_data` タイプ: 画像等のリッチ出力を表示
-  - `execute_result` タイプ: 式の評価結果を表示
-  - `error` タイプ: エラー出力を表示
-- `cell_execute_end`イベントを受信したら、セルの実行中状態を解除し、execution_countを設定する
+- 実行開始イベントを受信したら、対象セルを実行中状態（[*] 表示）にする
+- 出力イベントを受信したら、セルの出力エリアにストリーミング追加する（テキスト出力・リッチ出力・式の評価結果・エラー出力の各種別に対応。種別ごとの処理は `src/notebook-updater.ts` が正）
+- 実行完了イベントを受信したら、セルの実行中状態を解除し、execution_count を設定する
 
 ### F3: ノートブックロック機能
 
