@@ -2,7 +2,7 @@
  * notebook_list_cells ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -49,7 +49,8 @@ export async function executeNotebookListCells(args: Record<string, unknown>): P
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'notebook_list_cells',
     description: 'Retrieves the list of cells in a notebook with their index, type, source, and outputs.',

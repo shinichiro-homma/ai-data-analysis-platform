@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateNumberParameter, validateFilename, validateSqlToolCommonParams } from '../utils/validation.js';
 import { resolveWorkspaceIdOrError } from '../utils/session-resolver.js';
 import { resolveWorkspacePath } from '../utils/workspace-path-store.js';
@@ -100,7 +100,8 @@ export async function executeExportSql(args: Record<string, unknown>): Promise<M
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'export_sql',
     description: `Executes a SQL query and exports results as Parquet/CSV to the workspace's data/ directory. No row limit, streaming processing — ideal for dataset creation. Default format is Parquet; use CSV only when specified.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure\n(2) Call get_logic_index to check for reusable existing logic\n\nResponse:\n{\n  "file_path": "export file path (loadable via pd.read_parquet in execute_code)",\n  "row_count": "number of exported rows",\n  "file_size_bytes": "file size"\n}`,

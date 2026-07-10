@@ -3,7 +3,7 @@
  */
 
 import { jupyterClient } from '../jupyter-client/client.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -79,7 +79,8 @@ export async function executeNotebookCreate(args: Record<string, unknown>): Prom
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'notebook_create',
     description: 'Creates a new notebook within the workspace.',

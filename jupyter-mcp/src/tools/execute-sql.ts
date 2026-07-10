@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateNumberParameter, validateFilename, validateSqlToolCommonParams } from '../utils/validation.js';
 import { resolveWorkspaceIdOrError } from '../utils/session-resolver.js';
 import { resolveWorkspacePath } from '../utils/workspace-path-store.js';
@@ -99,7 +99,8 @@ export async function executeExecuteSql(args: Record<string, unknown>): Promise<
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'execute_sql',
     description: `Executes a SQL query and saves results as CSV in the workspace's data/ directory. Queries are auto-saved as .sql files in data/queries/.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure. Use key_type/domain in the response to identify JOIN keys\n(2) Call get_logic_index to check for reusable existing logic (SQL templates, etc.)\n\nJOIN rule: JOIN columns that share the same key_type. domain.master_table/master_column indicates FK references.\n\nResponse (SELECT):\n{\n  "file_path": "CSV path (loadable via pd.read_csv)",\n  "row_count": "number of rows",\n  "columns": "array of column names",\n  "truncated": "whether max_rows truncation occurred",\n  "query_file_path": "path to saved SQL file"\n}`,

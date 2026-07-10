@@ -12,7 +12,7 @@ import {
   extractErrorMessage,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateStringParameter } from '../utils/validation.js';
 
 interface GetImageArgs {
@@ -107,7 +107,8 @@ export async function executeGetImage(args: Record<string, unknown>): Promise<Mc
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'get_image',
     description:

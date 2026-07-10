@@ -110,10 +110,10 @@
 ### F6: AI編集制御
 
 #### F6.1: AI編集モードの自動制御
-- ノートブック編集系ツール（`NOTEBOOK_EDIT_TOOLS`）の実行時に、`handleToolCall` ミドルウェアが自動的に `ai_edit_start` イベントを配信し、ノートブックをロック（read-only）する
+- ノートブックを変更するツール（各ツールが `mutatesNotebook: true` を宣言）の実行時に、`handleToolCall` ミドルウェアが自動的に `ai_edit_start` イベントを配信し、ノートブックをロック（read-only）する
 - ツール実行完了後、ミドルウェアが自動的に `ai_edit_end` イベントを配信し、ロックを解除する
 - ロック中はユーザーのキーボード入力・セル編集・セル実行を無効化する
-- 対象ツールは `jupyter-mcp/src/tools/index.ts` の `NOTEBOOK_EDIT_TOOLS` Set で管理し、新しいノートブック操作ツール追加時は Set に追加するだけで自動対応される
+- 対象ツールはツール登録時に必須フィールド `mutatesNotebook` で宣言する（宣言漏れは型チェックで検知される）。`handleToolCall` ミドルウェアはこの宣言からロック対象を導出するため、新しいノートブック操作ツール追加時は `mutatesNotebook: true` を宣言するだけで自動対応される
 - `ai_edit_start` / `ai_edit_end` は独立した MCP ツールとしては提供しない（内部自動処理のみ）
 - カーネル中断は MCP ツールとしては提供しない（ユーザーが JupyterLab UI から直接実行する）
 
@@ -385,7 +385,7 @@ npm run build && npm start
 - [ ] ツール実行完了後、自動的にロックが解除される
 - [ ] ロック中にブラウザ上のセルに実行結果がリアルタイムに表示される
 - [ ] ロック中にブラウザ上にセルがリアルタイムに追加される
-- [ ] 新しいノートブック操作ツールを NOTEBOOK_EDIT_TOOLS に追加するだけで自動ロック制御が適用される
+- [ ] 新しいノートブック操作ツールに `mutatesNotebook: true` を宣言するだけで自動ロック制御が適用される
 
 ### AC13: セル一括操作
 - [ ] notebook_execute_batch (mode: all) で全コードセルが順番に実行される

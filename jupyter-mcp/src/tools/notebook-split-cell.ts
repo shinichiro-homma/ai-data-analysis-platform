@@ -2,7 +2,7 @@
  * notebook_split_cell ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import {
   validateAndNormalizeNotebookPath,
@@ -46,7 +46,8 @@ export async function executeNotebookSplitCell(args: Record<string, unknown>): P
   );
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_split_cell',
     description:

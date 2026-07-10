@@ -2,7 +2,7 @@
  * notebook_add_cell ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -78,7 +78,8 @@ export async function executeNotebookAddCell(args: Record<string, unknown>): Pro
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_add_cell',
     description: 'Adds a cell (code or markdown) to the notebook.',

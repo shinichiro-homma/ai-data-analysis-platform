@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateWorkspaceId, validateStringParameter } from '../utils/validation.js';
 import { normalizePath } from '../utils/path-validator.js';
 import { ValidationError } from '../utils/errors.js';
@@ -70,7 +70,8 @@ export async function executeFileRead(args: Record<string, unknown>): Promise<Mc
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'file_read',
     description:

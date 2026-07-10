@@ -2,7 +2,7 @@
  * workspace_update ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 
 import { jupyterClient } from '../jupyter-client/client.js';
 import type { UpdateWorkspaceRequest } from '../jupyter-client/types.js';
@@ -67,7 +67,8 @@ export async function executeWorkspaceUpdate(args: Record<string, unknown>): Pro
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'workspace_update',
     description:

@@ -2,7 +2,7 @@
  * notebook_edit_cell ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import {
   validateStringParameter,
@@ -50,7 +50,8 @@ export async function executeNotebookEditCell(args: Record<string, unknown>): Pr
   );
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_edit_cell',
     description: 'Edits the source code of an existing cell in a notebook.',
