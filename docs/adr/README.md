@@ -25,4 +25,5 @@
 
 | # | タイトル | Status |
 |---|---------|--------|
-| [0001](0001-ai-sync-broadcast-architecture.md) | AI 同期は jupyter-mcp からのイベントブロードキャストで実現する | 再検討中 |
+| [0001](0001-ai-sync-broadcast-architecture.md) | AI 同期は jupyter-mcp からのイベントブロードキャストで実現する | 廃止（→ 0002） |
+| [0002](0002-ai-sync-notify-reload.md) | AI 同期は「変更通知 + ブラウザ側再読込」の完全同期にする（差分同期を廃止） | 採用 |
