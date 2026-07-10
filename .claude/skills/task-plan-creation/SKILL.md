@@ -18,7 +18,7 @@ description: タスクの開発計画を作成するための共通スキル。�
 
 ## 1. タスクの特定
 
-`docs/plan/README.md`（インデックス）から対象カテゴリファイルを特定し、対象タスクを見つけて以下の情報を特定する。
+`docs/plan/README.md`（インデックス）から対象カテゴリファイルを特定し、対象タスクを見つけて以下の情報を特定する。カテゴリファイルには進行中・未着手のタスクのみがあり、完了済みの Phase は `docs/plan/archive/` にある。Phase 番号は archive を含む通し番号のため、新 Phase を採番する場合は archive 側も含めた最大番号 + 1 とする（`docs/plan/README.md` の「番号体系」参照）。
 
 - **タスク番号**
 - **タスク内容**: PLAN.md に記載された説明
@@ -106,6 +106,8 @@ description: タスクの開発計画を作成するための共通スキル。�
 **ファイル名:** `docs/tasks/{category}/{タスク番号}-{タスク名（英語、ハイフン区切り）}.md`
 
 例: `docs/tasks/jupyter/1.1.1-dockerfile.md`
+
+配置先の `docs/tasks/{category}/` ディレクトリが存在しない場合は作成する。現役タスクの詳細計画はここに置き、タスク完了後は `docs/plan/README.md` の「アーカイブ規約」に従って `docs/tasks/archive/{category}/` へ移動される（完了済みの計画を探す場合のみ archive を見る）。
 
 ```markdown
 # タスク詳細: {タスク番号} {タスク名}

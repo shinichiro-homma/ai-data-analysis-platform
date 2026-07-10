@@ -13,7 +13,7 @@ Agent ツールを使い、**model: haiku** のサブエージェントに以下
 
 ## 1. 開発進捗
 
-`docs/plan/README.md` を Read ツールで読み、各カテゴリファイル（`docs/plan/01-jupyter.md` 等）も Read して、以下を報告してください：
+`docs/plan/README.md` を Read ツールで読み、各カテゴリファイル（`docs/plan/01-jupyter.md` 等）も Read して、以下を報告してください。カテゴリファイルには進行中・未着手のタスクのみがあり、これだけで現状把握は完結します（`docs/plan/archive/` は完了済みのため通常は読まず、過去の経緯を問われた場合のみ参照）：
 
 - 現在のフェーズ（進行中のフェーズ）
 - 完了タスク数 / 全タスク数

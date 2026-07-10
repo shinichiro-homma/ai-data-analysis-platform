@@ -179,6 +179,14 @@ lint 失敗時は `.claude/rules/lint.md` に従うこと。
    scripts/manage-known-failures.sh remove --id {kf-XXX}
    ```
 
+### 5b. アーカイブへの退避（両フロー共通）
+
+`docs/plan/README.md` の「アーカイブ規約」に従い、以下を実施してください（規約本文はここに転記しない）：
+
+- Phase 内の全タスクが完了した場合、その Phase セクションを `docs/plan/archive/{同名ファイル}` へ移動する
+- 該当タスクの詳細計画ファイルを `docs/tasks/{カテゴリ}/` から `docs/tasks/archive/{カテゴリ}/` へ移動する
+- fix フローの場合、`docs/issues/` の該当ファイル（参照する添付画像を含む）を `docs/issues/archive/` へ移動する
+
 ## 6. コミット & 次のアクションの選択
 
 ### 6a. コミット

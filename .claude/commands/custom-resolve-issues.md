@@ -209,6 +209,8 @@ scripts/test.sh --health {対象コンポーネント名}
    scripts/manage-known-failures.sh remove --id {kf-XXX}
    ```
 
+3. **イシューファイルをアーカイブへ退避**：`docs/plan/README.md` の「アーカイブ規約」に従い、`docs/issues/` に該当ファイル（参照する添付画像を含む）があれば `docs/issues/archive/` へ移動する（規約本文は転記しない）。
+
 #### 3.4 コミット
 
 グループごとにコミットしてください：
