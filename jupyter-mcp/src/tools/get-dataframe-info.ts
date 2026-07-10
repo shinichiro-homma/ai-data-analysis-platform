@@ -10,7 +10,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter } from '../utils/validation.js';
 import { resolveKernelId } from '../utils/session-resolver.js';
 
@@ -129,3 +131,22 @@ export async function executeGetDataframeInfo(args: Record<string, unknown>): Pr
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'get_dataframe_info',
+    description:
+      'Retrieves detailed DataFrame variable info (columns, head rows, statistics). Use after creating a DataFrame with execute_code to understand structure, types, and distribution. Check variable names with get_variables first.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+        variable_name: { type: 'string', description: 'DataFrame variable name' },
+        include_head: { type: 'boolean', description: 'Include head rows (default: true)' },
+        head_rows: { type: 'number', description: 'Number of head rows to retrieve (default: 5)' },
+      },
+      required: ['session_id', 'variable_name'],
+    },
+  },
+  execute: executeGetDataframeInfo,
+};

@@ -11,7 +11,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateStringParameter } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 
@@ -91,3 +93,26 @@ export async function executeSessionConnect(args: Record<string, unknown>): Prom
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'session_connect',
+    description:
+      'Connects to an existing session. Use to share/reconnect to a kernel the user has open in the browser. Enables reconnection after MCP restart or connecting to user-initiated sessions. Use to reuse existing sessions rather than creating new ones.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: {
+          type: 'string',
+          description: 'Path of the notebook to connect to (e.g., analysis.ipynb)',
+        },
+        kernel_id: {
+          type: 'string',
+          description: 'Kernel ID to connect to. Can be used instead of notebook_path',
+        },
+      },
+      required: [],
+    },
+  },
+  execute: executeSessionConnect,
+};

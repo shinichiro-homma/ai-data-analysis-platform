@@ -1,12 +1,31 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { registerTools, handleToolCall } from '../../../src/tools/index.js';
 
-// ヘルパー: モックレスポンスを生成する関数
-const mockResponse = (toolName: string) => ({ content: [{ type: 'text', text: toolName }] });
+// vi.hoisted: vi.mock より先に評価されるヘルパーを定義
+const { mockToolModule, mockEmitAiEditStart, mockEmitAiEditEnd } = vi.hoisted(() => {
+  const mockResponse = (toolName: string) => ({ content: [{ type: 'text', text: toolName }] });
 
-// emitAiEditStart / emitAiEditEnd のモック
-const mockEmitAiEditStart = vi.fn(async () => {});
-const mockEmitAiEditEnd = vi.fn(async () => {});
+  const mockToolModule = (toolName: string, executeFnName: string) => {
+    const executeFn = vi.fn(async () => mockResponse(toolName));
+    return {
+      [executeFnName]: executeFn,
+      toolEntry: {
+        definition: {
+          name: toolName,
+          description: `Mock ${toolName}`,
+          inputSchema: { type: 'object', properties: {}, required: [] },
+        },
+        execute: executeFn,
+      },
+    };
+  };
+
+  return {
+    mockToolModule,
+    mockEmitAiEditStart: vi.fn(async () => {}),
+    mockEmitAiEditEnd: vi.fn(async () => {}),
+  };
+});
 vi.mock('../../../src/utils/ai-edit-helpers.js', () => ({
   validateAndResolveNotebookPath: vi.fn(),
   emitAiEditStart: (...args: unknown[]) => mockEmitAiEditStart(...args),
@@ -14,99 +33,63 @@ vi.mock('../../../src/utils/ai-edit-helpers.js', () => ({
 }));
 
 // 各ツール実装をモック
-vi.mock('../../../src/tools/workspace-create.js', () => ({
-  executeWorkspaceCreate: vi.fn(async () => mockResponse('workspace_create')),
-}));
-vi.mock('../../../src/tools/workspace-list.js', () => ({
-  executeWorkspaceList: vi.fn(async () => mockResponse('workspace_list')),
-}));
-vi.mock('../../../src/tools/workspace-update.js', () => ({
-  executeWorkspaceUpdate: vi.fn(async () => mockResponse('workspace_update')),
-}));
-vi.mock('../../../src/tools/workspace-summarize.js', () => ({
-  executeWorkspaceSummarize: vi.fn(async () => mockResponse('workspace_summarize')),
-}));
-vi.mock('../../../src/tools/notebook-create.js', () => ({
-  executeNotebookCreate: vi.fn(async () => mockResponse('notebook_create')),
-}));
-vi.mock('../../../src/tools/notebook-add-cell.js', () => ({
-  executeNotebookAddCell: vi.fn(async () => mockResponse('notebook_add_cell')),
-}));
-vi.mock('../../../src/tools/session-create.js', () => ({
-  executeSessionCreate: vi.fn(async () => mockResponse('session_create')),
-}));
-vi.mock('../../../src/tools/session-list.js', () => ({
-  executeSessionList: vi.fn(async () => mockResponse('session_list')),
-}));
-vi.mock('../../../src/tools/session-delete.js', () => ({
-  executeSessionDelete: vi.fn(async () => mockResponse('session_delete')),
-}));
-vi.mock('../../../src/tools/session-connect.js', () => ({
-  executeSessionConnect: vi.fn(async () => mockResponse('session_connect')),
-}));
-vi.mock('../../../src/tools/execute-code.js', () => ({
-  executeExecuteCode: vi.fn(async () => mockResponse('execute_code')),
-}));
-vi.mock('../../../src/tools/get-variables.js', () => ({
-  executeGetVariables: vi.fn(async () => mockResponse('get_variables')),
-}));
-vi.mock('../../../src/tools/get-dataframe-info.js', () => ({
-  executeGetDataframeInfo: vi.fn(async () => mockResponse('get_dataframe_info')),
-}));
-vi.mock('../../../src/tools/file-list.js', () => ({
-  executeFileList: vi.fn(async () => mockResponse('file_list')),
-}));
-vi.mock('../../../src/tools/execute-sql.js', () => ({
-  executeExecuteSql: vi.fn(async () => mockResponse('execute_sql')),
-}));
-vi.mock('../../../src/tools/export-sql.js', () => ({
-  executeExportSql: vi.fn(async () => mockResponse('export_sql')),
-}));
-vi.mock('../../../src/tools/get-image.js', () => ({
-  executeGetImage: vi.fn(async () => mockResponse('get_image')),
-}));
-vi.mock('../../../src/tools/notebook-list-cells.js', () => ({
-  executeNotebookListCells: vi.fn(async () => mockResponse('notebook_list_cells')),
-}));
-vi.mock('../../../src/tools/notebook-edit-cell.js', () => ({
-  executeNotebookEditCell: vi.fn(async () => mockResponse('notebook_edit_cell')),
-}));
-vi.mock('../../../src/tools/notebook-delete-cell.js', () => ({
-  executeNotebookDeleteCell: vi.fn(async () => mockResponse('notebook_delete_cell')),
-}));
-vi.mock('../../../src/tools/notebook-execute-cell.js', () => ({
-  executeNotebookExecuteCell: vi.fn(async () => mockResponse('notebook_execute_cell')),
-}));
-vi.mock('../../../src/tools/notebook-execute-batch.js', () => ({
-  executeNotebookExecuteBatch: vi.fn(async () => mockResponse('notebook_execute_batch')),
-}));
-vi.mock('../../../src/tools/notebook-reorder-cell.js', () => ({
-  executeNotebookReorderCell: vi.fn(async () => mockResponse('notebook_reorder_cell')),
-}));
-vi.mock('../../../src/tools/data-preview.js', () => ({
-  executeDataPreview: vi.fn(async () => mockResponse('data_preview')),
-}));
-vi.mock('../../../src/tools/file-read.js', () => ({
-  executeFileRead: vi.fn(async () => mockResponse('file_read')),
-}));
-vi.mock('../../../src/tools/notebook-merge-cells.js', () => ({
-  executeNotebookMergeCells: vi.fn(async () => mockResponse('notebook_merge_cells')),
-}));
-vi.mock('../../../src/tools/notebook-split-cell.js', () => ({
-  executeNotebookSplitCell: vi.fn(async () => mockResponse('notebook_split_cell')),
-}));
-vi.mock('../../../src/tools/notebook-change-cell-type.js', () => ({
-  executeNotebookChangeCellType: vi.fn(async () => mockResponse('notebook_change_cell_type')),
-}));
-vi.mock('../../../src/tools/notebook-copy-cell.js', () => ({
-  executeNotebookCopyCell: vi.fn(async () => mockResponse('notebook_copy_cell')),
-}));
-vi.mock('../../../src/tools/notebook-clear-outputs.js', () => ({
-  executeNotebookClearOutputs: vi.fn(async () => mockResponse('notebook_clear_outputs')),
-}));
-vi.mock('../../../src/tools/kernel-restart.js', () => ({
-  executeKernelRestart: vi.fn(async () => mockResponse('kernel_restart')),
-}));
+vi.mock('../../../src/tools/workspace-create.js', () => mockToolModule('workspace_create', 'executeWorkspaceCreate'));
+vi.mock('../../../src/tools/workspace-list.js', () => mockToolModule('workspace_list', 'executeWorkspaceList'));
+vi.mock('../../../src/tools/workspace-update.js', () => mockToolModule('workspace_update', 'executeWorkspaceUpdate'));
+vi.mock('../../../src/tools/workspace-summarize.js', () =>
+  mockToolModule('workspace_summarize', 'executeWorkspaceSummarize'),
+);
+vi.mock('../../../src/tools/notebook-create.js', () => mockToolModule('notebook_create', 'executeNotebookCreate'));
+vi.mock('../../../src/tools/notebook-add-cell.js', () => mockToolModule('notebook_add_cell', 'executeNotebookAddCell'));
+vi.mock('../../../src/tools/session-create.js', () => mockToolModule('session_create', 'executeSessionCreate'));
+vi.mock('../../../src/tools/session-list.js', () => mockToolModule('session_list', 'executeSessionList'));
+vi.mock('../../../src/tools/session-delete.js', () => mockToolModule('session_delete', 'executeSessionDelete'));
+vi.mock('../../../src/tools/session-connect.js', () => mockToolModule('session_connect', 'executeSessionConnect'));
+vi.mock('../../../src/tools/execute-code.js', () => mockToolModule('execute_code', 'executeExecuteCode'));
+vi.mock('../../../src/tools/get-variables.js', () => mockToolModule('get_variables', 'executeGetVariables'));
+vi.mock('../../../src/tools/get-dataframe-info.js', () =>
+  mockToolModule('get_dataframe_info', 'executeGetDataframeInfo'),
+);
+vi.mock('../../../src/tools/file-list.js', () => mockToolModule('file_list', 'executeFileList'));
+vi.mock('../../../src/tools/execute-sql.js', () => mockToolModule('execute_sql', 'executeExecuteSql'));
+vi.mock('../../../src/tools/export-sql.js', () => mockToolModule('export_sql', 'executeExportSql'));
+vi.mock('../../../src/tools/get-image.js', () => mockToolModule('get_image', 'executeGetImage'));
+vi.mock('../../../src/tools/notebook-list-cells.js', () =>
+  mockToolModule('notebook_list_cells', 'executeNotebookListCells'),
+);
+vi.mock('../../../src/tools/notebook-edit-cell.js', () =>
+  mockToolModule('notebook_edit_cell', 'executeNotebookEditCell'),
+);
+vi.mock('../../../src/tools/notebook-delete-cell.js', () =>
+  mockToolModule('notebook_delete_cell', 'executeNotebookDeleteCell'),
+);
+vi.mock('../../../src/tools/notebook-execute-cell.js', () =>
+  mockToolModule('notebook_execute_cell', 'executeNotebookExecuteCell'),
+);
+vi.mock('../../../src/tools/notebook-execute-batch.js', () =>
+  mockToolModule('notebook_execute_batch', 'executeNotebookExecuteBatch'),
+);
+vi.mock('../../../src/tools/notebook-reorder-cell.js', () =>
+  mockToolModule('notebook_reorder_cell', 'executeNotebookReorderCell'),
+);
+vi.mock('../../../src/tools/data-preview.js', () => mockToolModule('data_preview', 'executeDataPreview'));
+vi.mock('../../../src/tools/file-read.js', () => mockToolModule('file_read', 'executeFileRead'));
+vi.mock('../../../src/tools/notebook-merge-cells.js', () =>
+  mockToolModule('notebook_merge_cells', 'executeNotebookMergeCells'),
+);
+vi.mock('../../../src/tools/notebook-split-cell.js', () =>
+  mockToolModule('notebook_split_cell', 'executeNotebookSplitCell'),
+);
+vi.mock('../../../src/tools/notebook-change-cell-type.js', () =>
+  mockToolModule('notebook_change_cell_type', 'executeNotebookChangeCellType'),
+);
+vi.mock('../../../src/tools/notebook-copy-cell.js', () =>
+  mockToolModule('notebook_copy_cell', 'executeNotebookCopyCell'),
+);
+vi.mock('../../../src/tools/notebook-clear-outputs.js', () =>
+  mockToolModule('notebook_clear_outputs', 'executeNotebookClearOutputs'),
+);
+vi.mock('../../../src/tools/kernel-restart.js', () => mockToolModule('kernel_restart', 'executeKernelRestart'));
 
 beforeEach(() => {
   mockEmitAiEditStart.mockClear();
@@ -220,6 +203,16 @@ describe('handleToolCall', () => {
     { toolName: 'execute_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'test.csv' } },
     { toolName: 'export_sql', args: { session_id: 'session-1', sql: 'SELECT 1', filename: 'export.parquet' } },
     { toolName: 'get_image', args: { file_path: 'workspaces/ws-123/output/exec-1-img-001.png' } },
+    { toolName: 'data_preview', args: { workspace_id: 'ws-123', file_path: 'test.csv' } },
+    { toolName: 'file_read', args: { workspace_id: 'ws-123', file_path: 'test.csv' } },
+    { toolName: 'notebook_merge_cells', args: { notebook_path: 'test.ipynb', start_index: 0, end_index: 1 } },
+    { toolName: 'notebook_split_cell', args: { notebook_path: 'test.ipynb', cell_index: 0, split_line: 1 } },
+    {
+      toolName: 'notebook_change_cell_type',
+      args: { notebook_path: 'test.ipynb', cell_index: 0, new_type: 'markdown' },
+    },
+    { toolName: 'notebook_copy_cell', args: { notebook_path: 'test.ipynb', cell_index: 0 } },
+    { toolName: 'notebook_clear_outputs', args: { notebook_path: 'test.ipynb' } },
     { toolName: 'kernel_restart', args: { session_id: 'session-1' } },
   ];
 
@@ -248,6 +241,11 @@ describe('handleToolCall ミドルウェア（自動AI編集モード）', () =>
     'notebook_execute_cell',
     'notebook_execute_batch',
     'notebook_reorder_cell',
+    'notebook_merge_cells',
+    'notebook_split_cell',
+    'notebook_change_cell_type',
+    'notebook_copy_cell',
+    'notebook_clear_outputs',
   ];
 
   NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {

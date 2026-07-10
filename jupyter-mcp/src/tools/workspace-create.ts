@@ -2,6 +2,8 @@
  * workspace_create ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
   createSuccessResponse,
@@ -10,7 +12,8 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from '../utils/response-formatter.js';
-import { validateStringParameter, validateWorkspaceMetadata } from '../utils/validation.js';
+import type { McpToolResult } from '../utils/response-formatter.js';
+import { validateStringParameter, validateWorkspaceMetadata, WORKSPACE_STATUS_SCHEMA } from '../utils/validation.js';
 import { toKernelRelativePath } from '../utils/workspace-path.js';
 import { registerWorkspacePath } from '../utils/workspace-path-store.js';
 
@@ -72,3 +75,30 @@ export async function executeWorkspaceCreate(args: Record<string, unknown>): Pro
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'workspace_create',
+    description:
+      'Creates a new workspace (isolated working directory). This is the FIRST step to start data analysis. Each chat gets an independent directory with data/ for datasets and output/ for results and charts. After creation, call session_create to start a session.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Workspace name (max 100 characters)',
+        },
+        summary: {
+          type: 'string',
+          description: 'Workspace summary describing the analysis content (max 200 characters)',
+        },
+        status: {
+          ...WORKSPACE_STATUS_SCHEMA,
+          description: 'Workspace status (default: not_started)',
+        },
+      },
+      required: ['name'],
+    },
+  },
+  execute: executeWorkspaceCreate,
+};

@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateWorkspaceId, validateStringParameter } from '../utils/validation.js';
 import { normalizePath } from '../utils/path-validator.js';
 import { ValidationError } from '../utils/errors.js';
@@ -67,3 +69,23 @@ export async function executeFileRead(args: Record<string, unknown>): Promise<Mc
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'file_read',
+    description:
+      'Reads the content of a text file (e.g., .py, .sql, .md, .txt) in the workspace. Cannot read .ipynb files (use notebook_list_cells instead) or binary files.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: { type: 'string', description: 'Workspace ID' },
+        file_path: {
+          type: 'string',
+          description: 'File path relative to workspace (e.g., scripts/analysis.py)',
+        },
+      },
+      required: ['workspace_id', 'file_path'],
+    },
+  },
+  execute: executeFileRead,
+};

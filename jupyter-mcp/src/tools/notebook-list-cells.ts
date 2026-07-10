@@ -2,12 +2,14 @@
  * notebook_list_cells ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import {
   createSuccessResponse,
   createErrorResponse,
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import { validateAndNormalizeNotebookPath } from '../utils/validation.js';
 import { jupyterClient } from '../jupyter-client/client.js';
@@ -46,3 +48,18 @@ export async function executeNotebookListCells(args: Record<string, unknown>): P
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_list_cells',
+    description: 'Retrieves the list of cells in a notebook with their index, type, source, and outputs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+      },
+      required: ['notebook_path'],
+    },
+  },
+  execute: executeNotebookListCells,
+};
