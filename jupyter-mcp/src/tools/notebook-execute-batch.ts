@@ -2,7 +2,7 @@
  * notebook_execute_batch ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -106,7 +106,8 @@ export async function executeNotebookExecuteBatch(args: Record<string, unknown>)
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_execute_batch',
     description:

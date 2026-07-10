@@ -2,7 +2,7 @@
  * kernel_restart ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
   createSuccessResponse,
@@ -53,7 +53,8 @@ export async function executeKernelRestart(args: Record<string, unknown>): Promi
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'kernel_restart',
     description:

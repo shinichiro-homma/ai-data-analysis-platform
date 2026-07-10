@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateStringParameter, validateNumberParameter } from '../utils/validation.js';
 import { resolveSession } from '../utils/session-resolver.js';
 import { toImageReference } from '../image-store/index.js';
@@ -323,7 +323,8 @@ async function broadcastOutputEvents(
   return lastResult;
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'execute_code',
     description:

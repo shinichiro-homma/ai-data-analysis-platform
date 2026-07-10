@@ -1,15 +1,25 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { registerTools, handleToolCall } from '../../../src/tools/index.js';
+import { MUTATING_TOOL_NAMES as NOTEBOOK_EDIT_TOOLS } from './fixtures.js';
 
 // vi.hoisted: vi.mock より先に評価されるヘルパーを定義
-const { mockToolModule, mockEmitAiEditStart, mockEmitAiEditEnd } = vi.hoisted(() => {
+// vi.hoisted は通常のトップレベル import した変数を参照できないため、
+// フィクスチャの読み込みは async import で行う。
+const { mockToolModule, mockEmitAiEditStart, mockEmitAiEditEnd } = await vi.hoisted(async () => {
   const mockResponse = (toolName: string) => ({ content: [{ type: 'text', text: toolName }] });
+
+  // ノートブックを変更するツール（mutatesNotebook: true）。index.ts はこの宣言から
+  // NOTEBOOK_EDIT_TOOLS を導出するため、モックにも同じ分類を持たせる（タスク 21.1）。
+  // 期待値は tests/unit/tools/fixtures.ts で一元管理（tool-registry.test.ts と共有）。
+  const { MUTATING_TOOL_NAMES } = await import('./fixtures.js');
+  const MUTATING_TOOLS = new Set(MUTATING_TOOL_NAMES);
 
   const mockToolModule = (toolName: string, executeFnName: string) => {
     const executeFn = vi.fn(async () => mockResponse(toolName));
     return {
       [executeFnName]: executeFn,
       toolEntry: {
+        mutatesNotebook: MUTATING_TOOLS.has(toolName),
         definition: {
           name: toolName,
           description: `Mock ${toolName}`,
@@ -233,21 +243,6 @@ describe('handleToolCall', () => {
 });
 
 describe('handleToolCall ミドルウェア（自動AI編集モード）', () => {
-  const NOTEBOOK_EDIT_TOOLS = [
-    'execute_code',
-    'notebook_add_cell',
-    'notebook_edit_cell',
-    'notebook_delete_cell',
-    'notebook_execute_cell',
-    'notebook_execute_batch',
-    'notebook_reorder_cell',
-    'notebook_merge_cells',
-    'notebook_split_cell',
-    'notebook_change_cell_type',
-    'notebook_copy_cell',
-    'notebook_clear_outputs',
-  ];
-
   NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {
     test(`${toolName} 実行時に emitAiEditStart が呼ばれる`, async () => {
       const args = {

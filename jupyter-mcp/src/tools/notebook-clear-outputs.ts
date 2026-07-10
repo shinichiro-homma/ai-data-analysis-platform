@@ -2,7 +2,7 @@
  * notebook_clear_outputs ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -64,7 +64,8 @@ export async function executeNotebookClearOutputs(args: Record<string, unknown>)
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_clear_outputs',
     description:

@@ -1,11 +1,11 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import {
-  type ToolEntry,
   registerTools as sharedRegisterTools,
   handleToolCall as sharedHandleToolCall,
 } from '@ai-data-analysis/mcp-shared';
 import { type McpToolResult } from '../utils/response-formatter.js';
 import { emitAiEditStart, emitAiEditEnd } from '../utils/ai-edit-helpers.js';
+import type { JupyterToolEntry } from './types.js';
 import { toolEntry as workspaceCreateEntry } from './workspace-create.js';
 import { toolEntry as workspaceUpdateEntry } from './workspace-update.js';
 import { toolEntry as workspaceListEntry } from './workspace-list.js';
@@ -37,7 +37,7 @@ import { toolEntry as getImageEntry } from './get-image.js';
 import { toolEntry as dataPreviewEntry } from './data-preview.js';
 import { toolEntry as fileReadEntry } from './file-read.js';
 import { toolEntry as kernelRestartEntry } from './kernel-restart.js';
-const toolRegistry: ToolEntry<McpToolResult>[] = [
+const toolRegistry: JupyterToolEntry[] = [
   workspaceCreateEntry,
   workspaceUpdateEntry,
   workspaceListEntry,
@@ -70,20 +70,11 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   fileReadEntry,
   kernelRestartEntry,
 ];
-const NOTEBOOK_EDIT_TOOLS = new Set([
-  'execute_code',
-  'notebook_add_cell',
-  'notebook_edit_cell',
-  'notebook_delete_cell',
-  'notebook_execute_cell',
-  'notebook_execute_batch',
-  'notebook_reorder_cell',
-  'notebook_merge_cells',
-  'notebook_split_cell',
-  'notebook_change_cell_type',
-  'notebook_copy_cell',
-  'notebook_clear_outputs',
-]);
+// ノートブックを変更するツール名の集合。各ツールが宣言する mutatesNotebook から導出する
+// （手動 allowlist は廃止。宣言漏れは JupyterToolEntry の型チェックで検知される）。
+const NOTEBOOK_EDIT_TOOLS = new Set(
+  toolRegistry.filter((entry) => entry.mutatesNotebook).map((entry) => entry.definition.name),
+);
 
 export function registerTools(): Tool[] {
   return sharedRegisterTools(toolRegistry);

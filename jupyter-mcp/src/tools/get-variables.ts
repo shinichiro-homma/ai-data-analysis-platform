@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateStringParameter } from '../utils/validation.js';
 import { resolveKernelId } from '../utils/session-resolver.js';
 
@@ -54,7 +54,8 @@ export async function executeGetVariables(args: Record<string, unknown>): Promis
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'get_variables',
     description:

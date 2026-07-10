@@ -11,7 +11,7 @@ import {
   type McpResponse,
   type McpToolResult,
 } from '../utils/response-formatter.js';
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { validateStringParameter } from '../utils/validation.js';
 
 interface SessionDeleteArgs {
@@ -49,7 +49,8 @@ export async function executeSessionDelete(args: Record<string, unknown>): Promi
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'session_delete',
     description: 'Terminates an analysis session and releases resources.',

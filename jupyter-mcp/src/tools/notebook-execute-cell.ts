@@ -2,7 +2,7 @@
  * notebook_execute_cell ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -132,7 +132,8 @@ export async function executeNotebookExecuteCell(args: Record<string, unknown>):
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_execute_cell',
     description: 'Re-executes an existing cell in a notebook at the specified index using the given session.',

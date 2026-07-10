@@ -2,7 +2,7 @@
  * notebook_copy_cell ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import { validateAndNormalizeNotebookPath, validateCellIndexParam } from '../utils/validation.js';
 import { operateCellWithSync } from '../utils/cell-operations.js';
@@ -48,7 +48,8 @@ export async function executeNotebookCopyCell(args: Record<string, unknown>): Pr
   );
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: true,
   definition: {
     name: 'notebook_copy_cell',
     description:

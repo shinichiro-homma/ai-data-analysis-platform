@@ -2,7 +2,7 @@
  * workspace_list ツール実装
  */
 
-import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import type { JupyterToolEntry } from './types.js';
 
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
@@ -46,7 +46,8 @@ export async function executeWorkspaceList(_args: Record<string, unknown>): Prom
   }
 }
 
-export const toolEntry: ToolEntry<McpToolResult> = {
+export const toolEntry: JupyterToolEntry = {
+  mutatesNotebook: false,
   definition: {
     name: 'workspace_list',
     description:
