@@ -15,6 +15,7 @@ paths:
 - `.claude/rules/scripts.md` — ビルド・テスト・Docker 操作は scripts/ 経由
 - 実装・テスト作成を行う場合: `.claude/rules/tdd.md`
 - ドキュメントを変更する場合: `.claude/rules/documentation.md` と `docs/STRUCTURE.md` の SSoT 表
+- レビュー・検証・計画作成を行う場合: `docs/design/invariants.md`（横断不変条件）— 変更が不変条件に抵触しないかを観点に含める
 
 ## 報告の規律（全サブエージェント共通）
 

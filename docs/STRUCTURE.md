@@ -30,8 +30,11 @@ README.md                           ← GitHub 向け README（概要、セッ�
 │   │   ├── document-server.md
 │   │   └── document-mcp.md
 │   │
+│   ├── adr/                        ← 設計判断の記録（ADR。書く契機は adr/README.md）
+│   │
 │   ├── design/
-│   │   └── api-contracts.md        ← REST API のエンドポイント一覧（詳細はコード）
+│   │   ├── api-contracts.md        ← REST API のエンドポイント一覧（詳細はコード）
+│   │   └── invariants.md           ← 横断不変条件（全レビュー・計画の共通観点）
 │   │
 │   ├── plan/                       ← 開発タスク一覧（進行中・未着手のみ）
 │   │   ├── README.md               ← インデックス、アーカイブ規約
@@ -60,6 +63,8 @@ README.md                           ← GitHub 向け README（概要、セッ�
 | MCPツールの一覧（名前と目的） | `docs/requirements/*-mcp.md` の「ツール一覧」表（**CI がコードと照合**） | — |
 | REST API エンドポイントの一覧（メソッド・パス・目的） | `docs/design/api-contracts.md` の一覧表（**CI がコードと照合**） | — |
 | 機能要件（F番号・Why・受け入れ条件・未実装要件） | `docs/requirements/*.md` | `docs/overview.md`（責務レベルの要約） |
+| コンポーネント横断の設計判断（状態の所有権・契約・方式選定の Why） | `docs/adr/` | `docs/tasks/`（タスク内に閉じる判断のみ） |
+| 横断不変条件（システム全体で守る性質） | `docs/design/invariants.md` | — |
 | 技術スタック | `docs/requirements/*.md` | `*/CLAUDE.md`（簡易版） |
 | 開発コマンド | `*/CLAUDE.md` | — |
 | 環境変数 | `*/CLAUDE.md` | `docs/requirements/*.md`（要件としての説明のみ） |
@@ -74,7 +79,7 @@ README.md                           ← GitHub 向け README（概要、セッ�
 | **REST APIの追加・削除・パス変更** | コード（正） → `docs/design/api-contracts.md` のエンドポイント一覧表（CI が同期を検証） |
 | **パラメータ・スキーマ・デフォルト値・エラーコードの変更** | コードのみ（ドキュメント更新不要） |
 | **要件の変更（機能追加・仕様変更）** | `.claude/rules/requirement-workflow.md` に従う: `docs/requirements/*.md` → 必要に応じて `docs/overview.md` → `docs/plan/`（タスク追加） |
-| **アーキテクチャ変更** | `docs/overview.md` → 影響する `requirements/*.md` → 影響する `*/CLAUDE.md` → `CLAUDE.md` / `README.md`（該当すれば） |
+| **アーキテクチャ変更** | `docs/adr/`（判断の記録） → `docs/overview.md` → 影響する `requirements/*.md` → 影響する `*/CLAUDE.md` → `CLAUDE.md` / `README.md`（該当すれば） |
 | **新コンポーネント追加** | `CLAUDE.md` → `README.md` → `docs/overview.md` → `docs/requirements/{new}.md`（新規） → `{new}/CLAUDE.md`（新規） → `docs/plan/` |
 | **開発タスクの追加・変更・完了** | `docs/plan/` 内の該当ファイル（完了時は `docs/plan/README.md` のアーカイブ規約に従う） |
 
