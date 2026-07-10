@@ -1,7 +1,3 @@
-/**
- * MCP ツールの登録とルーティング
- */
-
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import {
   type ToolEntry,
@@ -10,7 +6,6 @@ import {
 } from '@ai-data-analysis/mcp-shared';
 import { type McpToolResult } from '../utils/response-formatter.js';
 import { emitAiEditStart, emitAiEditEnd } from '../utils/ai-edit-helpers.js';
-
 import { toolEntry as workspaceCreateEntry } from './workspace-create.js';
 import { toolEntry as workspaceUpdateEntry } from './workspace-update.js';
 import { toolEntry as workspaceListEntry } from './workspace-list.js';
@@ -42,7 +37,6 @@ import { toolEntry as getImageEntry } from './get-image.js';
 import { toolEntry as dataPreviewEntry } from './data-preview.js';
 import { toolEntry as fileReadEntry } from './file-read.js';
 import { toolEntry as kernelRestartEntry } from './kernel-restart.js';
-
 const toolRegistry: ToolEntry<McpToolResult>[] = [
   workspaceCreateEntry,
   workspaceUpdateEntry,
@@ -76,9 +70,6 @@ const toolRegistry: ToolEntry<McpToolResult>[] = [
   fileReadEntry,
   kernelRestartEntry,
 ];
-
-/** ノートブック編集系ツール: 実行前後に ai_edit_start/end イベントを自動配信する
- *  kernel_restart はセル内容を変更しないため対象外 */
 const NOTEBOOK_EDIT_TOOLS = new Set([
   'execute_code',
   'notebook_add_cell',
@@ -94,22 +85,12 @@ const NOTEBOOK_EDIT_TOOLS = new Set([
   'notebook_clear_outputs',
 ]);
 
-/**
- * ツール定義一覧を返す
- */
 export function registerTools(): Tool[] {
   return sharedRegisterTools(toolRegistry);
 }
-
-/**
- * ツール名から実装関数へルーティング
- * NOTEBOOK_EDIT_TOOLS に含まれるツールは前後に ai_edit_start/end イベントを自動配信する
- */
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
   const execute = () => sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
-
   if (!NOTEBOOK_EDIT_TOOLS.has(name)) return execute();
-
   try {
     await emitAiEditStart(args);
     return await execute();

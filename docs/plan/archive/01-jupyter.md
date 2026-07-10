@@ -232,3 +232,13 @@ SQLクエリ結果を大量行対応でワークスペースにファイル保�
 | 19.5 | カーネル再起動 | [x] | kernel_restart でカーネルが再起動される。再起動+全セル実行は kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで実現 | jupyter-mcp: 1ツール |
 | 19.6 | カーネル中断時の KeyboardInterrupt レスポンス対応 | [x] | notebook_execute_cell / notebook_execute_batch で KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる（execute_code は対応済み） | jupyter-mcp: 既存ツールの KeyboardInterrupt ハンドリング改善 |
 | 19.7 | ノートブック操作拡張の結合テスト | [x] | 一括実行→結合→分割→タイプ変更→コピー→出力クリア→カーネル再起動→中断の一連フローが動作する | 統合テスト |
+
+## Phase 22: jupyter-mcp 構造改善
+
+jupyter-mcp の構造的問題（コピペコード・無検証キャスト・巨大 index.ts）を解消し、Phase 21 の実装基盤を整備する。不変条件 I4（境界でランタイム検証）・I8（rule of three）の既知違反を解消する。実施順は 22.1 → 22.3 → 22.2。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 22.1 | 編集系7ツールの operateCellWithSync 共通化 | [x] | 7ツールの既存ユニットテストが全件成功し、`grep -l 'operateCellWithSync' jupyter-mcp/src/tools/notebook-*.ts` が7件 | I8 違反の解消。Phase 21.3 で postAiEvent 変更が1箇所で済むようになる |
+| 22.2 | API レスポンスの zod 境界検証 | [x] | 不正形式の API レスポンスで `RESPONSE_VALIDATION_ERROR` が発生する。統合テストで実レスポンスが検証を通る | I4 違反の解消。本タスクでは operateCell 関連に限定 |
+| 22.3 | ツール定義の各ファイルへの分散 | [x] | `wc -l jupyter-mcp/src/tools/index.ts` が 100 行以下。全ツールファイルが `toolEntry` を export | Phase 21.1 で `mutatesNotebook` を各ファイル内で宣言する前提 |
