@@ -232,3 +232,17 @@ SQLクエリ結果を大量行対応でワークスペースにファイル保�
 | 19.5 | カーネル再起動 | [x] | kernel_restart でカーネルが再起動される。再起動+全セル実行は kernel_restart → notebook_execute_batch(mode: 'all') の順次呼び出しで実現 | jupyter-mcp: 1ツール |
 | 19.6 | カーネル中断時の KeyboardInterrupt レスポンス対応 | [x] | notebook_execute_cell / notebook_execute_batch で KeyboardInterrupt 発生時にエラー種別が MCP レスポンスに含まれる（execute_code は対応済み） | jupyter-mcp: 既存ツールの KeyboardInterrupt ハンドリング改善 |
 | 19.7 | ノートブック操作拡張の結合テスト | [x] | 一括実行→結合→分割→タイプ変更→コピー→出力クリア→カーネル再起動→中断の一連フローが動作する | 統合テスト |
+
+---
+
+## Phase 23: jupyter-server 堅牢化
+
+不変条件 I3/I6/I7 の既知違反を解消し、handlers.py モノリスを分割する。実装順は 23.1 → 23.2 → 23.3 → 23.4 → 23.5（23.1 のカーネルロックが 23.2 の前提、23.3 の分割が 23.4/23.5 の前提）。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 23.1 | カーネル単位の実行直列化ロック | [x] | 同一カーネルに2つの execute を並行送信し、各レスポンスの出力が混線せず正しい結果を返す（異常系: ロック待ちタイムアウト） | kernel_executor.py に asyncio.Lock 辞書を導入。I6 解消 |
+| 23.2 | async ハンドラ内の同期 I/O オフロード | [x] | 大きな CSV（10万行）のプレビューが他リクエストをブロックせず完了する（異常系: ファイル不在時のエラー応答） | handlers.py preview / workspace_handlers.py を run_in_executor 化。I3 解消 |
+| 23.3 | handlers.py の分割 | [x] | `scripts/test.sh jupyter-server` が分割前後で全パス。handlers.py が 500 行以下になる | kernel/cell_actions/contents/preview の4モジュールに分割 |
+| 23.4 | SQL コネクションプール化 | [x] | SQL 実行が共有プールを使い、リクエスト間で接続が再利用される（異常系: DB 接続不能時に明確なエラー） | アプリ起動時に1回だけ engine 生成。sql_handlers.py 改修 |
+| 23.5 | sandbox の os.rename/os.replace ブロック追加 | [x] | カーネル内で `os.rename('/other_ws/file', 'local')` を実行すると PermissionError になる | workspace_sandbox.py + code_validator.py にパッチ追加。shutil は import 段階でブロック済み |

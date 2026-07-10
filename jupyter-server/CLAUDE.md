@@ -47,7 +47,7 @@ docker compose down
 
 ## API一覧
 
-ルート定義（パス・ハンドラの対応）は `extensions/custom_api/handlers.py` の `get_handlers()` が正。各ハンドラの実装は同ディレクトリの `handlers.py` / `session_handlers.py` / `sql_handlers.py` / `workspace_handlers.py` / `ai_events.py` を参照。契約仕様（メソッド・ステータスコード・入出力）は [docs/design/api-contracts.md](../docs/design/api-contracts.md) を参照。
+ルート定義（パス・ハンドラの対応）は `extensions/custom_api/handlers.py` の `get_handlers()` が正。各ハンドラの実装は `kernel_handlers.py` / `cell_handlers.py` / `contents_handlers.py` / `preview_handlers.py` / `session_handlers.py` / `sql_handlers.py` / `workspace_handlers.py` / `ai_events.py` に分割されている（`handlers.py` はルーティング組み立てと re-export のみ）。契約仕様（メソッド・ステータスコード・入出力）は [docs/design/api-contracts.md](../docs/design/api-contracts.md) を参照。
 
 ## ポート
 
