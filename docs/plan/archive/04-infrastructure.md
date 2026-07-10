@@ -2,6 +2,8 @@
 
 > **完了済み Phase の記録。** 進行中・未着手のタスクは [../04-infrastructure.md](../04-infrastructure.md) を参照。本文中の詳細計画への参照は `docs/tasks/archive/infrastructure/` に読み替えること。
 
+<!-- Phase は番号順に並べる。新しい Phase はファイル末尾に追記する -->
+
 ---
 
 ## Phase 1: Jupyter統合テスト
@@ -142,3 +144,17 @@ ruff（Python）と prettier（TypeScript）のフォーマッターを既存コ
 | 9.2 | mypy / pytest のルート venv 統合 | [x] | `scripts/test.sh document-server` と `scripts/test.sh jupyter-server` が、コンポーネント直下の `.venv` を参照せずにルート venv 経由で通る | ルート `pyproject.toml` の `[dependency-groups] dev` に document-server / jupyter-server の依存・型チェック・テストツールを集約。`scripts/test.sh` の per-component venv 分岐を削除 |
 | 9.3 | jupyterlab-ai-sync ビルドのルート venv 統合 | [x] | ルート venv を使った状態で `jupyterlab-ai-sync` の `npm run build` が成功し、labextension アセットが生成される | ルート dev group に `jupyterlab`, `jupyter-packaging`, `setuptools`, `wheel` を追加。`jupyterlab-ai-sync/pyproject.toml`（build backend）は変更しない |
 | 9.4 | 初回セットアップスクリプト（uv 検知 + bootstrap） | [x] | clone 直後の環境で `bash scripts/bootstrap.sh` を実行すると、uv 未検出時はインストール手順を案内して exit 1、uv 検出時は `uv sync` と `git config core.hooksPath .githooks` / `git config fetch.prune true` を適用して完了する | `scripts/bootstrap.sh` 新規作成。uv 自動インストールは行わず `curl -LsSf https://astral.sh/uv/install.sh \| sh` コマンドを表示して利用者に委ねる方針（`curl \| sh` のリポジトリ同梱を避ける）。CLAUDE.md の「初回セットアップ」節を `bash scripts/bootstrap.sh` 一行＋補足に置換。**計画作成時は先に `tmp/9.4-plan-notes.md` を読むこと**（9.3 実行時に観測した PATH 反映 / `.env` bootstrap の追加スコープを記載） |
+
+---
+
+## Phase 10: コンテキスト管理の改善
+
+AIエージェントが読み込むコンテキストの削減と、ドキュメント陳腐化の防止（「コードが正」の徹底）を行う Phase。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 10.1 | 完了タスクのアーカイブ構造導入 | [x] | docs/plan・docs/tasks・docs/issues の完了分が archive/ に退避され、現役ファイルに進行中・未着手のみ残る | plan/README.md にアーカイブ規約を明文化。関連コマンド・スキル・ルールの参照更新を含む |
+| 10.2 | SSoT 再定義（コードが正）とポインタ化 | [x] | STRUCTURE.md の SSoT 表で実装詳細の正がコードになり、*/CLAUDE.md・README.md のツール/API一覧がコードへのポインタに置き換わる | documentation.md / doc-code-audit スキルの判定基準も同期。ポインタ化により実在しない API 記載などの既存乖離も解消 |
+| 10.3 | requirements / api-contracts のスリム化 | [x] | 要件定義と API 仕様から実装詳細（スキーマ・デフォルト値等）が除去され、F番号・Why・受け入れ条件・機械検証可能な一覧表のみ残る | コード照合で乖離を検証しながら実施（計 -3,256 行）。api-contracts.md は 1,709→89 行 |
+| 10.4 | ドキュメント整合性の CI 機械検証 | [x] | PR ごとに CI で MCPツール名・エンドポイント・Markdownリンクの整合が検証され、乖離があると FAIL する | scripts/check-docs-consistency.py + ci.yml doc-consistency ジョブ + .githooks/pre-push |
+| 10.5 | カスタムコマンドの DRY 化と常時ロード削減 | [x] | commands の重複手順が skills へ抽出され、scripts.md が条件付きロードになる | コミット手順の転記3箇所を commit-and-push スキル参照に置換。scripts.md に paths frontmatter 追加、CLAUDE.md にポインタ行を残置 |

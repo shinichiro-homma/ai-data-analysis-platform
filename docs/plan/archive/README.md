@@ -11,7 +11,7 @@
 | [01-jupyter.md](01-jupyter.md) | Jupyter（server + mcp + ai-sync） | 1〜19 |
 | [02-document.md](02-document.md) | Document（server + mcp） | 1〜7 |
 | [03-workspace.md](03-workspace.md) | Workspace（cross-cutting） | 1〜4 |
-| [04-infrastructure.md](04-infrastructure.md) | Infrastructure | 1〜9 |
+| [04-infrastructure.md](04-infrastructure.md) | Infrastructure | 1〜10 |
 
 各タスクの詳細計画は `docs/tasks/archive/{カテゴリ}/` に退避済み。本文中の `docs/tasks/{カテゴリ}/...` への参照は `docs/tasks/archive/{カテゴリ}/...` に読み替えること。
 
