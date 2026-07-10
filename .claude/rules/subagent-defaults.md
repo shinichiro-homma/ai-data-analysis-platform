@@ -7,15 +7,23 @@ paths:
 # サブエージェント標準ルール
 
 コマンドからサブエージェントを起動する際の共通デフォルト（SSoT）。
-コマンド側はプロンプトに「`.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること」と 1 行書けばよい（個別ルールの転記は禁止。`.claude/rules/dry.md` 参照）。
+コマンド側はプロンプトに「`.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『{役割名}』のルールを Read すること」と 1 行書けばよい（個別ルールの転記は禁止。`.claude/rules/dry.md` 参照）。
 
-## サブエージェントが必ず Read するルール
+## 必読ルール表（役割別）
 
-- `.claude/rules/general.md` — 開発フロー・コミット規約・Bash 規律・モデル選択
-- `.claude/rules/scripts.md` — ビルド・テスト・Docker 操作は scripts/ 経由
-- 実装・テスト作成を行う場合: `.claude/rules/tdd.md`
-- ドキュメントを変更する場合: `.claude/rules/documentation.md` と `docs/STRUCTURE.md` の SSoT 表
-- レビュー・検証・計画作成を行う場合: `docs/design/invariants.md`（横断不変条件）— 変更が不変条件に抵触しないかを観点に含める
+コンテキスト肥大を防ぐため、**自分の役割の行にあるルールのみ** Read する（全ルールの読み込みは禁止）。
+
+| 役割 | 必読ルール |
+|------|-----------|
+| 計画作成 | `general.md`、`scripts.md`、`docs/design/invariants.md` |
+| テスト準備（Red） | `general.md`、`scripts.md`、`tdd.md`、`lint.md` |
+| 実装（Green）・バグ修正 | `general.md`、`scripts.md`、`tdd.md`、`lint.md`、`dry.md` |
+| リファクタ・レビュー指摘の修正 | `general.md`、`scripts.md`、`lint.md`、`dry.md` |
+| レビュー・検証 | `docs/design/invariants.md`（変更が不変条件に抵触しないかを観点に含める）＋ 本ファイルの証拠スキーマ |
+| 調査（read-only の探索・照合） | なし（本ファイルの報告の規律に従う） |
+| コミット | なし（`.claude/skills/commit-and-push/SKILL.md` が正） |
+
+パスは `.claude/rules/` 配下（`invariants.md` のみ `docs/design/`）。**追加条件**: どの役割でも、ドキュメントを変更する場合は `documentation.md` と `docs/STRUCTURE.md` の SSoT 表を追加で Read する。
 
 ## 報告の規律（全サブエージェント共通）
 

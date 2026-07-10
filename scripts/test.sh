@@ -29,6 +29,7 @@ OPTIONS:
   --rebuild       テスト前にコンポーネントを自動リビルド（MCP/Docker を自動判定）
   --health        テスト後に既知障害と照合して分類する
   --no-lint       lint / format チェックをスキップする
+  --quiet         詳細ログを tmp/test-logs/ へ退避し、サマリと失敗抜粋のみ表示する
   -h, --help      このヘルプを表示
 
 Examples:
@@ -40,6 +41,7 @@ Examples:
   $(basename "$0") --rebuild jupyter-mcp               # MCP リビルド + テスト
   $(basename "$0") --rebuild                            # 全コンポーネントリビルド + テスト
   $(basename "$0") --integration --rebuild              # リビルド後に統合テスト
+  $(basename "$0") --quiet jupyter-mcp                  # サマリのみ表示（サブエージェント向け）
 EOF
 }
 
@@ -49,6 +51,7 @@ LINT=true
 HEALTH=false
 INTEGRATION=false
 REBUILD=false
+QUIET=false
 TARGETS=()
 
 while [[ $# -gt 0 ]]; do
@@ -59,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --rebuild)       REBUILD=true; shift ;;
     --no-lint)       LINT=false; shift ;;
     --health)        HEALTH=true; shift ;;
+    --quiet)         QUIET=true; shift ;;
     -h|--help)    usage; exit 0 ;;
     -*)           echo "Error: unknown option $1" >&2; usage; exit 1 ;;
     *)
@@ -76,6 +80,33 @@ done
 
 if [[ ${#TARGETS[@]} -eq 0 ]]; then
   TARGETS=("${COMPONENTS[@]}")
+fi
+
+# Quiet mode: 全出力をログファイルへ退避し、コンソールにはサマリと失敗抜粋のみ返す
+# say  = コンソールのみ（quiet 時はログに残らない）
+# note = ログ + コンソール（通常時は 1 回だけ出力）
+QUIET_LOG=""
+exec 3>&1
+say() { echo "$@" >&3; }
+note() {
+  echo "$@"
+  if $QUIET; then echo "$@" >&3; fi
+}
+if $QUIET; then
+  mkdir -p tmp/test-logs
+  QUIET_LOG="tmp/test-logs/$(date +%Y%m%d-%H%M%S)-$$.log"
+  say "Quiet mode: full log -> $QUIET_LOG"
+  on_exit() {
+    local status=$?
+    if [[ $status -ne 0 ]]; then
+      say ""
+      say "--- 失敗ログ抜粋（末尾 120 行）---"
+      tail -n 120 "$QUIET_LOG" >&3 || true
+      say "--- 全文: ${QUIET_LOG}（詳細は Read / Grep で参照）---"
+    fi
+  }
+  trap on_exit EXIT
+  exec 1>>"$QUIET_LOG" 2>&1
 fi
 
 # Classify targets into MCP and Docker groups
@@ -108,7 +139,7 @@ echo ""
 
 # Lint check (before any build/test)
 if $LINT; then
-  echo "--- Lint / Format Check ---"
+  note "--- Lint / Format Check ---"
   # Map test.sh component names to lint.sh component names
   # test.sh targets: jupyter-mcp, document-mcp, document-server, jupyter-server
   # lint.sh also supports: mcp-shared, scripts
@@ -129,14 +160,14 @@ if $LINT; then
     echo ""
   else
     echo ""
-    echo "ERROR: Lint check failed. Fix lint issues before running tests."
+    note "ERROR: Lint check failed. Fix lint issues before running tests."
     exit 1
   fi
 fi
 
 # Integration mode: check Docker environment
 if $INTEGRATION; then
-  echo "--- Pre-flight: Docker Environment ---"
+  note "--- Pre-flight: Docker Environment ---"
 
   # Integration tests require DATA_ENV=sample
   CURRENT_DATA_ENV=$(read_data_env)
@@ -193,7 +224,7 @@ if $INTEGRATION; then
   classify_rebuild_targets
   if [[ ${#MCP_REBUILD_TARGETS[@]} -gt 0 ]]; then
     echo ""
-    echo "--- Rebuilding MCP servers ---"
+    note "--- Rebuilding MCP servers ---"
     scripts/rebuild-mcp.sh "${MCP_REBUILD_TARGETS[@]}"
   fi
 
@@ -201,7 +232,7 @@ if $INTEGRATION; then
 else
   # Non-integration mode: rebuild if requested
   if $REBUILD; then
-    echo "--- Rebuild ---"
+    note "--- Rebuild ---"
     run_rebuild
     echo ""
   fi
@@ -216,7 +247,7 @@ fi
 FAILED=()
 
 for component in "${TARGETS[@]}"; do
-  echo "--- $component ---"
+  note "--- $component ---"
 
   if [[ "$component" == "hooks" ]]; then
     HOOKS_TEST_DIR=".claude/hooks/tests"
@@ -348,13 +379,13 @@ for component in "${TARGETS[@]}"; do
   echo ""
 done
 
-echo "=== Result ==="
+note "=== Result ==="
 if [[ ${#FAILED[@]} -eq 0 ]]; then
-  echo "All targets passed."
+  note "All targets passed."
 else
   if $HEALTH; then
     if ! command -v jq >/dev/null 2>&1; then
-      echo "ERROR: --health は jq を必要とします。sudo apt-get install -y jq / brew install jq でインストールしてください。" >&2
+      note "ERROR: --health は jq を必要とします。sudo apt-get install -y jq / brew install jq でインストールしてください。"
       exit 1
     fi
     # Classify failures against known-failures.json
@@ -386,17 +417,17 @@ else
 
     echo ""
     if [[ ${#KNOWN[@]} -gt 0 ]]; then
-      echo "KNOWN FAILURES (${#KNOWN[@]}): ${KNOWN[*]}"
+      note "KNOWN FAILURES (${#KNOWN[@]}): ${KNOWN[*]}"
     fi
     if [[ ${#NEW[@]} -gt 0 ]]; then
-      echo "NEW FAILURES (${#NEW[@]}): ${NEW[*]}"
+      note "NEW FAILURES (${#NEW[@]}): ${NEW[*]}"
       exit 1
     else
-      echo "All failures are known. No new issues."
+      note "All failures are known. No new issues."
       exit 0
     fi
   else
-    echo "FAILED: ${FAILED[*]}"
+    note "FAILED: ${FAILED[*]}"
     exit 1
   fi
 fi
