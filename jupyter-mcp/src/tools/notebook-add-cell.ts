@@ -2,12 +2,14 @@
  * notebook_add_cell ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import {
   createSuccessResponse,
   createErrorResponse,
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import { validateStringParameter, validateAndNormalizeNotebookPath } from '../utils/validation.js';
 import { getEffectiveCellCount } from '../utils/notebook-cell-tracker.js';
@@ -75,3 +77,21 @@ export async function executeNotebookAddCell(args: Record<string, unknown>): Pro
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_add_cell',
+    description: 'Adds a cell (code or markdown) to the notebook.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        cell_type: { type: 'string', enum: ['code', 'markdown'], description: 'Cell type (code or markdown)' },
+        source: { type: 'string', description: 'Cell content' },
+        position: { type: 'number', description: 'Insert position (0-indexed, appends to end if omitted)' },
+      },
+      required: ['notebook_path', 'cell_type', 'source'],
+    },
+  },
+  execute: executeNotebookAddCell,
+};

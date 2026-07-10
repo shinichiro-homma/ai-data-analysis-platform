@@ -27,7 +27,7 @@ export function kernelToSessionInfo(kernel: Kernel, includeKernelName = true): S
     session_id: kernel.id,
     kernel_id: kernel.id,
     status: kernel.status,
-    created_at: kernel.started_at,
+    created_at: kernel.started_at ?? '',
   };
 
   if (includeKernelName) {

@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateWorkspaceId } from '../utils/validation.js';
 import { normalizePath } from '../utils/path-validator.js';
 import { ValidationError } from '../utils/errors.js';
@@ -70,3 +72,29 @@ export async function executeDataPreview(args: Record<string, unknown>): Promise
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'data_preview',
+    description:
+      'Retrieves the structure (column names, types, head rows, total row count) of a CSV or Parquet file in the workspace without requiring a kernel. Use to inspect data before analysis.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: { type: 'string', description: 'Workspace ID' },
+        file_path: {
+          type: 'string',
+          description: 'File path relative to workspace (e.g., data/sales.csv)',
+        },
+        head_rows: {
+          type: 'number',
+          description: 'Number of head rows to retrieve (default: 5, max: 50)',
+          minimum: 0,
+          maximum: 50,
+        },
+      },
+      required: ['workspace_id', 'file_path'],
+    },
+  },
+  execute: executeDataPreview,
+};

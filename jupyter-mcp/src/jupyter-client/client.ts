@@ -54,6 +54,29 @@ import {
   NotebookNotFoundError,
   createErrorFromResponse,
 } from './errors.js';
+import {
+  KernelSchema,
+  DeleteKernelResponseSchema,
+  JupyterSessionSchema,
+  ExecuteResultSchema,
+  VariableSchema,
+  ContentsListResponseSchema,
+  NotebookResponseSchema,
+  CreateContentResponseSchema,
+  WorkspaceInfoSchema,
+  WorkspaceSummarizeResponseSchema,
+  WorkspaceSessionInfoSchema,
+  HealthStatusSchema,
+  BroadcastEventResponseSchema,
+  SqlExecuteResponseSchema,
+  SqlExportResponseSchema,
+  CellExecuteResponseSchema,
+  CellExecuteBatchResponseSchema,
+  ClearAllOutputsResponseSchema,
+  DataPreviewResponseSchema,
+  TextFileResponseSchema,
+} from './schemas.js';
+import type { ZodType } from 'zod';
 import { normalizeNotebookPath } from '../utils/path-validator.js';
 import { logger } from '../utils/logger.js';
 
@@ -102,7 +125,7 @@ export class JupyterClient {
 
   async healthCheck(): Promise<HealthStatus> {
     const response = await this.request<HealthStatus>('GET', '/health');
-    return response;
+    return this.validateResponse(response, HealthStatusSchema);
   }
 
   // ===========================================================================
@@ -112,19 +135,19 @@ export class JupyterClient {
   async createKernel(name = 'python3'): Promise<Kernel> {
     const body: CreateKernelRequest = { name };
     const response = await this.request<ApiResponse<Kernel>>('POST', '/api/kernels', body);
-    return response.data;
+    return this.validateResponse(response.data, KernelSchema);
   }
 
   async listKernels(): Promise<Kernel[]> {
     const response = await this.request<ApiResponse<{ kernels: Kernel[] }>>('GET', '/api/kernels');
-    return response.data.kernels;
+    return response.data.kernels.map((k) => this.validateResponse(k, KernelSchema));
   }
 
   async getKernel(kernelId: string): Promise<Kernel> {
     const response = await this.request<ApiResponse<Kernel>>('GET', `/api/kernels/${kernelId}`, undefined, {
       kernelId,
     });
-    return response.data;
+    return this.validateResponse(response.data, KernelSchema);
   }
 
   async deleteKernel(kernelId: string): Promise<DeleteKernelResponse> {
@@ -134,21 +157,21 @@ export class JupyterClient {
       undefined,
       { kernelId },
     );
-    return response.data;
+    return this.validateResponse(response.data, DeleteKernelResponseSchema);
   }
 
   async interruptKernel(kernelId: string): Promise<Kernel> {
     const response = await this.request<ApiResponse<Kernel>>('POST', `/api/kernels/${kernelId}/interrupt`, undefined, {
       kernelId,
     });
-    return response.data;
+    return this.validateResponse(response.data, KernelSchema);
   }
 
   async restartKernel(kernelId: string): Promise<Kernel> {
     const response = await this.request<ApiResponse<Kernel>>('POST', `/api/kernels/${kernelId}/restart`, undefined, {
       kernelId,
     });
-    return response.data;
+    return this.validateResponse(response.data, KernelSchema);
   }
 
   // ===========================================================================
@@ -159,7 +182,7 @@ export class JupyterClient {
   // 注意: /api/sessions は標準APIなので ApiResponse ラッパーなし
   async listSessions(): Promise<JupyterSession[]> {
     const response = await this.request<JupyterSession[]>('GET', '/api/sessions');
-    return response;
+    return response.map((s) => this.validateResponse(s, JupyterSessionSchema));
   }
 
   // 指定パスのノートブックに関連するセッションを取得
@@ -199,7 +222,7 @@ export class JupyterClient {
     };
 
     const response = await this.request<JupyterSession>('POST', '/api/sessions', body);
-    return response;
+    return this.validateResponse(response, JupyterSessionSchema);
   }
 
   // ===========================================================================
@@ -215,7 +238,7 @@ export class JupyterClient {
       { kernelId },
       requestTimeoutMs,
     );
-    return response.data;
+    return this.validateResponse(response.data, ExecuteResultSchema);
   }
 
   // ===========================================================================
@@ -229,7 +252,7 @@ export class JupyterClient {
       undefined,
       { kernelId },
     );
-    return response.data.variables;
+    return response.data.variables.map((v) => this.validateResponse(v, VariableSchema));
   }
 
   async getVariable(kernelId: string, name: string): Promise<Variable | DataFrameVariable> {
@@ -249,7 +272,7 @@ export class JupyterClient {
   async listContents(path = '/'): Promise<ContentsListResponse> {
     const queryString = path === '/' ? '' : `?path=${encodeURIComponent(path)}`;
     const response = await this.request<ApiResponse<ContentsListResponse>>('GET', `/api/custom/contents${queryString}`);
-    return response.data;
+    return this.validateResponse(response.data, ContentsListResponseSchema);
   }
 
   async getContents(path: string): Promise<NotebookResponse> {
@@ -259,7 +282,7 @@ export class JupyterClient {
       undefined,
       { path },
     );
-    return response.data;
+    return this.validateResponse(response.data, NotebookResponseSchema);
   }
 
   async createNotebook(path: string): Promise<CreateContentResponse> {
@@ -268,7 +291,7 @@ export class JupyterClient {
       path,
     };
     const response = await this.request<ApiResponse<CreateContentResponse>>('POST', '/api/custom/contents', body);
-    return response.data;
+    return this.validateResponse(response.data, CreateContentResponseSchema);
   }
 
   async updateNotebook(path: string, content: UpdateNotebookRequest): Promise<void> {
@@ -346,12 +369,12 @@ export class JupyterClient {
       ...(status !== undefined ? { status: status as CreateWorkspaceRequest['status'] } : {}),
     };
     const response = await this.request<ApiResponse<WorkspaceInfo>>('POST', '/api/workspaces', body);
-    return response.data;
+    return this.validateResponse(response.data, WorkspaceInfoSchema);
   }
 
   async listWorkspaces(): Promise<WorkspaceInfo[]> {
     const response = await this.request<ApiResponse<{ workspaces: WorkspaceInfo[] }>>('GET', '/api/workspaces');
-    return response.data.workspaces;
+    return response.data.workspaces.map((w) => this.validateResponse(w, WorkspaceInfoSchema));
   }
 
   async updateWorkspace(workspaceId: string, params: UpdateWorkspaceRequest): Promise<WorkspaceInfo> {
@@ -360,7 +383,7 @@ export class JupyterClient {
       `/api/workspaces/${encodeURIComponent(workspaceId)}`,
       params,
     );
-    return response.data;
+    return this.validateResponse(response.data, WorkspaceInfoSchema);
   }
 
   async summarizeWorkspace(workspaceId: string): Promise<WorkspaceSummarizeResponse> {
@@ -368,7 +391,7 @@ export class JupyterClient {
       'POST',
       `/api/workspaces/${encodeURIComponent(workspaceId)}/summarize`,
     );
-    return response.data;
+    return this.validateResponse(response.data, WorkspaceSummarizeResponseSchema);
   }
 
   /**
@@ -386,7 +409,7 @@ export class JupyterClient {
       ...(kernelName ? { kernel_name: kernelName } : {}),
     };
     const response = await this.request<ApiResponse<WorkspaceSessionInfo>>('POST', '/api/custom/sessions', body);
-    return response.data;
+    return this.validateResponse(response.data, WorkspaceSessionInfoSchema);
   }
 
   /**
@@ -424,7 +447,7 @@ export class JupyterClient {
       undefined,
       requestTimeoutMs,
     );
-    return response.data;
+    return this.validateResponse(response.data, SqlExecuteResponseSchema);
   }
 
   async exportSql(params: SqlExportRequest): Promise<SqlExportResponse> {
@@ -436,7 +459,7 @@ export class JupyterClient {
       undefined,
       requestTimeoutMs,
     );
-    return response.data;
+    return this.validateResponse(response.data, SqlExportResponseSchema);
   }
 
   // ===========================================================================
@@ -456,7 +479,7 @@ export class JupyterClient {
       { path, index: cellIndex },
       requestTimeoutMs,
     );
-    return response.data;
+    return this.validateResponse(response.data, CellExecuteResponseSchema);
   }
 
   // ===========================================================================
@@ -470,7 +493,7 @@ export class JupyterClient {
       undefined,
       { path },
     );
-    return response.data;
+    return this.validateResponse(response.data, ClearAllOutputsResponseSchema);
   }
 
   // ===========================================================================
@@ -486,7 +509,7 @@ export class JupyterClient {
       { path },
       requestTimeoutMs,
     );
-    return response.data;
+    return this.validateResponse(response.data, CellExecuteBatchResponseSchema);
   }
 
   // ===========================================================================
@@ -505,7 +528,7 @@ export class JupyterClient {
       undefined,
       { path },
     );
-    return response.data;
+    return this.validateResponse(response.data, DataPreviewResponseSchema);
   }
 
   // ===========================================================================
@@ -528,7 +551,7 @@ export class JupyterClient {
       undefined,
       { path },
     );
-    return response.data;
+    return this.validateResponse(response.data, TextFileResponseSchema);
   }
 
   // ===========================================================================
@@ -551,10 +574,10 @@ export class JupyterClient {
         '/api/ai/events/broadcast',
         event,
       );
-      return response.data;
+      return this.validateResponse(response.data, BroadcastEventResponseSchema);
     } catch (error) {
       // イベント配信失敗時はクライアント0として扱い、REST APIフォールバックを促す
-      console.warn('[jupyter-client] AI event broadcast failed:', error instanceof Error ? error.message : error);
+      logger.warn('[jupyter-client] AI event broadcast failed:', error instanceof Error ? error.message : error);
       return { broadcasted: false, clients: 0 };
     }
   }
@@ -570,6 +593,18 @@ export class JupyterClient {
   private calculateRequestTimeout(timeoutSeconds?: number): number | undefined {
     if (!timeoutSeconds) return undefined;
     return timeoutSeconds * 1000 + 5000;
+  }
+
+  private validateResponse<T>(data: unknown, schema: ZodType<T>): T {
+    const result = schema.safeParse(data);
+    if (!result.success) {
+      throw new JupyterClientError(
+        `API レスポンスの形式が不正です: ${result.error.message}`,
+        'RESPONSE_VALIDATION_ERROR',
+        500,
+      );
+    }
+    return result.data;
   }
 
   private async request<T>(

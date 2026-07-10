@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateNumberParameter, validateFilename, validateSqlToolCommonParams } from '../utils/validation.js';
 import { resolveWorkspaceIdOrError } from '../utils/session-resolver.js';
 import { resolveWorkspacePath } from '../utils/workspace-path-store.js';
@@ -86,7 +88,7 @@ export async function executeExecuteSql(args: Record<string, unknown>): Promise<
       executionTimeMs: result.execution_time_ms,
     });
 
-    const { success, ...resultData } = result;
+    const { success: _success, ...resultData } = result;
 
     return createSuccessResponse({
       ...resultData,
@@ -96,3 +98,29 @@ export async function executeExecuteSql(args: Record<string, unknown>): Promise<
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'execute_sql',
+    description: `Executes a SQL query and saves results as CSV in the workspace's data/ directory. Queries are auto-saved as .sql files in data/queries/.\n\n[REQUIRED] Before writing SQL:\n(1) Call get_table_detail to inspect table structure. Use key_type/domain in the response to identify JOIN keys\n(2) Call get_logic_index to check for reusable existing logic (SQL templates, etc.)\n\nJOIN rule: JOIN columns that share the same key_type. domain.master_table/master_column indicates FK references.\n\nResponse (SELECT):\n{\n  "file_path": "CSV path (loadable via pd.read_csv)",\n  "row_count": "number of rows",\n  "columns": "array of column names",\n  "truncated": "whether max_rows truncation occurred",\n  "query_file_path": "path to saved SQL file"\n}`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+        sql: {
+          type: 'string',
+          description:
+            'SQL query. Dangerous operations (DELETE, ALTER, GRANT, REVOKE, VACUUM, ANALYZE, non-TEMP CREATE TABLE, CREATE/DROP INDEX) are rejected',
+        },
+        filename: {
+          type: 'string',
+          description: "Output filename in data/ directory (e.g., 'transactions.csv')",
+        },
+        timeout: { type: 'number', description: 'Timeout in seconds (default: 30, max: 300)' },
+        max_rows: { type: 'number', description: 'Maximum rows to retrieve (default: 100000)' },
+      },
+      required: ['session_id', 'sql', 'filename'],
+    },
+  },
+  execute: executeExecuteSql,
+};

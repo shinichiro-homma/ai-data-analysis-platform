@@ -2,15 +2,10 @@
  * notebook_merge_cells ツール実装
  */
 
-import {
-  createSuccessResponse,
-  createErrorResponse,
-  extractErrorCode,
-  extractErrorMessage,
-  type McpResponse,
-} from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import { validateAndNormalizeNotebookPath, validateCellIndexParam } from '../utils/validation.js';
-import { jupyterClient } from '../jupyter-client/client.js';
+import { operateCellWithSync } from '../utils/cell-operations.js';
 
 /**
  * 隣接する複数セルを1つに結合する
@@ -34,29 +29,40 @@ export async function executeNotebookMergeCells(args: Record<string, unknown>): 
   }
   const endIndex = endIndexResult.index;
 
-  try {
-    // REST API でセルを結合
-    await jupyterClient.operateCell(validatedPath, {
-      action: 'merge',
-      start_index: startIndex,
-      end_index: endIndex,
-    });
+  if (endIndex <= startIndex) {
+    return createErrorResponse('end_index must be greater than start_index', 'VALIDATION_ERROR');
+  }
 
-    // AI同期イベントを配信（ブラウザにリアルタイム反映）
-    await jupyterClient.postAiEvent({
-      type: 'cells_merged',
-      notebook_path: validatedPath,
-      start_index: startIndex,
-      end_index: endIndex,
-    });
-
-    return createSuccessResponse({
+  return operateCellWithSync(
+    validatedPath,
+    { action: 'merge', start_index: startIndex, end_index: endIndex },
+    { type: 'cells_merged', notebook_path: validatedPath, start_index: startIndex, end_index: endIndex },
+    {
       notebook_path: validatedPath,
       start_index: startIndex,
       end_index: endIndex,
       message: `ノートブック "${validatedPath}" のセル ${startIndex}〜${endIndex} を結合しました`,
-    });
-  } catch (error) {
-    return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
-  }
+    },
+  );
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_merge_cells',
+    description:
+      'Merges adjacent cells in a notebook into a single cell. All cells in the range must be the same type (code or markdown). The merged cell source is the concatenation of all sources joined by newlines.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        start_index: { type: 'number', description: 'Start cell index (0-indexed, inclusive)' },
+        end_index: {
+          type: 'number',
+          description: 'End cell index (0-indexed, inclusive). Must be greater than start_index',
+        },
+      },
+      required: ['notebook_path', 'start_index', 'end_index'],
+    },
+  },
+  execute: executeNotebookMergeCells,
+};

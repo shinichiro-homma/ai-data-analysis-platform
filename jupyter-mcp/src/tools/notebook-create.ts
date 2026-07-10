@@ -3,12 +3,14 @@
  */
 
 import { jupyterClient } from '../jupyter-client/client.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import {
   createSuccessResponse,
   createErrorResponse,
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import { validateStringParameter, validateWorkspaceId } from '../utils/validation.js';
 import { registerNotebookMapping } from '../utils/session-resolver.js';
@@ -76,3 +78,20 @@ export async function executeNotebookCreate(args: Record<string, unknown>): Prom
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_create',
+    description: 'Creates a new notebook within the workspace.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: { type: 'string', description: 'Workspace ID' },
+        session_id: { type: 'string', description: 'Session ID' },
+        name: { type: 'string', description: 'Notebook name (.ipynb extension not required)' },
+      },
+      required: ['workspace_id', 'session_id', 'name'],
+    },
+  },
+  execute: executeNotebookCreate,
+};

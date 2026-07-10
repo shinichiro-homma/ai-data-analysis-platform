@@ -2,12 +2,14 @@
  * notebook_execute_cell ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import {
   createSuccessResponse,
   createErrorResponse,
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import {
   validateStringParameter,
@@ -129,3 +131,21 @@ export async function executeNotebookExecuteCell(args: Record<string, unknown>):
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_execute_cell',
+    description: 'Re-executes an existing cell in a notebook at the specified index using the given session.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        session_id: { type: 'string', description: 'Session ID' },
+        cell_index: { type: 'number', description: 'Cell index to execute (0-indexed)' },
+        timeout: { type: 'number', description: 'Timeout in seconds (default: 30, max: 300)' },
+      },
+      required: ['notebook_path', 'session_id', 'cell_index'],
+    },
+  },
+  execute: executeNotebookExecuteCell,
+};

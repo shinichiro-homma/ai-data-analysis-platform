@@ -10,9 +10,9 @@ export type KernelStatus = 'starting' | 'idle' | 'busy' | 'dead';
 
 export interface Kernel {
   id: string;
-  name: string;
+  name?: string;
   status: KernelStatus;
-  started_at: string;
+  started_at?: string;
   execution_count?: number;
 }
 
@@ -69,7 +69,7 @@ export interface Output {
 }
 
 export interface ImageOutput {
-  file_path: string; // workspaces/{workspace_id}/output/exec-{N}-img-{NNN}.{ext}
+  file_path: string | null; // workspaces/{workspace_id}/output/exec-{N}-img-{NNN}.{ext} （ワークスペース解決失敗時は null）
   mime_type: string;
   description: string;
 }
@@ -87,7 +87,7 @@ export interface ExecuteResult {
   result: unknown;
   images: ImageOutput[];
   execution_time_ms: number;
-  error?: ExecutionError;
+  error?: ExecutionError | null;
 }
 
 // =============================================================================
@@ -133,7 +133,7 @@ export type ContentType = 'notebook' | 'file' | 'directory';
 export interface ContentItem {
   name: string;
   type: ContentType;
-  size?: number;
+  size?: number | null;
   modified_at: string;
 }
 
@@ -618,7 +618,7 @@ export interface CellExecuteBatchResponse {
   executed_cells: number;
   success_count: number;
   failed_cell: number | null;
-  error?: ExecutionError;
+  error?: ExecutionError | null;
 }
 
 // =============================================================================

@@ -2,15 +2,10 @@
  * notebook_delete_cell ツール実装
  */
 
-import {
-  createSuccessResponse,
-  createErrorResponse,
-  extractErrorCode,
-  extractErrorMessage,
-  type McpResponse,
-} from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+import { createErrorResponse, type McpResponse, type McpToolResult } from '../utils/response-formatter.js';
 import { validateAndNormalizeNotebookPath, validateCellIndexParam } from '../utils/validation.js';
-import { jupyterClient } from '../jupyter-client/client.js';
+import { operateCellWithSync } from '../utils/cell-operations.js';
 
 /**
  * ノートブックのセルを削除する
@@ -28,26 +23,30 @@ export async function executeNotebookDeleteCell(args: Record<string, unknown>): 
   }
   const cellIndex = cellIndexResult.index;
 
-  try {
-    // REST API でセルを削除
-    await jupyterClient.operateCell(validatedPath, {
-      action: 'delete',
-      index: cellIndex,
-    });
-
-    // AI同期イベントを配信（ブラウザにリアルタイム反映）
-    await jupyterClient.postAiEvent({
-      type: 'cell_deleted',
-      notebook_path: validatedPath,
-      cell_index: cellIndex,
-    });
-
-    return createSuccessResponse({
+  return operateCellWithSync(
+    validatedPath,
+    { action: 'delete', index: cellIndex },
+    { type: 'cell_deleted', notebook_path: validatedPath, cell_index: cellIndex },
+    {
       notebook_path: validatedPath,
       cell_index: cellIndex,
       message: `ノートブック "${validatedPath}" のセル ${cellIndex} を削除しました`,
-    });
-  } catch (error) {
-    return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
-  }
+    },
+  );
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'notebook_delete_cell',
+    description: 'Deletes a cell from a notebook at the specified index.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        notebook_path: { type: 'string', description: 'Notebook path (e.g., analysis.ipynb)' },
+        cell_index: { type: 'number', description: 'Cell index to delete (0-indexed)' },
+      },
+      required: ['notebook_path', 'cell_index'],
+    },
+  },
+  execute: executeNotebookDeleteCell,
+};

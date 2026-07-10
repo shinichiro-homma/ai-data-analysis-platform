@@ -2,6 +2,8 @@
  * workspace_summarize ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
+
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
   createSuccessResponse,
@@ -10,6 +12,7 @@ import {
   extractErrorMessage,
   type McpResponse,
 } from '../utils/response-formatter.js';
+import type { McpToolResult } from '../utils/response-formatter.js';
 import { validateWorkspaceId } from '../utils/validation.js';
 
 interface WorkspaceSummarizeArgs {
@@ -41,3 +44,22 @@ export async function executeWorkspaceSummarize(args: Record<string, unknown>): 
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'workspace_summarize',
+    description:
+      'Generates a verification report for the workspace. Only use when explicitly requested by the user. Returns a summary template, verification criteria (A-F), and report creation instructions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: {
+          type: 'string',
+          description: 'Workspace ID',
+        },
+      },
+      required: ['workspace_id'],
+    },
+  },
+  execute: executeWorkspaceSummarize,
+};

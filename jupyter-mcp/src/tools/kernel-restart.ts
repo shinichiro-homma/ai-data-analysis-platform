@@ -2,6 +2,7 @@
  * kernel_restart ツール実装
  */
 
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { jupyterClient } from '../jupyter-client/client.js';
 import {
   createSuccessResponse,
@@ -9,6 +10,7 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
 import { validateStringParameter } from '../utils/validation.js';
 import { resolveKernelId } from '../utils/session-resolver.js';
@@ -50,3 +52,19 @@ export async function executeKernelRestart(args: Record<string, unknown>): Promi
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'kernel_restart',
+    description:
+      'Restarts the kernel associated with the given session. All variables and state are cleared. To re-execute all cells after restart, call notebook_execute_batch(mode: "all") afterwards.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'Session ID' },
+      },
+      required: ['session_id'],
+    },
+  },
+  execute: executeKernelRestart,
+};

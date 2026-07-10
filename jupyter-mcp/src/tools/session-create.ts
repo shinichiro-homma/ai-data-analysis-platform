@@ -9,7 +9,9 @@ import {
   extractErrorCode,
   extractErrorMessage,
   type McpResponse,
+  type McpToolResult,
 } from '../utils/response-formatter.js';
+import type { ToolEntry } from '@ai-data-analysis/mcp-shared';
 import { validateWorkspaceId } from '../utils/validation.js';
 import { sessionNotebookStore } from '../utils/session-notebook-store.js';
 import { sessionWorkspaceStore } from '../utils/session-workspace-store.js';
@@ -75,3 +77,27 @@ export async function executeSessionCreate(args: Record<string, unknown>): Promi
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
   }
 }
+
+export const toolEntry: ToolEntry<McpToolResult> = {
+  definition: {
+    name: 'session_create',
+    description:
+      'Creates a new session (kernel) to start data analysis. Specify workspace_id to launch a Python/SQL kernel in the workspace. REQUIRED before executing any code or SQL. MUST be called after workspace_create. The returned browser_url allows opening the notebook in a browser.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspace_id: {
+          type: 'string',
+          description: "Workspace ID. The kernel's working directory is set to the workspace",
+        },
+        notebook_path: {
+          type: 'string',
+          description:
+            'Notebook path (relative to workspace). When specified, users opening this notebook share the same kernel',
+        },
+      },
+      required: ['workspace_id'],
+    },
+  },
+  execute: executeSessionCreate,
+};

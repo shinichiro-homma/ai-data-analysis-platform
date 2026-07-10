@@ -137,7 +137,7 @@ export async function cleanupWorkspace(workspaceId: string): Promise<void> {
 export async function checkJupyterConnection(): Promise<void> {
   // 1. 標準 Jupyter API の疎通確認
   try {
-    await jupyterClient.getContents('');
+    await jupyterClient.listContents('/');
   } catch (error) {
     throw new Error(
       `Jupyter server is not accessible. Please ensure:\n` +

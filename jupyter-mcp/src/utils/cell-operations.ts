@@ -3,10 +3,20 @@
  *
  * notebook_add_cell と execute_code の両方で使用される
  * セル追加ロジック（AI同期イベント + REST APIディスク書き込み + セルトラッカー更新）を共通化。
+ *
+ * 22.1: operateCellWithSync — 編集系ツール7本の共通パターン（operateCell → postAiEvent → 成功レスポンス）を集約。
  */
 
 import { jupyterClient } from '../jupyter-client/client.js';
+import type { CellOperationRequest, AiEvent } from '../jupyter-client/types.js';
 import { setCellCount, addPendingCell } from './notebook-cell-tracker.js';
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  extractErrorCode,
+  extractErrorMessage,
+  type McpResponse,
+} from './response-formatter.js';
 
 /**
  * ノートブックにセルを追加する（AI同期イベント + REST APIディスク書き込み）。
@@ -56,4 +66,25 @@ export async function addCellWithSync(
 
   // ペンディングセルを登録（resolveOrCreateCell でのディスク検索失敗時に重複を防ぐ）
   addPendingCell(notebookPath, source, cellIndex);
+}
+
+/**
+ * セル操作（operateCell）→ AI同期イベント配信（postAiEvent）→ 成功レスポンス返却の共通パターン。
+ *
+ * 編集系ツール（edit / delete / reorder / merge / split / change_type / copy）で
+ * 同一の try-catch パターンを繰り返していたものを集約する。
+ */
+export async function operateCellWithSync(
+  notebookPath: string,
+  operation: CellOperationRequest,
+  event: AiEvent,
+  successPayload: Record<string, unknown>,
+): Promise<McpResponse> {
+  try {
+    await jupyterClient.operateCell(notebookPath, operation);
+    await jupyterClient.postAiEvent(event);
+    return createSuccessResponse(successPayload);
+  } catch (error) {
+    return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));
+  }
 }

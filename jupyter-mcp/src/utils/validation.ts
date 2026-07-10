@@ -130,6 +130,12 @@ export const VALID_WORKSPACE_STATUSES: readonly WorkspaceStatus[] = [
   'blocked',
 ] as const;
 
+/** workspace status フィールドの JSON Schema（ツール定義で共用） */
+export const WORKSPACE_STATUS_SCHEMA = {
+  type: 'string' as const,
+  enum: [...VALID_WORKSPACE_STATUSES],
+};
+
 /**
  * ワークスペースメタデータ（summary, status）の共通バリデーション
  *
