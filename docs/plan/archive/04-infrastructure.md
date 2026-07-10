@@ -158,3 +158,17 @@ AIエージェントが読み込むコンテキストの削減と、ドキュメ
 | 10.3 | requirements / api-contracts のスリム化 | [x] | 要件定義と API 仕様から実装詳細（スキーマ・デフォルト値等）が除去され、F番号・Why・受け入れ条件・機械検証可能な一覧表のみ残る | コード照合で乖離を検証しながら実施（計 -3,256 行）。api-contracts.md は 1,709→89 行 |
 | 10.4 | ドキュメント整合性の CI 機械検証 | [x] | PR ごとに CI で MCPツール名・エンドポイント・Markdownリンクの整合が検証され、乖離があると FAIL する | scripts/check-docs-consistency.py + ci.yml doc-consistency ジョブ + .githooks/pre-push |
 | 10.5 | カスタムコマンドの DRY 化と常時ロード削減 | [x] | commands の重複手順が skills へ抽出され、scripts.md が条件付きロードになる | コミット手順の転記3箇所を commit-and-push スキル参照に置換。scripts.md に paths frontmatter 追加、CLAUDE.md にポインタ行を残置 |
+
+---
+
+## Phase 12: ビルド再現性の確保
+
+同じコミットから同じビルド成果物を得られるよう、バージョン固定の穴を塞ぐ Phase。リファクタリングと独立して先行実施できる quick win。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 12.1 | Docker ベースイメージの digest 固定 | [x] | `docker compose build` が digest 固定のイメージを使用し、異なる日にビルドしても同じベースレイヤーになる | jupyter-server / document-server / postgres |
+| 12.2 | Python 依存バージョン統一と JupyterLab 明示固定 | [x] | requirements.txt の pyarrow が uv.lock と一致し、JupyterLab バージョンが明示固定されている | pyarrow==19.0.1→23.0.1 統一、jupyterlab ピン追加 |
+| 12.3 | docker-compose 表記の v2 統一 | [x] | `grep -r "docker-compose"` がプロジェクト内でヒットしない（docker compose v2 表記に統一） | bootstrap.sh、CLAUDE.md 類 |
+| 12.4 | Node.js バージョンの明示固定 | [x] | .nvmrc が存在し、package.json に engines フィールドがあり、CI と一致する | 全 package.json + .nvmrc |
+| 12.5 | jupyterlab-ai-sync ビルドの決定的化 | [x] | Dockerfile と CI で `npm ci` が使用され、`npm install` が使われていない | npm install → npm ci |
