@@ -2,7 +2,7 @@
 
 テスト、ビルド、データロード、Formatter に関する Phase。
 
-完了した Phase 1〜10 は [archive/04-infrastructure.md](archive/04-infrastructure.md) を参照。
+完了した Phase 1〜10, 12 は [archive/04-infrastructure.md](archive/04-infrastructure.md) を参照。
 
 ---
 
@@ -14,3 +14,4 @@
 |---|--------|-----------|-----------|------|
 | 11.1 | ADR・横断不変条件・タスク設計ルールの整備 | [x] | 計画作成時に異常系AC・不変条件・ADR要否のチェックが要求され、/custom-debt-review で横断監査が実行できる | docs/adr/（テンプレ+0001）、docs/design/invariants.md（I1〜I8）、task-design.md チェックリスト拡張、change-requirement に異常系レンズ追加 |
 | 11.2 | CI 適応度関数（構造予算の機械検知） | [ ] | ファイルサイズ予算超過・async 内ブロッキング I/O（ruff ASYNC ルール）・コピペ検出が CI で検知される | 既存違反（handlers.py 1,515行等）の解消とセットで有効化。リファクタ Phase と同時に計画する |
+

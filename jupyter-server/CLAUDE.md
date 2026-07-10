@@ -22,13 +22,13 @@ JupyterLabベースのデータ分析実行環境。
 
 ```bash
 # 起動（プロジェクトルートから）
-docker-compose up -d jupyter-server
+docker compose up -d jupyter-server
 
 # ログ確認
-docker-compose logs -f jupyter-server
+docker compose logs -f jupyter-server
 
 # 停止
-docker-compose down
+docker compose down
 ```
 
 ## 環境変数
@@ -43,7 +43,7 @@ docker-compose down
 | `WORKSPACE_ROOT_DIR` | ワークスペースルートディレクトリ |
 | `DATABASE_URL` | PostgreSQL接続URL |
 
-> デフォルト値・実装状況は `docker-compose.yml` および `extensions/custom_api/` のコードを参照。
+> デフォルト値・実装状況は `docker compose.yml` および `extensions/custom_api/` のコードを参照。
 
 ## API一覧
 

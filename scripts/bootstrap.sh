@@ -68,4 +68,4 @@ else
 fi
 
 # ── 完了 ─────────────────────────────────────────────────────────────────────
-log_info "bootstrap 完了。次のステップ: docker-compose up -d"
+log_info "bootstrap 完了。次のステップ: docker compose up -d"

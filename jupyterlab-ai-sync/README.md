@@ -16,7 +16,7 @@ AIの操作をノートブック上でリアルタイム表示するJupyterLab�
 
 ### Docker 経由（推奨）
 
-`docker-compose up -d` で jupyter-server を起動すると、本拡張は自動的にインストールされます。追加の設定は不要です。
+`docker compose up -d` で jupyter-server を起動すると、本拡張は自動的にインストールされます。追加の設定は不要です。
 
 ### 手動インストール
 

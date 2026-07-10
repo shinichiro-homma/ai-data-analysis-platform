@@ -14,7 +14,7 @@
 
 ## 開発コマンド
 
-**ビルド・テスト・Docker 操作は `scripts/` 配下のスクリプトを使う**（`npm run build` / `npm test` / `docker-compose build` 等を直接実行しない）。スクリプト一覧と使い分けは `.claude/rules/scripts.md` を参照。
+**ビルド・テスト・Docker 操作は `scripts/` 配下のスクリプトを使う**（`npm run build` / `npm test` / `docker compose build` 等を直接実行しない）。スクリプト一覧と使い分けは `.claude/rules/scripts.md` を参照。
 
 ## 初回セットアップ
 

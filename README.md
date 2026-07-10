@@ -65,11 +65,11 @@ scripts/switch-env.sh sample
 
 JupyterLab にはブラウザで `http://localhost:8888?token=<JUPYTER_TOKEN>` でアクセスできます。
 
-> **`docker-compose up -d` を直接使わない理由**: 素の `docker-compose up -d` はテーブル作成までしか行わず、データロードは走りません（ロードはホスト側 Python から `scripts/lib/common.sh:run_load_data` 経由で実行される設計のため）。初回は必ず `scripts/switch-env.sh sample` を使ってください。`production` 環境に切り替える場合は引数を `production` に変更します。既に起動済みのサービスを停止・再起動するだけなら `docker compose stop` / `docker compose start` で構いません。
+> **`docker compose up -d` を直接使わない理由**: 素の `docker compose up -d` はテーブル作成までしか行わず、データロードは走りません（ロードはホスト側 Python から `scripts/lib/common.sh:run_load_data` 経由で実行される設計のため）。初回は必ず `scripts/switch-env.sh sample` を使ってください。`production` 環境に切り替える場合は引数を `production` に変更します。既に起動済みのサービスを停止・再起動するだけなら `docker compose stop` / `docker compose start` で構いません。
 
 ### 4. MCPサーバーのビルド
 
-MCPサーバー（jupyter-mcp, document-mcp）は Claude Desktop からローカルプロセスとして起動されるため、docker-compose には含まれません。事前にビルドしておきます。
+MCPサーバー（jupyter-mcp, document-mcp）は Claude Desktop からローカルプロセスとして起動されるため、docker compose には含まれません。事前にビルドしておきます。
 
 ```bash
 # jupyter-mcp
@@ -254,7 +254,7 @@ scripts/test.sh document-mcp
 # document-server のテスト
 scripts/test.sh document-server
 
-# E2Eテスト（docker-compose が起動している状態で）
+# E2Eテスト（docker compose が起動している状態で）
 scripts/test.sh --integration
 
 # コード変更後はリビルド付きで実行
