@@ -8,6 +8,9 @@
  * このテストでは、jupyter-mcp から MCPツールを実行し、
  * jupyter-server の AI同期WebSocketエンドポイント (/api/ai/events) に
  * イベントが正しく配信されることを検証する。
+ *
+ * タスク 21.3: 差分イベント（cell_added, cell_output 等）を廃止し、
+ * notebook_changed（seq 付き）に統一。出力はディスクで検証する。
  */
 
 import { describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -107,7 +110,7 @@ describe('AI同期フローの統合テスト', () => {
   }
 
   describe('セル追加のリアルタイム同期', () => {
-    test('notebook_add_cell → cell_added イベントが配信される', async () => {
+    test('notebook_add_cell → notebook_changed イベントが配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('cell-add-sync');
 
       // 1. セル追加
@@ -119,37 +122,43 @@ describe('AI同期フローの統合テスト', () => {
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. cell_added イベントを待機
-      const event = await wsClient.waitForEvent('cell_added', 5000);
+      // 2. notebook_changed イベントを待機
+      const event = await wsClient.waitForEvent('notebook_changed', 5000);
 
       // 3. イベントの検証
-      expect(event.type).toBe('cell_added');
+      expect(event.type).toBe('notebook_changed');
       expect(normalizePath(event.notebook_path as string)).toBe(normalizePath(notebookPath));
+      expect(typeof event.seq).toBe('number');
+      expect(event.seq as number).toBeGreaterThan(0);
     });
 
-    test('cell_added イベントのペイロードが正しい', async () => {
+    test('notebook_changed イベントに seq が単調増加で付与される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('cell-add-payload');
 
-      // 1. セル追加
-      const cellSource = 'import pandas as pd';
-      const addCellResult = await handleToolCall('notebook_add_cell', {
+      // 1. セル追加（1回目）
+      await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
-        source: cellSource,
+        source: 'x = 1',
       });
-      const addCellData = parseToolCallResult(addCellResult);
-      expect(addCellData.success).toBe(true);
 
-      // 2. イベント待機・検証
-      const event = await wsClient.waitForEvent('cell_added', 5000);
+      const event1 = await wsClient.waitForEvent('notebook_changed', 5000);
+      const seq1 = event1.seq as number;
 
-      expect(normalizePath(event.notebook_path as string)).toBe(normalizePath(notebookPath));
-      // @ts-expect-error - cell プロパティの型定義
-      expect(event.cell?.cell_type).toBe('code');
-      // @ts-expect-error - cell プロパティの型定義
-      expect(event.cell?.source).toBe(cellSource);
-      // @ts-expect-error - index プロパティの型定義
-      expect(typeof event.index).toBe('number');
+      wsClient.clearEvents();
+
+      // 2. セル追加（2回目）
+      await handleToolCall('notebook_add_cell', {
+        notebook_path: notebookPath,
+        cell_type: 'code',
+        source: 'y = 2',
+      });
+
+      const event2 = await wsClient.waitForEvent('notebook_changed', 5000);
+      const seq2 = event2.seq as number;
+
+      // seq が単調増加であることを検証
+      expect(seq2).toBeGreaterThan(seq1);
     });
 
     test('clients > 0 でもセルがディスクに永続化される', async () => {
@@ -180,7 +189,7 @@ describe('AI同期フローの統合テスト', () => {
   });
 
   describe('セル実行のリアルタイム同期', () => {
-    test('execute_code → cell_execute_start, cell_output, cell_execute_end イベントが配信される', async () => {
+    test('execute_code → cell_execute_start, cell_execute_end イベントが配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('cell-exec-sync');
 
       // 1. セル追加
@@ -192,7 +201,7 @@ describe('AI同期フローの統合テスト', () => {
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. cell_added イベントをクリア（セル実行イベントのみをテストするため）
+      // 2. イベントをクリア（セル実行イベントのみをテストするため）
       wsClient.clearEvents();
 
       // 3. コード実行
@@ -203,16 +212,15 @@ describe('AI同期フローの統合テスト', () => {
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(true);
 
-      // 4. イベントを順序付きで待機
-      const events = await wsClient.waitForEvents(['cell_execute_start', 'cell_output', 'cell_execute_end'], 10000);
+      // 4. ephemeral イベント（cell_execute_start / cell_execute_end）を待機
+      const events = await wsClient.waitForEvents(['cell_execute_start', 'cell_execute_end'], 10000);
 
-      expect(events).toHaveLength(3);
+      expect(events).toHaveLength(2);
       expect(events[0].type).toBe('cell_execute_start');
-      expect(events[1].type).toBe('cell_output');
-      expect(events[2].type).toBe('cell_execute_end');
+      expect(events[1].type).toBe('cell_execute_end');
     });
 
-    test('stdout 出力が cell_output イベントで配信される', async () => {
+    test('stdout 出力がディスクに永続化される（Issue #76 修正）', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('cell-exec-stdout');
 
       // 1. セル追加
@@ -224,8 +232,6 @@ describe('AI同期フローの統合テスト', () => {
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      wsClient.clearEvents();
-
       // 2. コード実行
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
@@ -234,20 +240,15 @@ describe('AI同期フローの統合テスト', () => {
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(true);
 
-      // 3. cell_output イベント待機
-      const events = await wsClient.waitForEvents(['cell_execute_start', 'cell_output', 'cell_execute_end'], 10000);
-
-      const outputEvent = events.find((e) => e.type === 'cell_output');
-      expect(outputEvent).toBeDefined();
-      // @ts-expect-error - output プロパティの型定義
-      expect(outputEvent?.output?.output_type).toBe('stream');
-      // @ts-expect-error - output プロパティの型定義
-      expect(outputEvent?.output?.name).toBe('stdout');
-      // @ts-expect-error - output プロパティの型定義
-      expect(outputEvent?.output?.text).toBe('hello world\n');
+      // 3. ディスク上のノートブックを検証（出力が永続化されている）
+      const notebook = await jupyterClient.getContents(notebookPath);
+      const cells = notebook.content.cells;
+      const execCell = cells.find((c: Record<string, unknown>) => c.source === 'print("hello world")');
+      expect(execCell).toBeDefined();
+      expect((execCell as Record<string, unknown[]>).outputs.length).toBeGreaterThan(0);
     });
 
-    test('エラー出力が cell_output イベントで配信される', async () => {
+    test('エラー出力がディスクに永続化される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('cell-exec-error');
 
       // 1. セル追加
@@ -259,8 +260,6 @@ describe('AI同期フローの統合テスト', () => {
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      wsClient.clearEvents();
-
       // 2. エラーコード実行
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
@@ -269,15 +268,16 @@ describe('AI同期フローの統合テスト', () => {
       const executeData = parseToolCallResult(executeResult);
       expect(executeData.success).toBe(false);
 
-      // 3. cell_output イベント待機
-      const events = await wsClient.waitForEvents(['cell_execute_start', 'cell_output', 'cell_execute_end'], 10000);
-
-      const outputEvent = events.find((e) => e.type === 'cell_output');
-      expect(outputEvent).toBeDefined();
-      // @ts-expect-error - output プロパティの型定義
-      expect(outputEvent?.output?.output_type).toBe('error');
-      // @ts-expect-error - output プロパティの型定義
-      expect(outputEvent?.output?.ename).toBe('ZeroDivisionError');
+      // 3. ディスク上のノートブックを検証（エラー出力が永続化されている）
+      const notebook = await jupyterClient.getContents(notebookPath);
+      const cells = notebook.content.cells;
+      const errCell = cells.find((c: Record<string, unknown>) => c.source === '1/0');
+      expect(errCell).toBeDefined();
+      const outputs = (errCell as Record<string, unknown[]>).outputs;
+      expect(outputs.length).toBeGreaterThan(0);
+      const errorOutput = outputs.find((o: Record<string, unknown>) => o.output_type === 'error');
+      expect(errorOutput).toBeDefined();
+      expect((errorOutput as Record<string, string>).ename).toBe('ZeroDivisionError');
     });
 
     test('画像出力が execute_code レスポンスの images 配列に含まれる', async () => {
@@ -308,20 +308,18 @@ plt.show()
       expect(executeData.success).toBe(true);
 
       // 3. images 配列に画像が含まれることを確認
-      // display_data はカーネルの WebSocket 経由で直接 JupyterLab に配信されるため、
-      // cell_output イベントには含まれない（buildNotebookOutputs の設計）
       expect(executeData.images).toBeDefined();
       expect(executeData.images.length).toBeGreaterThanOrEqual(1);
       expect(executeData.images[0].file_path).toBeDefined();
       expect(executeData.images[0].mime_type).toBe('image/png');
-    }, 15000); // matplotlib の初期化に時間がかかる可能性があるため、タイムアウトを延長
+    }, 15000);
   });
 
   describe('AI編集モード（自動ロック制御）', () => {
     test('execute_code 実行時に lock_acquired → ... → lock_released が自動配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('auto-lock-exec');
 
-      // 1. セル追加（lock_acquired/end が自動配信される）
+      // 1. セル追加（lock_acquired + notebook_changed + lock_released）
       const addCellResult = await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
@@ -330,15 +328,15 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. notebook_add_cell のイベント（3件）を待機（順序はCI環境で保証されないためカウントで検証）
+      // 2. notebook_add_cell のイベントを待機（順序はCI環境で保証されないためカウントで検証）
       const addEvents = await wsClient.waitForEventCount(3, 10000);
       expect(addEvents.filter((e) => e.type === 'lock_acquired')).toHaveLength(1);
-      expect(addEvents.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(addEvents.filter((e) => e.type === 'notebook_changed')).toHaveLength(1);
       expect(addEvents.filter((e) => e.type === 'lock_released')).toHaveLength(1);
 
       wsClient.clearEvents();
 
-      // 3. コード実行（lock_acquired/end が自動配信される）
+      // 3. コード実行（lock_acquired → cell_execute_start → notebook_changed → cell_execute_end → lock_released）
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("auto-lock")',
@@ -356,7 +354,7 @@ plt.show()
       expect(normalizePath(editStartEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
     }, 20000);
 
-    test('notebook_add_cell 実行時に lock_acquired/end が自動配信される', async () => {
+    test('notebook_add_cell 実行時に lock_acquired/released が自動配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('auto-lock-add');
 
       // セル追加
@@ -371,7 +369,7 @@ plt.show()
       // 3件のイベントを待機（順序はCI環境で保証されないためカウントで検証）
       const events = await wsClient.waitForEventCount(3, 10000);
       expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(1);
-      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'notebook_changed')).toHaveLength(1);
       expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(1);
       // notebook_path が一致
       const startEvent = events.find((e) => e.type === 'lock_acquired')!;
@@ -385,7 +383,7 @@ plt.show()
     test('セル追加・実行で各ツールが独立して自動ロック/アンロックする', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('e2e-flow');
 
-      // 1. セル追加（自動ロック: lock_acquired → cell_added → lock_released）
+      // 1. セル追加（自動ロック: lock_acquired → notebook_changed → lock_released）
       const addCellResult = await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
@@ -394,7 +392,7 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. コード実行（自動ロック: lock_acquired → exec events → lock_released）
+      // 2. コード実行（自動ロック: lock_acquired → cell_execute_start → notebook_changed → cell_execute_end → lock_released）
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("hello")',
@@ -403,14 +401,14 @@ plt.show()
       expect(executeData.success).toBe(true);
 
       // 3. 全イベント（8件）を待機（カウントベースで検証）
-      // notebook_add_cell: lock_acquired, cell_added, lock_released
-      // execute_code: lock_acquired, cell_execute_start, cell_output, cell_execute_end, lock_released
+      // notebook_add_cell: lock_acquired, notebook_changed, lock_released (3)
+      // execute_code: lock_acquired, cell_execute_start, notebook_changed, cell_execute_end, lock_released (5)
       const events = await wsClient.waitForEventCount(8, 15000);
 
-      // 4. lock_acquired/end が各ツール実行ごとに配信される（2回ずつ）
+      // 4. lock_acquired/released が各ツール実行ごとに配信される（2回ずつ）
       expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(2);
       expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(2);
-      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'notebook_changed')).toHaveLength(2);
       expect(events.filter((e) => e.type === 'cell_execute_start')).toHaveLength(1);
 
       // 5. すべてのイベントで notebook_path が一致
@@ -448,16 +446,16 @@ plt.show()
         code: 'print("test")',
       });
 
-      // 5. 全イベント（15件）を待機（カウントベースで検証）
-      // セル1追加(3) + セル2追加(3) + セル1実行(4) + セル2実行(5) = 15
-      const events = await wsClient.waitForEventCount(15, 25000);
+      // 5. 全イベント（16件）を待機（カウントベースで検証）
+      // セル1追加(3) + セル2追加(3) + セル1実行(5) + セル2実行(5) = 16
+      const events = await wsClient.waitForEventCount(16, 25000);
 
-      // 6. lock_acquired/end が4回ずつ（4ツール呼び出し分）
+      // 6. lock_acquired/released が4回ずつ（4ツール呼び出し分）
       expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(4);
       expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(4);
 
-      // 7. cell_added イベントが2回ある
-      expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(2);
+      // 7. notebook_changed イベントが4回ある（セル追加2 + 実行2）
+      expect(events.filter((e) => e.type === 'notebook_changed')).toHaveLength(4);
 
       // 8. cell_execute_start イベントが2回ある
       expect(events.filter((e) => e.type === 'cell_execute_start')).toHaveLength(2);
