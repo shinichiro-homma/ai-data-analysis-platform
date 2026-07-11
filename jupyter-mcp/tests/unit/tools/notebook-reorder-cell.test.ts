@@ -34,13 +34,8 @@ describe('executeNotebookReorderCell', () => {
         to_index: 0,
       });
 
-      // postAiEvent が cell_reordered イベントで呼ばれたことを確認
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_reordered',
-        notebook_path: 'analysis.ipynb',
-        cell_index: 2,
-        to_index: 0,
-      });
+      // postAiEvent は差分イベント廃止により呼ばれないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalled();
 
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');

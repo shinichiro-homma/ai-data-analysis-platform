@@ -93,11 +93,10 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 #### F4.2: イベント配信
 - jupyter-mcpからのAPI呼び出し時に、対応するイベントをWebSocket経由で配信する
 - 以下のイベントタイプを配信する:
+  - `notebook_changed` - ノートブック変更通知（seq 付き。ブラウザはディスク再読込で同期）
+  - `cell_execute_start` - セル実行開始（ephemeral 通知。ブラウザが実行中表示 [*] にするため）
+  - `cell_execute_end` - セル実行完了（ephemeral 通知。ブラウザが実行中表示を解除するため）
   - `lock_acquired` - ノートブックロック取得（サーバーがロック API 取得成功時に配信。ブラウザは readOnly 表示に追従）
-  - `cell_added` - セル追加完了
-  - `cell_execute_start` - セル実行開始
-  - `cell_output` - セル出力（ストリーミング、stdout/stderr/display_data/execute_result/error）
-  - `cell_execute_end` - セル実行完了
   - `lock_released` - ノートブックロック解放（サーバーがロック解放・TTL 失効時に配信。ブラウザは readOnly を解除）
 
 #### F4.4: ノートブックロックのサーバー側強制（不変条件 I2）
@@ -110,10 +109,8 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 
 #### F4.3: コード実行時のイベント配信
 
-> **注:** 本要件は jupyter-server 側での自動配信として定義されていたが、タスク 9.2 の設計判断により jupyter-mcp 側から `POST /api/ai/events/broadcast` を通じて実行結果をイベント配信する方式で実現された。jupyter-server 内の `kernel_executor.py` から WebSocket への自動ストリーミングは実装していない。
-
-- コード実行 API の実行結果は、jupyter-mcp が `POST /api/ai/events/broadcast` を通じてWebSocketイベントとして配信する
-- jupyter-mcp が実行開始時に`cell_execute_start`、各出力で`cell_output`、完了時に`cell_execute_end`を配信する
+- コード実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて ephemeral イベント（`cell_execute_start` / `cell_execute_end`）を配信する
+- ノートブックへの変更（セル追加・編集・出力永続化等）は書き込み系 API が自動で `notebook_changed` を配信し、ブラウザはディスク再読込（`context.revert()`）で同期する
 
 ### F5: ファイル管理
 
@@ -309,7 +306,8 @@ FROM jupyter/scipy-notebook:python-3.11
 ### AC5: AI同期イベント
 - [ ] AI同期イベント配信用 WebSocket エンドポイントに接続できる
 - [ ] `POST /api/ai/events/broadcast` でイベントを送信すると、WebSocket接続中のクライアントにブロードキャストされる
-- [ ] コード実行中にIOPubメッセージがリアルタイムでWebSocketイベントとして配信される（※タスク 9.2 の設計判断により jupyter-mcp 側で実現。F4.3 注記参照）
+- [ ] 書き込み系 API 実行時に `notebook_changed`（seq 付き）が自動配信される
+- [ ] `cell_execute_start` / `cell_execute_end` が ephemeral 通知として配信される
 
 ### AC6: ワークスペース
 - [ ] ワークスペースディレクトリが作成される

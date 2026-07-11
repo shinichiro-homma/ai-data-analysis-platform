@@ -6,7 +6,7 @@ import json
 import logging
 
 from jupyter_server.base.handlers import JupyterHandler
-from tornado import websocket
+from tornado import web, websocket
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,7 @@ class AiEventsPostHandler(JupyterHandler):
     接続中のすべてのWebSocketクライアントにブロードキャストする。
     """
 
+    @web.authenticated
     async def post(self):
         """
         イベントをブロードキャスト

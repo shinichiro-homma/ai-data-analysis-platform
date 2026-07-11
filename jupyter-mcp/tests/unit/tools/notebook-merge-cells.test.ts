@@ -34,13 +34,8 @@ describe('executeNotebookMergeCells', () => {
         end_index: 1,
       });
 
-      // postAiEvent が cells_merged イベントで呼ばれたことを確認
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cells_merged',
-        notebook_path: 'analysis.ipynb',
-        start_index: 0,
-        end_index: 1,
-      });
+      // postAiEvent は差分イベント廃止により呼ばれないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalled();
 
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');

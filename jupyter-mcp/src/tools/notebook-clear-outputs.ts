@@ -30,11 +30,6 @@ export async function executeNotebookClearOutputs(args: Record<string, unknown>)
       // 全セルクリア
       const result = await jupyterClient.clearAllOutputs(validatedPath);
 
-      await jupyterClient.postAiEvent({
-        type: 'all_outputs_cleared',
-        notebook_path: validatedPath,
-      });
-
       return createSuccessResponse({
         notebook_path: validatedPath,
         cleared_cells: result.cleared_cells,
@@ -51,7 +46,6 @@ export async function executeNotebookClearOutputs(args: Record<string, unknown>)
       return operateCellWithSync(
         validatedPath,
         { action: 'clear_output', index: cellIndex },
-        { type: 'output_cleared', notebook_path: validatedPath, cell_index: cellIndex },
         {
           notebook_path: validatedPath,
           cell_index: cellIndex,

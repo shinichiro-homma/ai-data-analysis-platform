@@ -118,9 +118,9 @@
 - カーネル中断は MCP ツールとしては提供しない（ユーザーが JupyterLab UI から直接実行する）
 
 #### F6.3: AI操作のリアルタイム同期
-- `execute_code`実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて実行状況をリアルタイム配信する
-- `notebook_add_cell`実行時、jupyter-mcp がセル追加イベントを `POST /api/ai/events/broadcast` でリアルタイム配信する
-- `notebook_edit_cell`、`notebook_delete_cell`、`notebook_execute_cell` 実行時も同様にリアルタイム配信する
+- ノートブックへの変更（セル追加・編集・削除・出力永続化等）は書き込み系 API が自動で `notebook_changed`（seq 付き）を配信する
+- `execute_code` 実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて ephemeral 通知（`cell_execute_start` / `cell_execute_end`）を配信する
+- ブラウザは `notebook_changed` 受信時にディスク再読込（`context.revert()`）でノートブックを同期する
 - JupyterLab上のノートブックUIにAIの操作がリアルタイムに反映される
 
 ### F7: 画像出力
@@ -367,7 +367,7 @@ npm run build && npm start
 - [ ] 画像ファイルがワークスペースの `output/` ディレクトリに保存されている
 - [ ] 画像の実データはJupyterLab UIで確認できる
 - [ ] execute_code のレスポンスにbase64データが含まれない（file_pathのみ）
-- [ ] AI同期イベント（cell_output）にはbase64が含まれ、JupyterLab上で画像が表示される
+- [ ] ノートブック変更通知（notebook_changed）によりブラウザがディスク再読込し、JupyterLab上で画像が表示される
 - [ ] get_image で execute_code のレスポンスの file_path を指定し、MCP image content type で画像データが取得できる
 - [ ] get_image で存在しないパスを指定した場合、適切なエラーが返される
 

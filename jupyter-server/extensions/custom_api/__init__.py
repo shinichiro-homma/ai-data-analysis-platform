@@ -65,7 +65,16 @@ def _wrap_contents_save(original_save):
             # ロック中: ContextVar のトークンが一致しない書き込みは拒否
             if expected_token is not None and locks.lock_token_ctx.get() != expected_token:
                 raise http_error_cls(423, f"Notebook is locked: {path}")
-        return await original_save(model, path, *args, **kwargs)
+        result = await original_save(model, path, *args, **kwargs)
+        # .ipynb の保存成功後に notebook_changed イベントを配信する
+        if isinstance(path, str) and path.endswith(".ipynb"):
+            try:
+                from .sync_state import notify_notebook_changed
+
+                notify_notebook_changed(path)
+            except Exception:
+                log.error("Failed to notify notebook_changed for %s", path, exc_info=True)
+        return result
 
     return wrapper
 

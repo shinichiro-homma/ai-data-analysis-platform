@@ -26,7 +26,6 @@ export async function executeNotebookDeleteCell(args: Record<string, unknown>): 
   return operateCellWithSync(
     validatedPath,
     { action: 'delete', index: cellIndex },
-    { type: 'cell_deleted', notebook_path: validatedPath, cell_index: cellIndex },
     {
       notebook_path: validatedPath,
       cell_index: cellIndex,

@@ -366,8 +366,8 @@ handleToolCall ミドルウェアがノートブック編集系ツールの実�
 2. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/locks（ロック取得、lock_token を受領）
 3. jupyter-server → jupyterlab-ai-sync: lock_acquired 配信 → ノートブックをロック（read-only化）
 4. jupyter-mcp → jupyter-server: PATCH /api/custom/contents/{path}/cells（X-Lock-Token 付き）
-5. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_added"}
-6. jupyterlab-ai-sync: ノートブックUIにセルを挿入
+5. jupyter-server: 保存完了 → notebook_changed（seq 付き）を自動配信
+6. jupyterlab-ai-sync: notebook_changed 受信 → context.revert() でディスク再読込 → UIに反映
 7. jupyter-mcp ミドルウェア → jupyter-server: DELETE /api/ai/locks（ロック解放）
 8. jupyter-server → jupyterlab-ai-sync: lock_released 配信 → ノートブックのロック解除
 
@@ -376,14 +376,15 @@ handleToolCall ミドルウェアがノートブック編集系ツールの実�
 10. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/locks（session からノートブックを解決してロック取得）
 11. jupyter-server → jupyterlab-ai-sync: lock_acquired 配信 → ノートブックをロック（read-only化）
 12. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_start"}
-13. jupyter-mcp → jupyter-server: POST /api/kernels/{id}/execute
-14. jupyter-server: カーネル実行 → 実行結果を jupyter-mcp に返却
-15. jupyter-mcp: 出力ごとに → POST /api/ai/events/broadcast {type: "cell_output"}
-16. jupyterlab-ai-sync: セルに出力を表示
+13. jupyterlab-ai-sync: 対象セルを実行中表示（[*]）にする
+14. jupyter-mcp → jupyter-server: POST /api/kernels/{id}/execute
+15. jupyter-server: カーネル実行 → 実行結果を jupyter-mcp に返却
+16. jupyter-mcp: 出力をノートブックに永続化（保存） → jupyter-server が notebook_changed を自動配信
 17. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_end"}
-18. jupyter-mcp → AI: 結果 + 画像ファイルパス（base64データなし）
-19. jupyter-mcp ミドルウェア → jupyter-server: DELETE /api/ai/locks（ロック解放）
-20. jupyter-server → jupyterlab-ai-sync: lock_released 配信 → ノートブックのロック解除
+18. jupyterlab-ai-sync: notebook_changed 受信 → context.revert() でディスク再読込（出力・execution_count 反映）
+19. jupyter-mcp → AI: 結果 + 画像ファイルパス（base64データなし）
+20. jupyter-mcp ミドルウェア → jupyter-server: DELETE /api/ai/locks（ロック解放）
+21. jupyter-server → jupyterlab-ai-sync: lock_released 配信 → ノートブックのロック解除
 
 ※ ロックの書き込み強制はサーバー側（contents_manager.save のラップ）が担う。長時間実行中は
    ミドルウェアが PUT /api/ai/locks（20秒間隔）で TTL を延長し、解放に失敗しても TTL 失効時に

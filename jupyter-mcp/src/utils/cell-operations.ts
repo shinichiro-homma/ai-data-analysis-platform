@@ -8,7 +8,7 @@
  */
 
 import { jupyterClient } from '../jupyter-client/client.js';
-import type { CellOperationRequest, AiEvent } from '../jupyter-client/types.js';
+import type { CellOperationRequest } from '../jupyter-client/types.js';
 import { setCellCount, addPendingCell } from './notebook-cell-tracker.js';
 import {
   createSuccessResponse,
@@ -40,18 +40,7 @@ export async function addCellWithSync(
   currentCellCount: number,
   position?: number,
 ): Promise<void> {
-  // AI同期イベントを配信（SharedModel経由でセルを追加）
-  const eventResult = await jupyterClient.postAiEvent({
-    type: 'cell_added',
-    notebook_path: notebookPath,
-    cell: {
-      cell_type: cellType,
-      source: source,
-    },
-    index: position ?? -1, // undefined の場合は -1（末尾追加を示す）
-  });
-
-  // 常に REST API でディスクに書き込む（永続化保証）
+  // REST API でディスクに書き込む（永続化保証）
   await jupyterClient.operateCell(notebookPath, {
     action: 'add',
     cell: {
@@ -69,7 +58,7 @@ export async function addCellWithSync(
 }
 
 /**
- * セル操作（operateCell）→ AI同期イベント配信（postAiEvent）→ 成功レスポンス返却の共通パターン。
+ * セル操作（operateCell）→ 成功レスポンス返却の共通パターン。
  *
  * 編集系ツール（edit / delete / reorder / merge / split / change_type / copy）で
  * 同一の try-catch パターンを繰り返していたものを集約する。
@@ -77,12 +66,10 @@ export async function addCellWithSync(
 export async function operateCellWithSync(
   notebookPath: string,
   operation: CellOperationRequest,
-  event: AiEvent,
   successPayload: Record<string, unknown>,
 ): Promise<McpResponse> {
   try {
     await jupyterClient.operateCell(notebookPath, operation);
-    await jupyterClient.postAiEvent(event);
     return createSuccessResponse(successPayload);
   } catch (error) {
     return createErrorResponse(extractErrorMessage(error), extractErrorCode(error));

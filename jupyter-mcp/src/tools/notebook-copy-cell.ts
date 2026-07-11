@@ -38,7 +38,6 @@ export async function executeNotebookCopyCell(args: Record<string, unknown>): Pr
   return operateCellWithSync(
     validatedPath,
     { action: 'copy', index: sourceIndex, to_index: targetIndex },
-    { type: 'cell_copied', notebook_path: validatedPath, source_index: sourceIndex, target_index: targetIndex },
     {
       notebook_path: validatedPath,
       source_index: sourceIndex,

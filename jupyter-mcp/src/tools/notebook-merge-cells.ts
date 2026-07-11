@@ -36,7 +36,6 @@ export async function executeNotebookMergeCells(args: Record<string, unknown>): 
   return operateCellWithSync(
     validatedPath,
     { action: 'merge', start_index: startIndex, end_index: endIndex },
-    { type: 'cells_merged', notebook_path: validatedPath, start_index: startIndex, end_index: endIndex },
     {
       notebook_path: validatedPath,
       start_index: startIndex,

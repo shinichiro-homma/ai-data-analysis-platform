@@ -36,7 +36,6 @@ export async function executeNotebookSplitCell(args: Record<string, unknown>): P
   return operateCellWithSync(
     validatedPath,
     { action: 'split', index: cellIndex, split_line: splitLine },
-    { type: 'cell_split', notebook_path: validatedPath, cell_index: cellIndex, split_line: splitLine },
     {
       notebook_path: validatedPath,
       cell_index: cellIndex,
