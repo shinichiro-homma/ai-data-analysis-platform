@@ -58,10 +58,10 @@ dev ブランチ上にいる場合は、対象の feature/fix ブランチに切
 
 ## 3. テスト再実行（必須）
 
-タスク完了前の最終確認として、リビルド＋テストを実行してください。
+タスク完了前の最終確認として、フルゲートを実行してください。
 
-`scripts/test.sh --quiet --rebuild {対象コンポーネント名}` を実行してください。
-`.claude/rules/build-freshness.md` に従うこと。
+`scripts/test.sh --quiet {対象コンポーネント名}`（lint + 型チェック + 全テスト）を実行してください。
+ユニットテストにリビルドは不要（`.claude/rules/build-freshness.md` 参照）。タスクに統合テストや Docker 動作確認が含まれる場合のみ `--integration --rebuild` を使う。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ## 4. 完了検証

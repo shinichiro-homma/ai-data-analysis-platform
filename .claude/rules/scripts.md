@@ -18,7 +18,7 @@ paths:
 |-----------|------|----------------|
 | `scripts/bootstrap.sh` | 初回セットアップ（uv 検知 → uv sync → git config → .env 初期化） | — |
 | `scripts/lint.sh [COMPONENT]` | lint チェック（検出のみ） | — |
-| `scripts/test.sh [COMPONENT]` | lint + 型チェック + テスト | `--no-lint` / `--typecheck`（型のみ）/ `--rebuild`（MCP・Docker 自動判定）/ `--integration`（Docker 必要、`--rebuild` と併用可）/ `--health`（既知障害と照合して分類）/ `--quiet`（詳細ログを `tmp/test-logs/` へ退避しサマリと失敗抜粋のみ表示。サブエージェントでの実行は必須） |
+| `scripts/test.sh [COMPONENT]` | lint + 型チェック + テスト | `--no-lint` / `--typecheck`（型のみ）/ `--test`（テストのみ）/ `--rebuild`（MCP・Docker 自動判定。統合テスト・Docker 反映時のみ使用）/ `--integration`（Docker 必要、`--rebuild` と併用可）/ `--health`（既知障害と照合して分類）/ `--quiet`（詳細ログを `tmp/test-logs/` へ退避しサマリと失敗抜粋のみ表示。サブエージェントでの実行は必須）/ `-- {ファイル...}`（テストファイルを絞って実行。単一コンポーネント指定時のみ。反復時のコマンドは `.claude/rules/tdd.md` の「テスト実行コマンドの規律」を参照） |
 | `scripts/smoke-test.sh` | Docker 環境のスモークテスト | — |
 | `scripts/check-freshness.sh` | Docker 環境の鮮度チェック | `--strict`（古いと exit 1）/ `--rebuild`（古ければ自動リビルド） |
 | `scripts/check-docs-consistency.py` | ドキュメント整合性の機械検証（MCPツール名・エンドポイント・リンク切れ。CI でも常時実行） | `uv run python scripts/check-docs-consistency.py` で実行 |

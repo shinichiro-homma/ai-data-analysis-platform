@@ -8,7 +8,11 @@ paths:
 
 ## lint の実行タイミング
 
-`scripts/test.sh` がデフォルトで lint を含む（`--no-lint` でスキップ可、明示的理由なしの使用禁止）。カスタムコマンド（`start-task`, `complete-task`, `refactor` 等）では自動実行される。単独実行は `scripts/lint.sh [COMPONENT]`。
+`scripts/test.sh` がデフォルトで lint を含む。カスタムコマンド（`start-task`, `complete-task`, `refactor` 等）では自動実行される。単独実行は `scripts/lint.sh [COMPONENT]`。
+
+`--no-lint` の使用は以下に限る（それ以外は明示的理由なしの使用禁止）:
+
+- 反復中のスコープ実行（`.claude/rules/tdd.md` の「テスト実行コマンドの規律」参照）。保存時の自動整形は format-on-save hook が担い、フェーズ締めのフルゲート（lint 込みの `scripts/test.sh --quiet {コンポーネント名}`）を必ず通すこと
 
 ## lint 失敗時の対応
 

@@ -116,10 +116,10 @@ git diff --name-only HEAD~1
 | `jupyter-server/` | jupyter-server |
 | `scripts/` | （コンポーネントテストなし。構文チェックのみ実施） |
 
-### 4.2 リビルド＋テスト実行
+### 4.2 テスト実行（フルゲート）
 
-`scripts/test.sh --quiet --rebuild {対象コンポーネント名}` を実行してください。
-`.claude/rules/build-freshness.md` に従うこと。
+`scripts/test.sh --quiet {対象コンポーネント名}`（lint + 型チェック + 全テスト）を実行してください。
+ユニットテストにリビルドは不要（`.claude/rules/build-freshness.md` 参照）。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ### 4.3.1 シェルスクリプトの動作確認（対象に `*.sh` が含まれる場合）
