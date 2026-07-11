@@ -14,7 +14,7 @@
 以下の4レンズを **1つのメッセージで並列に起動**する。全レンズ共通の指示:
 
 - subagent_type: `code-reviewer`, model: `sonnet`
-- `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること（`docs/design/invariants.md` を含む）
+- `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『レビュー・検証』のルールを Read すること（`docs/design/invariants.md` を含む）
 - 指摘は証拠スキーマ（場所 file:line / 問題 / 壊れ方のシナリオ / 修正案）に従うこと
 - 出力: 総合判定（重大な構造問題 / 改善余地あり / 概ね健全）+ 重大度順の指摘リスト
 

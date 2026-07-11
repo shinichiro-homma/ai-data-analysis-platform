@@ -60,7 +60,7 @@ dev ブランチ上にいる場合は、対象の feature/fix ブランチに切
 
 タスク完了前の最終確認として、リビルド＋テストを実行してください。
 
-`scripts/test.sh --rebuild {対象コンポーネント名}` を実行してください。
+`scripts/test.sh --quiet --rebuild {対象コンポーネント名}` を実行してください。
 `.claude/rules/build-freshness.md` に従うこと。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
@@ -82,7 +82,7 @@ lint 失敗時は `.claude/rules/lint.md` に従うこと。
 | B: API 仕様照合 | `api` または `mcp` タスクのみ | `requirements-verifier` | `haiku` |
 | C: ドキュメント整合性 | `api` または `mcp` タスクのみ | `requirements-verifier` | `sonnet` |
 
-全 Agent 共通の必読: `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること。
+全 Agent 共通の必読: `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『レビュー・検証』のルールを Read すること。
 充足の根拠（実行したコマンドと結果、確認したファイルパス:行番号）を必ず添えること。「確認しました」だけの判定は不可。
 できなかった確認は省略せず報告すること。
 

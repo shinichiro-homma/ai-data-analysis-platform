@@ -63,7 +63,7 @@ scripts/manage-known-failures.sh list
 以下のテスト失敗グループの修正スコープを見積もってください。
 
 ## 必読
-- `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること
+- `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『調査』のルールを Read すること
 
 グループ名: {グループ名}
 根本原因: {原因の説明}
@@ -152,7 +152,7 @@ Agent ツールでサブエージェントを起動し、Phase 1.4 の見積も�
 対象コンポーネント: {コンポーネント名}
 
 ## 必読
-- `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること
+- `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『実装（Green）・バグ修正』のルールを Read すること
 
 ## 修正スコープ（Phase 1.4 の見積もり）
 {修正が必要なファイル一覧と変更概要}
@@ -164,7 +164,7 @@ Agent ツールでサブエージェントを起動し、Phase 1.4 の見積も�
 - 修正はグループ内の全 Issue を解決するように行う
 - テストコードの修正が必要な場合、テストの意図を変えない
 - 要件定義・API仕様の変更が必要な場合は、変更せずその旨を報告して停止する（メインが `/custom-change-requirement` での別途対応を案内し、グループをスキップする）
-- テスト実行コマンド: scripts/test.sh --health {対象コンポーネント名}
+- テスト実行コマンド: scripts/test.sh --quiet --health {対象コンポーネント名}
 
 ## 報告
 - 変更ファイル: {パスの一覧}

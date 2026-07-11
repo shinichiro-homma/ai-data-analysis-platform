@@ -66,7 +66,7 @@ git diff --name-only HEAD~1
 | C | ファイル間整合性・呼び出し元副作用（import、副作用。`*.sh` があればシェル安全性も） | `code-reviewer` | `sonnet` |
 
 **全 Agent 共通の指示:**
-- `.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること
+- `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『レビュー・検証』のルールを Read すること
 - 対象ファイル一覧を渡し、「各ファイルを Read して確認すること」を指示する
 - Agent B にはテストファイルも Read させ、「この入力で壊れないか」を具体的な値（空リスト、None、型不一致）で検証させる
 - Agent C にはメインで `grep -rn` した呼び出し元ファイルのリストを渡す
@@ -96,7 +96,7 @@ git diff --name-only HEAD~1
 - **バグ修正**（テスト追加を含む）: subagent_type `general-purpose`、model `opus`。バグを再現するテストを追加してから修正させる（TDD）
 - **純リファクタリング**: subagent_type `general-purpose`、model `sonnet`。機能追加・仕様変更を混ぜない。公開 API を変更する場合は呼び出し元も追従させる
 
-いずれのサブエージェントにも「`.claude/rules/subagent-defaults.md` を Read し、記載のルールをすべて Read すること」を含める。
+いずれのサブエージェントにも「`.claude/rules/subagent-defaults.md` を Read し、必読ルール表の該当役割（バグ修正は『実装（Green）・バグ修正』、純リファクタは『リファクタ・レビュー指摘の修正』）のルールを Read すること」を含める。
 
 **注意:** 各修正は小さく行い、動作確認しながら進めてください。
 
@@ -118,7 +118,7 @@ git diff --name-only HEAD~1
 
 ### 4.2 リビルド＋テスト実行
 
-`scripts/test.sh --rebuild {対象コンポーネント名}` を実行してください。
+`scripts/test.sh --quiet --rebuild {対象コンポーネント名}` を実行してください。
 `.claude/rules/build-freshness.md` に従うこと。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 

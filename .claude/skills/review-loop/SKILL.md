@@ -63,7 +63,7 @@ Agent ツールで修正エージェントを起動する。
 **プロンプトに含める情報:**
 - 対象のパス
 - 直前のレビューの REJECT 理由と修正指示（メインで検証済みのもののみ）
-- `.claude/rules/subagent-defaults.md` を Read すること
+- `.claude/rules/subagent-defaults.md` を Read し、必読ルール表の役割『リファクタ・レビュー指摘の修正』のルールを Read すること
 
 修正後、再度ステップ 1（レビュー）を実行する。APPROVE になればループを終了する。
 
