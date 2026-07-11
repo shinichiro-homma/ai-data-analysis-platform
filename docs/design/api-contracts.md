@@ -35,6 +35,9 @@
 | POST | /api/custom/sessions | ワークスペース対応セッションを作成 |
 | WS | /api/ai/events | AI 操作イベントを配信（WebSocket） |
 | POST | /api/ai/events/broadcast | AI イベントを送信（全クライアントへ配信） |
+| POST | /api/ai/locks | ノートブックロックを取得（競合時 423） |
+| DELETE | /api/ai/locks | ノートブックロックを解放 |
+| PUT | /api/ai/locks | ノートブックロックの TTL を延長（heartbeat） |
 | POST | /api/workspaces | ワークスペースを作成 |
 | GET | /api/workspaces | ワークスペース一覧を取得 |
 | PUT | /api/workspaces/{workspace_id} | ワークスペースのメタデータを更新 |
@@ -85,5 +88,6 @@
 
 - カスタム Contents API は `/api/contents` ではなく `/api/custom/contents` に置く。JupyterLab フロントエンドが使う標準 `/api/contents` と競合させないため。
 - ノートブック/ファイル作成（POST contents）は既存ファイルを上書きせず、同名時は自動連番（`{name}_2` …）で別名作成する。AI の誤操作による既存成果物の破壊を防ぐため、レスポンスの `path` は実際に作成されたパスを返す。
-- `interrupt` は AI 編集ロック中でも実行可能（ロック貫通）。暴走中の実行を止める操作をロックで阻害しないため。
-- AI 編集ロックの開始/終了イベント（`ai_edit_start` / `ai_edit_end`）は jupyter-mcp の `handleToolCall` ミドルウェアがノートブック編集系ツール実行時に自動配信する内部イベントであり、独立した MCP ツール/エンドポイントとしては提供しない。
+- `interrupt` は ノートブックロック中でも実行可能（ロック貫通）。暴走中の実行を止める操作をロックで阻害しないため。また `interrupt` はカーネル API でありノートブック書き込みを伴わないためロック検査の対象外。
+- ノートブックロックは jupyter-server 側の状態として保持し、書き込み系 API で強制する（不変条件 I2）。正当な書き込みは `X-Lock-Token` ヘッダーのトークンで識別し、ロック中ノートブックへのトークン不一致の書き込みは `423 NOTEBOOK_LOCKED` で拒否する。強制は `contents_manager.save` のラップ（標準 `/api/contents`・カスタム API を含む単一チョークポイント）で行う。ロックは TTL で失効し、失効時に `lock_released` を配信するため、イベント配信の成否にロック解除が依存しない。
+- ロックの取得/解放/延長（`POST`/`DELETE`/`PUT /api/ai/locks`）は jupyter-mcp の `handleToolCall` ミドルウェアがノートブック編集系ツール実行時に自動的に呼び出す。ロック取得/解放時に `lock_acquired` / `lock_released` イベントを WebSocket で配信し、ブラウザが readOnly 表示に追従する。これらは独立した MCP ツールとしては提供しない。

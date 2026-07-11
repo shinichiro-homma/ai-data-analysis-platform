@@ -72,13 +72,13 @@ export interface CellExecuteEndEvent extends AiEvent {
   success: boolean;
 }
 
-export interface AiEditStartEvent extends AiEvent {
-  type: 'ai_edit_start';
+export interface LockAcquiredEvent extends AiEvent {
+  type: 'lock_acquired';
   notebook_path: string;
 }
 
-export interface AiEditEndEvent extends AiEvent {
-  type: 'ai_edit_end';
+export interface LockReleasedEvent extends AiEvent {
+  type: 'lock_released';
   notebook_path: string;
 }
 
@@ -123,11 +123,11 @@ export class NotebookUpdater {
       case 'cell_execute_end':
         this.handleCellExecuteEnd(event as CellExecuteEndEvent);
         break;
-      case 'ai_edit_start':
-        this.handleAiEditStart(event as AiEditStartEvent);
+      case 'lock_acquired':
+        this.handleLockAcquired(event as LockAcquiredEvent);
         break;
-      case 'ai_edit_end':
-        this.handleAiEditEnd(event as AiEditEndEvent);
+      case 'lock_released':
+        this.handleLockReleased(event as LockReleasedEvent);
         break;
       default:
         console.log('[NotebookUpdater] Unknown event type:', event.type);
@@ -414,9 +414,10 @@ export class NotebookUpdater {
   }
 
   /**
-   * AI編集開始イベントを処理
+   * ロック取得イベントを処理（サーバー側でロック取得成功時に配信される）。
+   * ブラウザは該当ノートブックを readOnly 表示にする（UX への追従）。
    */
-  private handleAiEditStart(event: AiEditStartEvent): void {
+  private handleLockAcquired(event: LockAcquiredEvent): void {
     if (!this.lockManager) {
       console.error('[NotebookUpdater] LockManager not set');
       return;
@@ -426,9 +427,10 @@ export class NotebookUpdater {
   }
 
   /**
-   * AI編集終了イベントを処理
+   * ロック解放イベントを処理（サーバー側でロック解放・TTL 失効時に配信される）。
+   * ブラウザは該当ノートブックの readOnly 表示を解除する。
    */
-  private handleAiEditEnd(event: AiEditEndEvent): void {
+  private handleLockReleased(event: LockReleasedEvent): void {
     if (!this.lockManager) {
       console.error('[NotebookUpdater] LockManager not set');
       return;

@@ -363,18 +363,18 @@ handleToolCall ミドルウェアがノートブック編集系ツールの実�
 ```
 【セル追加 + リアルタイム反映】（ミドルウェアが自動ロック制御）
 1. AI → jupyter-mcp: notebook_add_cell(notebook_path, cell_type, source, ...)
-2. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_start"}
-3. jupyterlab-ai-sync: ノートブックをロック（read-only化）
-4. jupyter-mcp → jupyter-server: PATCH /api/custom/contents/{path}/cells
+2. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/locks（ロック取得、lock_token を受領）
+3. jupyter-server → jupyterlab-ai-sync: lock_acquired 配信 → ノートブックをロック（read-only化）
+4. jupyter-mcp → jupyter-server: PATCH /api/custom/contents/{path}/cells（X-Lock-Token 付き）
 5. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_added"}
 6. jupyterlab-ai-sync: ノートブックUIにセルを挿入
-7. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_end"}
-8. jupyterlab-ai-sync: ノートブックのロック解除
+7. jupyter-mcp ミドルウェア → jupyter-server: DELETE /api/ai/locks（ロック解放）
+8. jupyter-server → jupyterlab-ai-sync: lock_released 配信 → ノートブックのロック解除
 
 【コード実行 + リアルタイム反映】（ミドルウェアが自動ロック制御）
 9. AI → jupyter-mcp: execute_code(session_id, code)
-10. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_start"}
-11. jupyterlab-ai-sync: ノートブックをロック（read-only化）
+10. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/locks（session からノートブックを解決してロック取得）
+11. jupyter-server → jupyterlab-ai-sync: lock_acquired 配信 → ノートブックをロック（read-only化）
 12. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_start"}
 13. jupyter-mcp → jupyter-server: POST /api/kernels/{id}/execute
 14. jupyter-server: カーネル実行 → 実行結果を jupyter-mcp に返却
@@ -382,8 +382,12 @@ handleToolCall ミドルウェアがノートブック編集系ツールの実�
 16. jupyterlab-ai-sync: セルに出力を表示
 17. jupyter-mcp → jupyter-server: POST /api/ai/events/broadcast {type: "cell_execute_end"}
 18. jupyter-mcp → AI: 結果 + 画像ファイルパス（base64データなし）
-19. jupyter-mcp ミドルウェア → jupyter-server: POST /api/ai/events/broadcast {type: "ai_edit_end"}
-20. jupyterlab-ai-sync: ノートブックのロック解除
+19. jupyter-mcp ミドルウェア → jupyter-server: DELETE /api/ai/locks（ロック解放）
+20. jupyter-server → jupyterlab-ai-sync: lock_released 配信 → ノートブックのロック解除
+
+※ ロックの書き込み強制はサーバー側（contents_manager.save のラップ）が担う。長時間実行中は
+   ミドルウェアが PUT /api/ai/locks（20秒間隔）で TTL を延長し、解放に失敗しても TTL 失効時に
+   lock_released が配信されるため固着しない。
 ```
 
 ## 画像認識とデータ取得の使い分け

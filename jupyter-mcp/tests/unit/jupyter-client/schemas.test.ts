@@ -29,6 +29,7 @@ import {
   ClearAllOutputsResponseSchema,
   DataPreviewResponseSchema,
   TextFileResponseSchema,
+  LockResponseSchema,
 } from '../../../src/jupyter-client/schemas.js';
 
 describe('zod スキーマ: Kernel', () => {
@@ -631,6 +632,31 @@ describe('zod スキーマ: TextFileResponse', () => {
     };
 
     expect(() => TextFileResponseSchema.parse(data)).toThrow();
+  });
+});
+
+describe('zod スキーマ: LockResponse', () => {
+  test('正常系: 正しいロックレスポンスをパースできる', () => {
+    const data = {
+      lock_token: 'token-abc123',
+      expires_at: 1735689600,
+    };
+
+    const result = LockResponseSchema.parse(data);
+    expect(result.lock_token).toBe('token-abc123');
+    expect(result.expires_at).toBe(1735689600);
+  });
+
+  test('異常系: lock_token 欠落で ZodError', () => {
+    const data = { expires_at: 1735689600 };
+
+    expect(() => LockResponseSchema.parse(data)).toThrow();
+  });
+
+  test('異常系: expires_at が数値でないと ZodError', () => {
+    const data = { lock_token: 'token-abc123', expires_at: 'not-a-number' };
+
+    expect(() => LockResponseSchema.parse(data)).toThrow();
   });
 });
 

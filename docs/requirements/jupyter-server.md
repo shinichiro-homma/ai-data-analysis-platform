@@ -93,12 +93,20 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 #### F4.2: イベント配信
 - jupyter-mcpからのAPI呼び出し時に、対応するイベントをWebSocket経由で配信する
 - 以下のイベントタイプを配信する:
-  - `ai_edit_start` - AI編集開始（ノートブックロック指示。jupyter-mcp の handleToolCall ミドルウェアが自動配信）
+  - `lock_acquired` - ノートブックロック取得（サーバーがロック API 取得成功時に配信。ブラウザは readOnly 表示に追従）
   - `cell_added` - セル追加完了
   - `cell_execute_start` - セル実行開始
   - `cell_output` - セル出力（ストリーミング、stdout/stderr/display_data/execute_result/error）
   - `cell_execute_end` - セル実行完了
-  - `ai_edit_end` - AI編集終了（ノートブックアンロック指示。jupyter-mcp の handleToolCall ミドルウェアが自動配信）
+  - `lock_released` - ノートブックロック解放（サーバーがロック解放・TTL 失効時に配信。ブラウザは readOnly を解除）
+
+#### F4.4: ノートブックロックのサーバー側強制（不変条件 I2）
+- ノートブックロックを jupyter-server 側の状態として保持し、書き込み系 API で強制する
+- ロックの取得・解放・延長 API を提供する（正当な書き込みはロックトークンで識別する）
+- ロック中ノートブックへのトークン不一致の書き込みは拒否する（HTTP 423 Locked）
+- 標準 `/api/contents` 保存・カスタム書き込み API を含むすべての書き込み経路を単一チョークポイント（`contents_manager.save` ラップ）で強制する
+- ロックは TTL で失効し、失効時に `lock_released` を配信する（イベント配信の成否に依存しない = 固着バグの根絶）
+- `interrupt`（カーネル中断）はノートブック書き込みを伴わないためロック検査の対象外
 
 #### F4.3: コード実行時のイベント配信
 

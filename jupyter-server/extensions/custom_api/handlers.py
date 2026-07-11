@@ -32,11 +32,28 @@ from .base import (
 )
 from .code_validator import validate_code
 from .kernel_executor import KernelExecutor
+from .lock_handlers import NotebookLocksHandler
 from .session_handlers import CustomSessionsHandler, get_kernel_workspace, unregister_kernel
 from .sql_handlers import SqlExecuteHandler, SqlExportHandler
 from .workspace_handlers import WorkspaceHandler, WorkspacesHandler, WorkspaceSummarizeHandler
 
 log = logging.getLogger(__name__)
+
+
+def _apply_lock_token(handler) -> None:
+    """X-Lock-Token ヘッダーをロックトークン ContextVar に設定する。
+
+    contents_manager.save のラップ（_wrap_contents_save）が、この ContextVar と
+    ロックストアのトークンを照合してロック中ノートブックへの書き込み可否を判定する。
+    書き込み系ハンドラーの冒頭で呼ぶこと。request が存在しない（テストのモック等）場合は
+    トークンを None に設定する。
+    """
+    from . import notebook_locks
+
+    request = getattr(handler, "request", None)
+    headers = getattr(request, "headers", None)
+    token = headers.get("X-Lock-Token") if headers is not None else None
+    notebook_locks.lock_token_ctx.set(token)
 
 
 async def _find_available_path(contents_manager, target_path: str) -> str:
@@ -601,6 +618,7 @@ class ContentsHandler(BaseCustomHandler):
     @web.authenticated
     async def put(self, path: str):
         """ファイルまたはノートブックを更新"""
+        _apply_lock_token(self)
         body = self.get_json_body()
         content = body.get("content")
 
@@ -611,6 +629,9 @@ class ContentsHandler(BaseCustomHandler):
             model["content"] = content
             await self.contents_manager.save(model, path)
             self.write_success({"path": "/" + path, "status": "updated"})
+        except web.HTTPError:
+            # ロック強制（423 等）はそのまま Tornado に伝播させる
+            raise
         except FileNotFoundError:
             self.write_error_response("NOTEBOOK_NOT_FOUND", f"Not found: {path}", 404)
         except Exception as e:
@@ -678,6 +699,7 @@ class ContentsCellsHandler(BaseCustomHandler):
     @web.authenticated
     async def patch(self, path: str):
         """セルを追加・更新・削除・並び替え"""
+        _apply_lock_token(self)
         body = self.get_json_body()
         action = body.get("action")
         cell = body.get("cell")
@@ -922,6 +944,9 @@ class ContentsCellsHandler(BaseCustomHandler):
             await self.contents_manager.save(model, path)
             self.write_success({"path": "/" + path, "status": "updated"})
 
+        except web.HTTPError:
+            # ロック強制（423 等）はそのまま Tornado に伝播させる
+            raise
         except FileNotFoundError:
             self.write_error_response("NOTEBOOK_NOT_FOUND", f"Not found: {path}", 404)
         except Exception as e:
@@ -1119,6 +1144,7 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, path: str, index: str):
         """指定セルを再実行する"""
+        _apply_lock_token(self)
         try:
             # パストラバーサル対策
             path = validate_path(path)
@@ -1228,6 +1254,9 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
 
         try:
             await self.contents_manager.save(model, path)
+        except web.HTTPError:
+            # ロック強制（423 等）はそのまま Tornado に伝播させる
+            raise
         except Exception as e:
             log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
             # 保存失敗は無視して実行結果を返す
@@ -1249,6 +1278,7 @@ class ContentsCellsClearAllOutputsHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, path: str):
         """全コードセルの出力をクリアする"""
+        _apply_lock_token(self)
         try:
             path = validate_path(path)
         except ValueError as e:
@@ -1284,6 +1314,9 @@ class ContentsCellsClearAllOutputsHandler(BaseCustomHandler):
 
         try:
             await self.contents_manager.save(model, path)
+        except web.HTTPError:
+            # ロック強制（423 等）はそのまま Tornado に伝播させる
+            raise
         except Exception as e:
             log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
             self.write_error_response("INTERNAL_ERROR", "Failed to save notebook", 500)
@@ -1298,6 +1331,7 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
     @web.authenticated
     async def post(self, path: str):
         """指定範囲のセルを一括実行する"""
+        _apply_lock_token(self)
         try:
             # パストラバーサル対策
             path = validate_path(path)
@@ -1460,6 +1494,9 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
 
         try:
             await self.contents_manager.save(model, path)
+        except web.HTTPError:
+            # ロック強制（423 等）はそのまま Tornado に伝播させる
+            raise
         except Exception as e:
             log.error("Failed to save notebook '%s': %s", path, e, exc_info=True)
             # 保存失敗は無視して実行結果を返す
@@ -1501,6 +1538,8 @@ def get_handlers(base_url: str = ""):
         # AI同期イベント
         (f"{base_url}/api/ai/events", AiEventsWebSocketHandler),
         (f"{base_url}/api/ai/events/broadcast", AiEventsPostHandler),
+        # ノートブックロック（取得/解放/延長）
+        (f"{base_url}/api/ai/locks", NotebookLocksHandler),
         # ワークスペース管理
         (f"{base_url}/api/workspaces", WorkspacesHandler),
         (f"{base_url}/api/workspaces/([^/]+)/summarize", WorkspaceSummarizeHandler),

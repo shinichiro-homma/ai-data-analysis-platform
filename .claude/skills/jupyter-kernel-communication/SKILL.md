@@ -209,12 +209,12 @@ jupyterlab-ai-sync (ブラウザ)
 
 | イベント | 発信元 | ペイロード | 用途 |
 |---------|--------|-----------|------|
-| `ai_edit_start` | jupyter-mcp | `{notebook_path}` | 編集開始 → UI ロック |
+| `lock_acquired` | jupyter-server | `{notebook_path}` | ロック取得 → UI readOnly 表示 |
 | `cell_added` | jupyter-mcp | `{notebook_path, cell: {cell_type, source}, index}` | セル追加 → UI 反映 |
 | `cell_execute_start` | jupyter-mcp | `{notebook_path, cell_index}` | 実行開始 → セル実行中表示 |
 | `cell_output` | jupyter-mcp | `{notebook_path, cell_index, output}` | 出力 → セルに追加（複数回） |
-| `cell_execute_end` | jupyter-mcp | `{notebook_path, cell_index, execution_count, success}` | 実行完了 → ロック解除 |
-| `ai_edit_end` | jupyter-mcp | `{notebook_path}` | 編集終了 → 全ロック解除 |
+| `cell_execute_end` | jupyter-mcp | `{notebook_path, cell_index, execution_count, success}` | 実行完了 |
+| `lock_released` | jupyter-server | `{notebook_path}` | ロック解放・TTL 失効 → readOnly 解除 |
 
 ### CellOutputData 構造
 

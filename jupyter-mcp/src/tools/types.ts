@@ -15,7 +15,7 @@ import type { McpToolResult } from '../utils/response-formatter.js';
 export interface JupyterToolEntry extends ToolEntry<McpToolResult> {
   /**
    * ノートブックのセル内容を変更するツールか。
-   * true のツールは AI編集モードの自動制御（emitAiEditStart/End）の対象となる。
+   * true のツールは実行時にサーバー側ノートブックロック（withNotebookLock）で保護される。
    * カーネル再起動のようにセル内容を変更しない操作は false。
    */
   mutatesNotebook: boolean;

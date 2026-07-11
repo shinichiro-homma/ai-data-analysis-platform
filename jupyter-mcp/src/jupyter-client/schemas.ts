@@ -334,3 +334,14 @@ export const TextFileResponseSchema = z
     modified_at: z.string(),
   })
   .strip();
+
+// =============================================================================
+// ノートブックロック関連
+// =============================================================================
+
+export const LockResponseSchema = z
+  .object({
+    lock_token: z.string(),
+    expires_at: z.number(),
+  })
+  .strip();
