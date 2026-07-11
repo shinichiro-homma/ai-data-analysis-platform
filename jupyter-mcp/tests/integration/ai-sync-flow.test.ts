@@ -106,6 +106,9 @@ describe('AI同期フローの統合テスト', () => {
     const nbData = parseToolCallResult(nbResult);
     const notebookPath = nbData.path as string;
 
+    // notebook_create が発行する notebook_changed をクリア（テスト対象外）
+    wsClient.clearEvents();
+
     return { workspaceId, sessionId, notebookPath };
   }
 
