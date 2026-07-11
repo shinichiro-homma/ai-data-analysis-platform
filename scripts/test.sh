@@ -30,6 +30,9 @@ OPTIONS:
   --health        テスト後に既知障害と照合して分類する
   --no-lint       lint / format チェックをスキップする
   --quiet         詳細ログを tmp/test-logs/ へ退避し、サマリと失敗抜粋のみ表示する
+  -- FILE...      以降の引数をテストランナー（vitest / pytest）へそのまま渡す
+                  （単一コンポーネント指定時のみ。テストファイルの絞り込みに使う。
+                   hooks / jupyterlab-ai-sync は対象外）
   -h, --help      このヘルプを表示
 
 Examples:
@@ -42,6 +45,8 @@ Examples:
   $(basename "$0") --rebuild                            # 全コンポーネントリビルド + テスト
   $(basename "$0") --integration --rebuild              # リビルド後に統合テスト
   $(basename "$0") --quiet jupyter-mcp                  # サマリのみ表示（サブエージェント向け）
+  $(basename "$0") --quiet --test --no-lint jupyter-mcp -- tests/unit/utils/errors.test.ts
+                                                        # 反復用: 対象テストファイルのみ実行
 EOF
 }
 
@@ -53,6 +58,7 @@ INTEGRATION=false
 REBUILD=false
 QUIET=false
 TARGETS=()
+EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -63,6 +69,7 @@ while [[ $# -gt 0 ]]; do
     --no-lint)       LINT=false; shift ;;
     --health)        HEALTH=true; shift ;;
     --quiet)         QUIET=true; shift ;;
+    --)              shift; EXTRA_ARGS=("$@"); break ;;
     -h|--help)    usage; exit 0 ;;
     -*)           echo "Error: unknown option $1" >&2; usage; exit 1 ;;
     *)
@@ -80,6 +87,20 @@ done
 
 if [[ ${#TARGETS[@]} -eq 0 ]]; then
   TARGETS=("${COMPONENTS[@]}")
+fi
+
+# '-- FILE...' によるテスト絞り込みは単一コンポーネント指定時のみ許可
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+  if [[ ${#TARGETS[@]} -ne 1 ]]; then
+    echo "Error: '-- FILE...' は単一コンポーネント指定時のみ使えます" >&2
+    exit 1
+  fi
+  case "${TARGETS[0]}" in
+    hooks|jupyterlab-ai-sync)
+      echo "Error: '${TARGETS[0]}' は '-- FILE...' による絞り込みに対応していません" >&2
+      exit 1
+      ;;
+  esac
 fi
 
 # Quiet mode: 全出力をログファイルへ退避し、コンソールにはサマリと失敗抜粋のみ返す
@@ -356,7 +377,11 @@ for component in "${TARGETS[@]}"; do
       echo "  Integration testing..."
       if [[ "$PROJECT_TYPE" == "typescript" ]]; then
         if grep -q '"test:integration"' "$component/package.json" 2>/dev/null; then
-          (cd "$component" && npm run test:integration) || { FAILED+=("$component:integration"); echo "  FAILED: integration test"; continue; }
+          if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+            (cd "$component" && npm run test:integration -- "${EXTRA_ARGS[@]}") || { FAILED+=("$component:integration"); echo "  FAILED: integration test"; continue; }
+          else
+            (cd "$component" && npm run test:integration) || { FAILED+=("$component:integration"); echo "  FAILED: integration test"; continue; }
+          fi
         else
           echo "  SKIP: no test:integration script"
         fi
@@ -368,9 +393,17 @@ for component in "${TARGETS[@]}"; do
       # Unit test mode (default)
       echo "  Testing..."
       if [[ "$PROJECT_TYPE" == "typescript" ]]; then
-        (cd "$component" && npm test) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+          (cd "$component" && npm test -- "${EXTRA_ARGS[@]}") || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        else
+          (cd "$component" && npm test) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        fi
       else
-        (cd "$component" && uv run --project "$REPO_ROOT" pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+          (cd "$component" && uv run --project "$REPO_ROOT" pytest "${EXTRA_ARGS[@]}") || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        else
+          (cd "$component" && uv run --project "$REPO_ROOT" pytest) || { FAILED+=("$component:test"); echo "  FAILED: test"; continue; }
+        fi
       fi
       echo "  Test OK"
     fi

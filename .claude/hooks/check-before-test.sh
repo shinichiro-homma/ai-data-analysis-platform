@@ -2,8 +2,12 @@
 
 # テスト実行前に環境の鮮度をチェックし、古い場合はブロックする hook
 #
-# 対象: scripts/test.sh, scripts/smoke-test.sh
-# 例外: --rebuild フラグ付き（自前でリビルドするため）
+# 対象: scripts/test.sh --integration, scripts/smoke-test.sh
+# 例外:
+#   - --rebuild フラグ付き（自前でリビルドするため）
+#   - --integration なしの test.sh（ユニットテストは vitest/pytest がソースを
+#     直接実行するため、ビルド成果物・コンテナの鮮度と無関係。
+#     .claude/rules/build-freshness.md 参照）
 
 # shellcheck source=lib/json.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/json.sh"
@@ -27,8 +31,9 @@ if echo "$COMMAND" | grep -q -- '--rebuild'; then
   exit 0
 fi
 
-# hooks コンポーネントのテストは Docker 環境と無関係なのでスキップ
-if echo "$COMMAND" | grep -qE 'scripts/test\.sh([[:space:]]+--[a-z-]+)*[[:space:]]+hooks([[:space:]]|$)'; then
+# ユニットテスト（--integration なしの test.sh）は鮮度と無関係なのでスキップ
+# （smoke-test.sh は常に Docker 環境を使うため引き続きチェック対象）
+if echo "$COMMAND" | grep -qE 'scripts/test\.sh' && ! echo "$COMMAND" | grep -q -- '--integration'; then
   exit 0
 fi
 
