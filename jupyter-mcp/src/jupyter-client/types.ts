@@ -289,8 +289,8 @@ export interface AiEventBase {
     | 'cell_execute_start'
     | 'cell_output'
     | 'cell_execute_end'
-    | 'ai_edit_start'
-    | 'ai_edit_end'
+    | 'lock_acquired'
+    | 'lock_released'
     | 'cells_merged'
     | 'cell_split'
     | 'cell_type_changed'
@@ -393,20 +393,22 @@ export interface CellReorderedEvent extends AiEventBase {
 }
 
 /**
- * AI編集モード開始イベント
- * handleToolCall ミドルウェアがノートブック編集系ツール実行前に自動配信する
+ * ノートブックロック取得イベント
+ * jupyter-server がロック取得（POST /api/ai/locks）成功時に配信する。
+ * ブラウザ（jupyterlab-ai-sync）は該当ノートブックを readOnly 表示にする。
  */
-export interface AiEditStartEvent extends AiEventBase {
-  type: 'ai_edit_start';
+export interface LockAcquiredEvent extends AiEventBase {
+  type: 'lock_acquired';
   notebook_path: string;
 }
 
 /**
- * AI編集モード終了イベント
- * handleToolCall ミドルウェアがツール実行完了後に自動配信する
+ * ノートブックロック解放イベント
+ * jupyter-server がロック解放または TTL 失効時に配信する。
+ * ブラウザ（jupyterlab-ai-sync）は該当ノートブックの readOnly 表示を解除する。
  */
-export interface AiEditEndEvent extends AiEventBase {
-  type: 'ai_edit_end';
+export interface LockReleasedEvent extends AiEventBase {
+  type: 'lock_released';
   notebook_path: string;
 }
 
@@ -484,8 +486,8 @@ export type AiEvent =
   | CellExecuteStartEvent
   | CellOutputEvent
   | CellExecuteEndEvent
-  | AiEditStartEvent
-  | AiEditEndEvent
+  | LockAcquiredEvent
+  | LockReleasedEvent
   | CellsMergedEvent
   | CellSplitEvent
   | CellTypeChangedEvent
@@ -496,6 +498,14 @@ export type AiEvent =
 export interface BroadcastEventResponse {
   broadcasted: boolean;
   clients: number;
+}
+
+/**
+ * ノートブックロック取得/延長のレスポンス（タスク 21.2）。
+ */
+export interface LockResponse {
+  lockToken: string;
+  expiresAt: number;
 }
 
 // =============================================================================

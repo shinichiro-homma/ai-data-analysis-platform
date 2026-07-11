@@ -45,6 +45,7 @@ import {
   DataPreviewResponse,
   DataPreviewOptions,
   TextFileResponse,
+  LockResponse,
 } from './types.js';
 import {
   JupyterClientError,
@@ -75,9 +76,11 @@ import {
   ClearAllOutputsResponseSchema,
   DataPreviewResponseSchema,
   TextFileResponseSchema,
+  LockResponseSchema,
 } from './schemas.js';
 import type { ZodType } from 'zod';
 import { normalizeNotebookPath } from '../utils/path-validator.js';
+import { getCurrentLockToken } from '../utils/lock-context.js';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_BASE_URL = 'http://localhost:8888';
@@ -583,6 +586,49 @@ export class JupyterClient {
   }
 
   // ===========================================================================
+  // ノートブックロック（タスク 21.2）
+  // ===========================================================================
+
+  /**
+   * ノートブックロックを取得する（POST /api/ai/locks）。
+   * 競合時は 423 を NotebookLockedError に正規化する（handleError 経由）。
+   */
+  async acquireLock(path: string, ttl?: number): Promise<LockResponse> {
+    const body = { notebook_path: path, ...(ttl !== undefined ? { ttl } : {}) };
+    const response = await this.request<ApiResponse<{ lock_token: string; expires_at: number }>>(
+      'POST',
+      '/api/ai/locks',
+      body,
+      { path },
+    );
+    const validated = this.validateResponse(response.data, LockResponseSchema);
+    return { lockToken: validated.lock_token, expiresAt: validated.expires_at };
+  }
+
+  /**
+   * ノートブックロックの TTL を延長する（PUT /api/ai/locks）。
+   */
+  async renewLock(path: string, token: string, ttl?: number): Promise<LockResponse> {
+    const body = { notebook_path: path, lock_token: token, ...(ttl !== undefined ? { ttl } : {}) };
+    const response = await this.request<ApiResponse<{ lock_token: string; expires_at: number }>>(
+      'PUT',
+      '/api/ai/locks',
+      body,
+      { path },
+    );
+    const validated = this.validateResponse(response.data, LockResponseSchema);
+    return { lockToken: validated.lock_token, expiresAt: validated.expires_at };
+  }
+
+  /**
+   * ノートブックロックを解放する（DELETE /api/ai/locks）。
+   */
+  async releaseLock(path: string, token: string): Promise<void> {
+    const body = { notebook_path: path, lock_token: token };
+    await this.request<ApiResponse<unknown>>('DELETE', '/api/ai/locks', body, { path });
+  }
+
+  // ===========================================================================
   // 内部メソッド
   // ===========================================================================
 
@@ -615,11 +661,15 @@ export class JupyterClient {
     timeout?: number,
   ): Promise<T> {
     try {
+      // withNotebookLock がロック取得中なら X-Lock-Token を全書き込みに自動付与する
+      // （AsyncLocalStorage 経由。書き込みメソッドへの引数貫通は不要）。
+      const lockToken = getCurrentLockToken();
       const response = await this.axios.request<T>({
         method,
         url: path,
         data: body,
         ...(timeout ? { timeout } : {}),
+        ...(lockToken ? { headers: { 'X-Lock-Token': lockToken } } : {}),
       });
       return response.data;
     } catch (error) {

@@ -4,7 +4,7 @@ import {
   handleToolCall as sharedHandleToolCall,
 } from '@ai-data-analysis/mcp-shared';
 import { type McpToolResult } from '../utils/response-formatter.js';
-import { emitAiEditStart, emitAiEditEnd } from '../utils/ai-edit-helpers.js';
+import { withNotebookLock } from '../utils/lock-helpers.js';
 import type { JupyterToolEntry } from './types.js';
 import { toolEntry as workspaceCreateEntry } from './workspace-create.js';
 import { toolEntry as workspaceUpdateEntry } from './workspace-update.js';
@@ -82,10 +82,6 @@ export function registerTools(): Tool[] {
 export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
   const execute = () => sharedHandleToolCall(toolRegistry, name, args) as Promise<McpToolResult>;
   if (!NOTEBOOK_EDIT_TOOLS.has(name)) return execute();
-  try {
-    await emitAiEditStart(args);
-    return await execute();
-  } finally {
-    await emitAiEditEnd(args);
-  }
+  // ノートブック編集系ツールはサーバー側ロックで保護する（不変条件 I2）。
+  return withNotebookLock(args, execute);
 }

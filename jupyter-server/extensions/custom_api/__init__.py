@@ -7,15 +7,84 @@ api-contracts.md に定義された REST API を提供する Jupyter Server 拡�
 import asyncio
 import functools
 import logging
+import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import kernel_executor as _kernel_executor_module
+from . import notebook_locks
 from .handlers import get_handlers
 from .session_handlers import get_kernel_workspace, unregister_kernel
 from .workspace_sandbox import generate_sandbox_code
 
 log = logging.getLogger(__name__)
+
+# 失効スイーパーの実行間隔（秒）
+_LOCK_SWEEP_INTERVAL = 5
+
+# 失効スイーパータスクへの強参照（GC 回収防止）。拡張ロード時に代入される（バグ 4）。
+_lock_sweeper_task = None
+
+
+def _resolve_http_error():
+    """tornado.web.HTTPError を解決する。
+
+    テストでは tornado.web がモックされ HTTPError を持たない場合があるため、
+    その際は status_code 属性を持つ互換例外クラスにフォールバックする。
+    """
+    try:
+        from tornado.web import HTTPError
+
+        return HTTPError
+    except (ImportError, AttributeError):
+
+        class _HTTPError(Exception):
+            def __init__(self, status_code, *args, **kwargs):
+                super().__init__(*args)
+                self.status_code = status_code
+
+        return _HTTPError
+
+
+def _wrap_contents_save(original_save):
+    """contents_manager.save をラップし、ロック中ノートブックへの不正な書き込みを 423 で拒否する。
+
+    正当な書き込みは lock_token_ctx（ContextVar）に設定されたトークンで識別する。
+    検査対象は .ipynb パスに限定し、それ以外（データファイル等）は貫通させる（不変条件 I2）。
+    """
+    http_error_cls = _resolve_http_error()
+
+    @functools.wraps(original_save)
+    async def wrapper(model, path, *args, **kwargs):
+        # ロックストアは sys.modules から解決する（テストが importlib で再ロードした
+        # インスタンスと同一の _locks / ContextVar を参照するため）。
+        locks = sys.modules.get("custom_api.notebook_locks", notebook_locks)
+        # 検査対象は .ipynb のみ（それ以外は貫通）
+        if isinstance(path, str) and path.endswith(".ipynb"):
+            expected_token = locks.get_lock_token(path)
+            # ロック中: ContextVar のトークンが一致しない書き込みは拒否
+            if expected_token is not None and locks.lock_token_ctx.get() != expected_token:
+                raise http_error_cls(423, f"Notebook is locked: {path}")
+        return await original_save(model, path, *args, **kwargs)
+
+    return wrapper
+
+
+async def _lock_sweeper_loop() -> None:
+    """失効したロックを定期的に除去し、失効時に lock_released を配信する。"""
+    from .ai_events import broadcast_event
+
+    while True:
+        try:
+            await asyncio.sleep(_LOCK_SWEEP_INTERVAL)
+            expired = notebook_locks.sweep_expired(now=notebook_locks.now())
+            for path in expired:
+                broadcast_event({"type": "lock_released", "notebook_path": path})
+                log.info("Lock expired and released for %s", path)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.error("Error in lock sweeper loop", exc_info=True)
 
 
 def _jupyter_server_extension_points():
@@ -175,6 +244,17 @@ def _load_jupyter_server_extension(server_app):
 
     # カーネル再起動後に sandbox を再注入するようフックする
     km.restart_kernel = _wrap_restart_kernel(km.restart_kernel, kernel_manager=km)
+
+    # ノートブックロックをサーバー側で強制する（不変条件 I2）。
+    # 標準 /api/contents 保存・カスタム API を含むすべての書き込みが通る単一チョークポイント。
+    cm = server_app.contents_manager
+    cm.save = _wrap_contents_save(cm.save)
+
+    # ロック失効スイーパーを起動する（TTL 失効の根絶と lock_released 配信）。
+    # タスクへの強参照を保持しないと GC に実行中タスクを回収され得るため、
+    # モジュールレベル変数に保持する（バグ 4: Python 公式ドキュメント記載の落とし穴）。
+    global _lock_sweeper_task
+    _lock_sweeper_task = asyncio.ensure_future(_lock_sweeper_loop())
 
     log.info("Custom API extension loaded")
 

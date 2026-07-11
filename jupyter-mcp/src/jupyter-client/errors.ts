@@ -75,6 +75,19 @@ export class ExecutionTimeoutError extends JupyterClientError {
 }
 
 /**
+ * ノートブックがロックされているエラー（423 Locked）
+ *
+ * jupyter-server 側でノートブックが別のロックトークンで保持されている場合に
+ * 書き込み系 API が 423 を返す。タスク 21.2。
+ */
+export class NotebookLockedError extends JupyterClientError {
+  constructor(path: string) {
+    super(`ノートブックがロックされています: ${path}`, 'NOTEBOOK_LOCKED', 423);
+    this.name = 'NotebookLockedError';
+  }
+}
+
+/**
  * 接続エラー
  */
 export class ConnectionError extends JupyterClientError {
@@ -106,6 +119,8 @@ export function createErrorFromResponse(
       return new InvalidCellIndexError(context?.index ?? -1);
     case 'EXECUTION_TIMEOUT':
       return new ExecutionTimeoutError(30000);
+    case 'NOTEBOOK_LOCKED':
+      return new NotebookLockedError(context?.path ?? 'unknown');
     default:
       return new JupyterClientError(message, errorCode, statusCode);
   }

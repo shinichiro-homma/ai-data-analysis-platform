@@ -5,7 +5,7 @@ import { MUTATING_TOOL_NAMES as NOTEBOOK_EDIT_TOOLS } from './fixtures.js';
 // vi.hoisted: vi.mock より先に評価されるヘルパーを定義
 // vi.hoisted は通常のトップレベル import した変数を参照できないため、
 // フィクスチャの読み込みは async import で行う。
-const { mockToolModule, mockEmitAiEditStart, mockEmitAiEditEnd } = await vi.hoisted(async () => {
+const { mockToolModule, mockWithNotebookLock } = await vi.hoisted(async () => {
   const mockResponse = (toolName: string) => ({ content: [{ type: 'text', text: toolName }] });
 
   // ノートブックを変更するツール（mutatesNotebook: true）。index.ts はこの宣言から
@@ -32,14 +32,12 @@ const { mockToolModule, mockEmitAiEditStart, mockEmitAiEditEnd } = await vi.hois
 
   return {
     mockToolModule,
-    mockEmitAiEditStart: vi.fn(async () => {}),
-    mockEmitAiEditEnd: vi.fn(async () => {}),
+    // ロックミドルウェアはデフォルトでロックを取得せず execute を素通しする（タスク 21.2）。
+    mockWithNotebookLock: vi.fn(async (_args: Record<string, unknown>, execute: () => Promise<unknown>) => execute()),
   };
 });
-vi.mock('../../../src/utils/ai-edit-helpers.js', () => ({
-  validateAndResolveNotebookPath: vi.fn(),
-  emitAiEditStart: (...args: unknown[]) => mockEmitAiEditStart(...args),
-  emitAiEditEnd: (...args: unknown[]) => mockEmitAiEditEnd(...args),
+vi.mock('../../../src/utils/lock-helpers.js', () => ({
+  withNotebookLock: (...args: [Record<string, unknown>, () => Promise<unknown>]) => mockWithNotebookLock(...args),
 }));
 
 // 各ツール実装をモック
@@ -102,8 +100,7 @@ vi.mock('../../../src/tools/notebook-clear-outputs.js', () =>
 vi.mock('../../../src/tools/kernel-restart.js', () => mockToolModule('kernel_restart', 'executeKernelRestart'));
 
 beforeEach(() => {
-  mockEmitAiEditStart.mockClear();
-  mockEmitAiEditEnd.mockClear();
+  mockWithNotebookLock.mockClear();
 });
 
 describe('registerTools', () => {
@@ -242,9 +239,9 @@ describe('handleToolCall', () => {
   });
 });
 
-describe('handleToolCall ミドルウェア（自動AI編集モード）', () => {
+describe('handleToolCall ミドルウェア（ノートブックロック強制）', () => {
   NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {
-    test(`${toolName} 実行時に emitAiEditStart が呼ばれる`, async () => {
+    test(`${toolName} 実行は withNotebookLock で保護される`, async () => {
       const args = {
         session_id: 'session-1',
         notebook_path: 'test.ipynb',
@@ -254,44 +251,18 @@ describe('handleToolCall ミドルウェア（自動AI編集モード）', () =>
         to_index: 1,
         code: 'x=1',
       };
-      await handleToolCall(toolName, args);
-      expect(mockEmitAiEditStart).toHaveBeenCalledTimes(1);
-      expect(mockEmitAiEditStart).toHaveBeenCalledWith(args);
+      const result = await handleToolCall(toolName, args);
+      expect(mockWithNotebookLock).toHaveBeenCalledTimes(1);
+      // 第1引数は args、第2引数は execute 関数
+      expect(mockWithNotebookLock.mock.calls[0][0]).toBe(args);
+      expect(typeof mockWithNotebookLock.mock.calls[0][1]).toBe('function');
+      // ロックミドルウェアが execute を素通しするため、ツールの結果が返る
+      expect(result.content[0].text).toBe(toolName);
     });
   });
 
-  NOTEBOOK_EDIT_TOOLS.forEach((toolName) => {
-    test(`${toolName} 実行完了後に emitAiEditEnd が呼ばれる`, async () => {
-      const args = {
-        session_id: 'session-1',
-        notebook_path: 'test.ipynb',
-        cell_type: 'code',
-        source: 'x=1',
-        cell_index: 0,
-        to_index: 1,
-        code: 'x=1',
-      };
-      await handleToolCall(toolName, args);
-      expect(mockEmitAiEditEnd).toHaveBeenCalledTimes(1);
-      expect(mockEmitAiEditEnd).toHaveBeenCalledWith(args);
-    });
-  });
-
-  test('NOTEBOOK_EDIT_TOOLS に含まれないツール（session_list）は emitAiEditStart/End が呼ばれない', async () => {
+  test('NOTEBOOK_EDIT_TOOLS に含まれないツール（session_list）は withNotebookLock を経由しない', async () => {
     await handleToolCall('session_list', {});
-    expect(mockEmitAiEditStart).not.toHaveBeenCalled();
-    expect(mockEmitAiEditEnd).not.toHaveBeenCalled();
-  });
-
-  test('ツール実行がエラーでも emitAiEditEnd が呼ばれる（try...finally）', async () => {
-    // execute_code のモックをエラーに変更
-    const { executeExecuteCode } = await import('../../../src/tools/execute-code.js');
-    (executeExecuteCode as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('execution failed'));
-
-    // sharedHandleToolCall 内で catch されてエラーレスポンスが返る
-    await handleToolCall('execute_code', { session_id: 'session-1', code: 'bad code' });
-
-    expect(mockEmitAiEditStart).toHaveBeenCalledTimes(1);
-    expect(mockEmitAiEditEnd).toHaveBeenCalledTimes(1);
+    expect(mockWithNotebookLock).not.toHaveBeenCalled();
   });
 });

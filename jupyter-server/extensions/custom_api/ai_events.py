@@ -14,6 +14,26 @@ logger = logging.getLogger(__name__)
 _websocket_clients = set()
 
 
+def broadcast_event(event: dict) -> int:
+    """接続中のすべての WebSocket クライアントにイベントを配信する。
+
+    ロック取得/解放/失効通知（lock_acquired / lock_released）等、
+    RESTハンドラー以外からの配信口として使用する。
+
+    Returns:
+        配信に成功したクライアント数。
+    """
+    payload = json.dumps(event)
+    broadcasted_count = 0
+    for client in _websocket_clients:
+        try:
+            client.write_message(payload)
+            broadcasted_count += 1
+        except Exception as e:
+            logger.error(f"Failed to send message to WebSocket client: {e}")
+    return broadcasted_count
+
+
 class AiEventsWebSocketHandler(websocket.WebSocketHandler):
     """
     AI同期イベント配信用WebSocketハンドラー
@@ -96,15 +116,8 @@ class AiEventsPostHandler(JupyterHandler):
             # リクエストボディをパース
             event = json.loads(self.request.body.decode("utf-8"))
 
-            # 接続中のすべてのWebSocketクライアントにブロードキャスト
-            broadcasted_count = 0
-            for client in _websocket_clients:
-                try:
-                    client.write_message(json.dumps(event))
-                    broadcasted_count += 1
-                except Exception as e:
-                    # 個別のクライアントへの送信失敗はログのみ（他のクライアントへの配信は継続）
-                    logger.error(f"Failed to send message to WebSocket client: {e}")
+            # 接続中のすべてのWebSocketクライアントにブロードキャスト（配信実装は broadcast_event に統一）
+            broadcasted_count = broadcast_event(event)
 
             logger.info(f"Broadcasted event to {broadcasted_count} clients: {event.get('type')}")
 

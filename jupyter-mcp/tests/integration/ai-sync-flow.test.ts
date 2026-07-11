@@ -318,10 +318,10 @@ plt.show()
   });
 
   describe('AI編集モード（自動ロック制御）', () => {
-    test('execute_code 実行時に ai_edit_start → ... → ai_edit_end が自動配信される', async () => {
+    test('execute_code 実行時に lock_acquired → ... → lock_released が自動配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('auto-lock-exec');
 
-      // 1. セル追加（ai_edit_start/end が自動配信される）
+      // 1. セル追加（lock_acquired/end が自動配信される）
       const addCellResult = await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
@@ -332,13 +332,13 @@ plt.show()
 
       // 2. notebook_add_cell のイベント（3件）を待機（順序はCI環境で保証されないためカウントで検証）
       const addEvents = await wsClient.waitForEventCount(3, 10000);
-      expect(addEvents.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
+      expect(addEvents.filter((e) => e.type === 'lock_acquired')).toHaveLength(1);
       expect(addEvents.filter((e) => e.type === 'cell_added')).toHaveLength(1);
-      expect(addEvents.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
+      expect(addEvents.filter((e) => e.type === 'lock_released')).toHaveLength(1);
 
       wsClient.clearEvents();
 
-      // 3. コード実行（ai_edit_start/end が自動配信される）
+      // 3. コード実行（lock_acquired/end が自動配信される）
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("auto-lock")',
@@ -348,15 +348,15 @@ plt.show()
 
       // 4. execute_code のイベント（5件）を待機
       const execEvents = await wsClient.waitForEventCount(5, 10000);
-      expect(execEvents.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
-      expect(execEvents.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
+      expect(execEvents.filter((e) => e.type === 'lock_acquired')).toHaveLength(1);
+      expect(execEvents.filter((e) => e.type === 'lock_released')).toHaveLength(1);
       expect(execEvents.filter((e) => e.type === 'cell_execute_start')).toHaveLength(1);
       // notebook_path が一致
-      const editStartEvent = execEvents.find((e) => e.type === 'ai_edit_start')!;
+      const editStartEvent = execEvents.find((e) => e.type === 'lock_acquired')!;
       expect(normalizePath(editStartEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
     }, 20000);
 
-    test('notebook_add_cell 実行時に ai_edit_start/end が自動配信される', async () => {
+    test('notebook_add_cell 実行時に lock_acquired/end が自動配信される', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('auto-lock-add');
 
       // セル追加
@@ -370,12 +370,12 @@ plt.show()
 
       // 3件のイベントを待機（順序はCI環境で保証されないためカウントで検証）
       const events = await wsClient.waitForEventCount(3, 10000);
-      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(1);
       expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
-      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(1);
+      expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(1);
       // notebook_path が一致
-      const startEvent = events.find((e) => e.type === 'ai_edit_start')!;
-      const endEvent = events.find((e) => e.type === 'ai_edit_end')!;
+      const startEvent = events.find((e) => e.type === 'lock_acquired')!;
+      const endEvent = events.find((e) => e.type === 'lock_released')!;
       expect(normalizePath(startEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
       expect(normalizePath(endEvent.notebook_path as string)).toBe(normalizePath(notebookPath));
     });
@@ -385,7 +385,7 @@ plt.show()
     test('セル追加・実行で各ツールが独立して自動ロック/アンロックする', async () => {
       const { sessionId, notebookPath } = await createTestNotebook('e2e-flow');
 
-      // 1. セル追加（自動ロック: ai_edit_start → cell_added → ai_edit_end）
+      // 1. セル追加（自動ロック: lock_acquired → cell_added → lock_released）
       const addCellResult = await handleToolCall('notebook_add_cell', {
         notebook_path: notebookPath,
         cell_type: 'code',
@@ -394,7 +394,7 @@ plt.show()
       const addCellData = parseToolCallResult(addCellResult);
       expect(addCellData.success).toBe(true);
 
-      // 2. コード実行（自動ロック: ai_edit_start → exec events → ai_edit_end）
+      // 2. コード実行（自動ロック: lock_acquired → exec events → lock_released）
       const executeResult = await handleToolCall('execute_code', {
         session_id: sessionId,
         code: 'print("hello")',
@@ -403,13 +403,13 @@ plt.show()
       expect(executeData.success).toBe(true);
 
       // 3. 全イベント（8件）を待機（カウントベースで検証）
-      // notebook_add_cell: ai_edit_start, cell_added, ai_edit_end
-      // execute_code: ai_edit_start, cell_execute_start, cell_output, cell_execute_end, ai_edit_end
+      // notebook_add_cell: lock_acquired, cell_added, lock_released
+      // execute_code: lock_acquired, cell_execute_start, cell_output, cell_execute_end, lock_released
       const events = await wsClient.waitForEventCount(8, 15000);
 
-      // 4. ai_edit_start/end が各ツール実行ごとに配信される（2回ずつ）
-      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(2);
-      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(2);
+      // 4. lock_acquired/end が各ツール実行ごとに配信される（2回ずつ）
+      expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(2);
+      expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(2);
       expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(1);
       expect(events.filter((e) => e.type === 'cell_execute_start')).toHaveLength(1);
 
@@ -452,9 +452,9 @@ plt.show()
       // セル1追加(3) + セル2追加(3) + セル1実行(4) + セル2実行(5) = 15
       const events = await wsClient.waitForEventCount(15, 25000);
 
-      // 6. ai_edit_start/end が4回ずつ（4ツール呼び出し分）
-      expect(events.filter((e) => e.type === 'ai_edit_start')).toHaveLength(4);
-      expect(events.filter((e) => e.type === 'ai_edit_end')).toHaveLength(4);
+      // 6. lock_acquired/end が4回ずつ（4ツール呼び出し分）
+      expect(events.filter((e) => e.type === 'lock_acquired')).toHaveLength(4);
+      expect(events.filter((e) => e.type === 'lock_released')).toHaveLength(4);
 
       // 7. cell_added イベントが2回ある
       expect(events.filter((e) => e.type === 'cell_added')).toHaveLength(2);
