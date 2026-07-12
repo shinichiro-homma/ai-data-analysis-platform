@@ -285,3 +285,82 @@ def test_code_file_missing(tmp_path: Path) -> None:
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "LOGIC_CODE_NOT_FOUND"
 ```
+
+## pytest (jupyter-server / カスタム拡張)
+
+document-server とは規約が異なる。フラット構成 + クラスベース命名 + 重い依存の手動モックが中心。
+
+### プロジェクト構成
+
+```
+jupyter-server/
+├── pyproject.toml                  # testpaths = ["tests"], asyncio_mode = "auto"
+├── extensions/
+│   └── custom_api/                 # __init__.py, handlers.py, sql_handlers.py,
+│                                    # notebook_locks.py, workspace_handlers.py, ai_events.py 等
+└── tests/                          # サブディレクトリなしのフラット構成
+    ├── conftest.py
+    ├── test_base.py
+    ├── test_sql_handlers.py
+    ├── test_notebook_locks.py
+    └── test_*.py
+```
+
+### テスト実行コマンド
+
+`pytest` を直接実行しない。`scripts/test.sh --quiet --test --no-lint jupyter-server -- tests/test_sql_handlers.py` のように `scripts/test.sh` 経由で実行する（`.claude/rules/tdd.md` 参照）。
+
+### conftest.py の仕組み
+
+`extensions/custom_api/__init__.py` は `jupyter_server` / `tornado` / `sqlalchemy` / `pandas` 等の重い依存を import 時に要求するため、テストから素朴に import できない。conftest.py はこれをモックで解決する。
+
+- `_ensure(name, **attrs)`（35-41 行、`_load_init_module` 内部）: `sys.modules` に空の `ModuleType` を登録し、必要な属性だけ生やす軽量モック。既登録ならスキップ
+- `_load_init_module()`（19-93 行）: 上記モックを一式登録した後、`extensions/custom_api/__init__.py` を `importlib.util.spec_from_file_location` でファイルから直接ロードし、`custom_api.__init__` として `sys.modules` に登録する。ロード後は `pkg.__init__ = mod` により `from custom_api import __init__ as init_module` でアクセス可能になる
+- `setup_custom_api_init`（96-99 行）: `scope="session", autouse=True` フィクスチャ。セッション開始時に一度だけ `_load_init_module()` を呼ぶため、個別テストが明示的に依存する必要はない
+- 各テストファイルは、対象モジュール固有の追加モック（`custom_api.base` 等）を上乗せしてから import する（test_notebook_locks.py 45-54 行が自前ローダーの例）。必要なモックの粒度がファイルごとに異なるため、conftest 一つに寄せず各ファイルの冒頭で個別に構築するのが通例
+
+### 命名規約
+
+`class Test{対象}` + `def test_{振る舞い}` で記述し、正常系・異常系・エッジケースをクラス単位で分割する（document-server のようなフラットな `def test_...` の羅列にはしない。`.claude/rules/testing.md` の Python 規約に対応）。
+
+```python
+class TestClassifySqlSelect:
+    """SELECT 系のテスト"""
+
+    def test_simple_select(self):
+        result = _classify_sql("SELECT * FROM t")
+        assert result.is_select is True
+
+
+class TestClassifySqlAllowedDDL:
+    """許可される DDL 系のテスト"""
+
+    def test_create_temp_table(self): ...
+```
+
+### async テストの書き方
+
+`pyproject.toml` は `asyncio_mode = "auto"` だが、既存コードは明示的に `@pytest.mark.asyncio` を付けている（test_notebook_locks.py 283-284 行）。新規テストもこれに倣う。`AsyncMock` で非同期の委譲先をモックし、`assert_awaited_once()` / `assert_not_called()` で呼び出しを検証する。
+
+```python
+class TestSaveWrapEnforcement:
+    @pytest.mark.asyncio
+    async def test_locked_notebook_without_token_raises_423(self):
+        original_save = AsyncMock()
+        wrapped = init_module._wrap_contents_save(original_save)
+        with pytest.raises(Exception) as exc_info:
+            await wrapped({"type": "notebook"}, path)
+        assert getattr(exc_info.value, "status_code", None) == 423
+        original_save.assert_not_called()
+```
+
+### 新しいテストを書くとき参照すべき代表ファイル
+
+| 用途 | 参照ファイル:行範囲 |
+|------|---------------------|
+| 最小構成（依存モックなしの純関数テスト） | `tests/test_base.py:1-56` |
+| 重い依存（pandas/sqlalchemy/tornado）を手動モックしてモジュール単体をロード | `tests/test_sql_handlers.py:1-70` |
+| `class Test{対象}` + `def test_{振る舞い}` の代表例 | `tests/test_sql_handlers.py:76-100` |
+| `__init__.py` 経由のロードと `_load_init_module` の利用 | `tests/conftest.py:19-99` |
+| async テスト・`AsyncMock` によるハンドラ委譲検証 | `tests/test_notebook_locks.py:280-330` |
+| autouse フィクスチャによる状態クリア（`clear_all` パターン） | `tests/test_notebook_locks.py:69-76` |
