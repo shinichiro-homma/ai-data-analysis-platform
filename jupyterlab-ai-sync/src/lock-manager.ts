@@ -233,6 +233,14 @@ export class LockManager {
   }
 
   /**
+   * 指定パスのノートブックがロック中かどうかを返す。
+   */
+  isLocked(notebookPath: string): boolean {
+    const normalizedPath = normalizeNotebookPath(notebookPath);
+    return this.lockedNotebooks.has(normalizedPath);
+  }
+
+  /**
    * 現在アクティブなノートブックがロック中かどうかを返す。
    */
   private isCurrentNotebookLocked(): boolean {

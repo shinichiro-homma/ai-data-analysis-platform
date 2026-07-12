@@ -51,18 +51,14 @@ describe('executeNotebookExecuteCell', () => {
         timeout: 30,
       });
 
-      // postAiEvent が実行イベントフロー（start → output → end）で呼ばれたことを確認
+      // postAiEvent が実行イベントフロー（start → end）で呼ばれたことを確認
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_start',
         notebook_path: 'analysis.ipynb',
         cell_index: 0,
       });
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_output',
-        notebook_path: 'analysis.ipynb',
-        cell_index: 0,
-        output: { output_type: 'stream', name: 'stdout', text: 'Hello, World!\n' },
-      });
+      // cell_output は差分イベント廃止により送信されないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_output' }));
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_end',
         notebook_path: 'analysis.ipynb',

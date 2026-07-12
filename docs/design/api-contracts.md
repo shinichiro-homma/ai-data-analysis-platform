@@ -33,7 +33,7 @@
 | POST | /api/custom/contents/{path}/cells/clear-all-outputs | 全セルの出力をクリア |
 | GET | /api/custom/contents/{path}/preview | CSV/Parquet ファイルの構造をプレビュー |
 | POST | /api/custom/sessions | ワークスペース対応セッションを作成 |
-| WS | /api/ai/events | AI 操作イベントを配信（WebSocket） |
+| WS | /api/ai/events | AI 操作イベントを配信（WebSocket）。配信イベント: notebook_changed（seq 付き変更通知）/ cell_execute_start / cell_execute_end / lock_acquired / lock_released |
 | POST | /api/ai/events/broadcast | AI イベントを送信（全クライアントへ配信） |
 | POST | /api/ai/locks | ノートブックロックを取得（競合時 423） |
 | DELETE | /api/ai/locks | ノートブックロックを解放 |

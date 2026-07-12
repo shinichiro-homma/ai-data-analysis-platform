@@ -116,22 +116,9 @@ export async function executeExecuteCode(args: Record<string, unknown>): Promise
       timeout,
     });
 
-    // cell_output イベント配信（実行完了後にまとめて配信）
-    // lastBroadcastClientCount: 最後の cell_output イベントを受信したクライアント数
-    let lastBroadcastClientCount = 0;
     const nbOutputs = hasCellPosition ? buildNotebookOutputs(result) : [];
 
     if (hasCellPosition) {
-      try {
-        const broadcastResult = await broadcastOutputEvents(notebookPath, cellIndex, nbOutputs);
-        lastBroadcastClientCount = broadcastResult.clients;
-      } catch (error) {
-        logger.error('[execute_code] Failed to broadcast output events:', extractErrorMessage(error));
-      }
-    }
-
-    // ブラウザが接続していない場合のみ、セル出力をディスクに永続化
-    if (hasCellPosition && lastBroadcastClientCount === 0) {
       try {
         await jupyterClient.updateCellOutputs(notebookPath, cellIndex, nbOutputs, result.execution_count);
       } catch (error) {
@@ -299,28 +286,6 @@ function buildNotebookOutputs(result: ExecuteResult): CellOutputData[] {
   }
 
   return outputs;
-}
-
-/**
- * 出力をセル出力イベントとして配信する
- */
-async function broadcastOutputEvents(
-  notebookPath: string,
-  cellIndex: number,
-  outputs: CellOutputData[],
-): Promise<BroadcastEventResponse> {
-  let lastResult: BroadcastEventResponse = { broadcasted: false, clients: 0 };
-
-  for (const output of outputs) {
-    lastResult = await jupyterClient.postAiEvent({
-      type: 'cell_output',
-      notebook_path: notebookPath,
-      cell_index: cellIndex,
-      output,
-    });
-  }
-
-  return lastResult;
 }
 
 export const toolEntry: JupyterToolEntry = {

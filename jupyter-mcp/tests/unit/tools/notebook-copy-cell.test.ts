@@ -34,13 +34,8 @@ describe('executeNotebookCopyCell', () => {
         to_index: 2,
       });
 
-      // postAiEvent が cell_copied イベントで呼ばれたことを確認
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_copied',
-        notebook_path: 'analysis.ipynb',
-        source_index: 0,
-        target_index: 2,
-      });
+      // postAiEvent は差分イベント廃止により呼ばれないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalled();
 
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');
@@ -64,12 +59,8 @@ describe('executeNotebookCopyCell', () => {
         to_index: 2,
       });
 
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_copied',
-        notebook_path: 'analysis.ipynb',
-        source_index: 1,
-        target_index: 2,
-      });
+      // postAiEvent は差分イベント廃止により呼ばれないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalled();
 
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"source_index": 1');

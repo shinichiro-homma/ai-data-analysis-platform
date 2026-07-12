@@ -192,7 +192,7 @@ describe('executeExecuteCode', () => {
   });
 
   describe('イベント配信', () => {
-    test('notebook_path付きセッション => イベント配信される', async () => {
+    test('notebook_path付きセッション => ephemeral イベントのみ配信される（cell_output は配信しない）', async () => {
       vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
       vi.mocked(jupyterClient.getContents).mockResolvedValue({
         path: 'test.ipynb',
@@ -220,26 +220,17 @@ describe('executeExecuteCode', () => {
         code: 'print("Hello!")',
       });
 
-      // cell_execute_start が配信される
+      // cell_execute_start が配信される（ephemeral 通知）
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_start',
         notebook_path: 'test.ipynb',
         cell_index: 0,
       });
 
-      // cell_output が配信される（stdout）
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_output',
-        notebook_path: 'test.ipynb',
-        cell_index: 0,
-        output: {
-          output_type: 'stream',
-          name: 'stdout',
-          text: 'Hello!\n',
-        },
-      });
+      // cell_output は配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_output' }));
 
-      // cell_execute_end が配信される
+      // cell_execute_end が配信される（ephemeral 通知）
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_end',
         notebook_path: 'test.ipynb',
@@ -326,7 +317,7 @@ describe('executeExecuteCode', () => {
       );
     });
 
-    test('エラー出力 => error イベント配信', async () => {
+    test('エラー出力 => cell_output は配信されない（差分イベント廃止）', async () => {
       vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
       vi.mocked(jupyterClient.getContents).mockResolvedValue({
         path: 'test.ipynb',
@@ -359,20 +350,10 @@ describe('executeExecuteCode', () => {
         code: '1/0',
       });
 
-      // cell_output が配信される（error）
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_output',
-        notebook_path: 'test.ipynb',
-        cell_index: 0,
-        output: {
-          output_type: 'error',
-          ename: 'ZeroDivisionError',
-          evalue: 'division by zero',
-          traceback: ['Traceback...', 'ZeroDivisionError: division by zero'],
-        },
-      });
+      // cell_output は配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_output' }));
 
-      // cell_execute_end も配信される（success: false）
+      // cell_execute_end は配信される（ephemeral 通知: success: false）
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_end',
         notebook_path: 'test.ipynb',
@@ -382,7 +363,7 @@ describe('executeExecuteCode', () => {
       });
     });
 
-    test('式の評価結果 => execute_result イベント配信', async () => {
+    test('式の評価結果 => cell_output は配信されない（差分イベント廃止）', async () => {
       vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
       vi.mocked(jupyterClient.getContents).mockResolvedValue({
         path: 'test.ipynb',
@@ -410,18 +391,8 @@ describe('executeExecuteCode', () => {
         code: '1+1',
       });
 
-      // cell_output が配信される（execute_result）
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_output',
-        notebook_path: 'test.ipynb',
-        cell_index: 0,
-        output: {
-          output_type: 'execute_result',
-          execution_count: 1,
-          data: { 'text/plain': '2' },
-          metadata: {},
-        },
-      });
+      // cell_output は配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_output' }));
     });
   });
 
@@ -454,21 +425,16 @@ describe('executeExecuteCode', () => {
         code: 'print("hello")',
       });
 
-      // cell_added イベントが配信される
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_added',
-        notebook_path: 'test.ipynb',
-        cell: { cell_type: 'code', source: 'print("hello")' },
-        index: -1,
-      });
+      // cell_added イベントは配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_added' }));
 
-      // ブラウザ未接続 → REST API でディスクに書き込み
+      // REST API でディスクに書き込み（常に実行）
       expect(jupyterClient.operateCell).toHaveBeenCalledWith('test.ipynb', {
         action: 'add',
         cell: { cell_type: 'code', source: 'print("hello")' },
       });
 
-      // cellIndex=0 でイベント配信される
+      // cellIndex=0 で ephemeral イベント配信される
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_start',
         notebook_path: 'test.ipynb',
@@ -506,15 +472,10 @@ describe('executeExecuteCode', () => {
         code: 'print("new code")',
       });
 
-      // cell_added イベントが配信される
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_added',
-        notebook_path: 'test.ipynb',
-        cell: { cell_type: 'code', source: 'print("new code")' },
-        index: -1,
-      });
+      // cell_added イベントは配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_added' }));
 
-      // cellIndex=1（追加された2番目のセル）でイベント配信
+      // cellIndex=1（追加された2番目のセル）で ephemeral イベント配信
       expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
         type: 'cell_execute_start',
         notebook_path: 'test.ipynb',
@@ -563,7 +524,7 @@ describe('executeExecuteCode', () => {
       });
     });
 
-    test('セル自動追加失敗時 => コード実行は正常に完了する', async () => {
+    test('セル自動追加の operateCell 失敗時 => コード実行は正常に完了する', async () => {
       vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
       vi.mocked(jupyterClient.getContents).mockResolvedValue({
         path: 'test.ipynb',
@@ -574,8 +535,8 @@ describe('executeExecuteCode', () => {
         },
         modified_at: '2024-01-01T00:00:00Z',
       });
-      // postAiEvent の cell_added 呼び出しでエラー
-      vi.mocked(jupyterClient.postAiEvent).mockRejectedValueOnce(new Error('Event broadcast failed'));
+      // operateCell のセル追加でエラー
+      vi.mocked(jupyterClient.operateCell).mockRejectedValueOnce(new Error('Cell add failed'));
 
       const mockResult: ExecuteResult = {
         success: true,
@@ -597,7 +558,7 @@ describe('executeExecuteCode', () => {
       expect(jupyterClient.executeCode).toHaveBeenCalled();
     });
 
-    test('ブラウザ接続ありの場合でも operateCell が呼ばれる（永続化保証）', async () => {
+    test('セル自動追加時も cell_added イベントは配信されない', async () => {
       vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
       vi.mocked(jupyterClient.getContents).mockResolvedValue({
         path: 'test.ipynb',
@@ -608,7 +569,6 @@ describe('executeExecuteCode', () => {
         },
         modified_at: '2024-01-01T00:00:00Z',
       });
-      // ブラウザが接続中（clients > 0）
       vi.mocked(jupyterClient.postAiEvent).mockResolvedValue({ broadcasted: true, clients: 1 });
       vi.mocked(jupyterClient.operateCell).mockResolvedValue(undefined);
 
@@ -627,10 +587,10 @@ describe('executeExecuteCode', () => {
         code: 'print("hello")',
       });
 
-      // cell_added イベントは配信される
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_added' }));
+      // cell_added イベントは配信されない（差分イベント廃止: タスク 21.3）
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cell_added' }));
 
-      // ブラウザ接続ありでも operateCell が呼ばれる（永続化保証）
+      // operateCell でディスクに書き込む（永続化保証）
       expect(jupyterClient.operateCell).toHaveBeenCalledWith('test.ipynb', {
         action: 'add',
         cell: {
@@ -746,6 +706,79 @@ describe('executeExecuteCode', () => {
         notebook_path: 'test.ipynb',
         cell_index: 0,
       });
+    });
+  });
+
+  describe('出力の無条件永続化（タスク 21.3: Issue #76 根本修正）', () => {
+    test('ブラウザ接続中でも updateCellOutputs が常に呼ばれる', async () => {
+      vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
+      vi.mocked(jupyterClient.getContents).mockResolvedValue({
+        path: 'test.ipynb',
+        type: 'notebook',
+        content: {
+          cells: [{ cell_type: 'code', source: 'print("hello")' }],
+          metadata: {},
+        },
+        modified_at: '2024-01-01T00:00:00Z',
+      });
+      // ブラウザが接続中（clients > 0）
+      vi.mocked(jupyterClient.postAiEvent).mockResolvedValue({ broadcasted: true, clients: 2 });
+
+      const mockResult: ExecuteResult = {
+        success: true,
+        outputs: [{ type: 'stdout', text: 'hello\n' }],
+        result: null,
+        execution_count: 1,
+        images: [],
+        execution_time_ms: 50,
+      };
+      vi.mocked(jupyterClient.executeCode).mockResolvedValue(mockResult);
+
+      await executeExecuteCode({
+        session_id: 'session-123',
+        code: 'print("hello")',
+      });
+
+      // ブラウザ接続数に関わらず updateCellOutputs が呼ばれる（無条件永続化）
+      expect(jupyterClient.updateCellOutputs).toHaveBeenCalledWith(
+        'test.ipynb',
+        0,
+        expect.arrayContaining([expect.objectContaining({ output_type: 'stream', name: 'stdout' })]),
+        1,
+      );
+    });
+
+    test('ブラウザ未接続でも updateCellOutputs が呼ばれる', async () => {
+      vi.mocked(resolveSession).mockResolvedValue({ kernelId: 'kernel-123', notebookPath: 'test.ipynb' });
+      vi.mocked(jupyterClient.getContents).mockResolvedValue({
+        path: 'test.ipynb',
+        type: 'notebook',
+        content: {
+          cells: [{ cell_type: 'code', source: 'print("hello")' }],
+          metadata: {},
+        },
+        modified_at: '2024-01-01T00:00:00Z',
+      });
+      // ブラウザ未接続（clients = 0）
+      vi.mocked(jupyterClient.postAiEvent).mockResolvedValue({ broadcasted: true, clients: 0 });
+
+      const mockResult: ExecuteResult = {
+        success: true,
+        outputs: [{ type: 'stdout', text: 'hello\n' }],
+        result: null,
+        execution_count: 1,
+        images: [],
+        execution_time_ms: 50,
+      };
+      vi.mocked(jupyterClient.executeCode).mockResolvedValue(mockResult);
+
+      await executeExecuteCode({
+        session_id: 'session-123',
+        code: 'print("hello")',
+      });
+
+      // ブラウザ未接続でも updateCellOutputs が呼ばれる
+      expect(jupyterClient.updateCellOutputs).toHaveBeenCalled();
     });
   });
 

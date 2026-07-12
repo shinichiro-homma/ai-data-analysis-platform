@@ -85,16 +85,6 @@ export async function executeNotebookExecuteCell(args: Record<string, unknown>):
       timeout,
     });
 
-    // cell_output イベント配信（各出力をブラウザに配信）
-    for (const output of result.outputs) {
-      await postAiEventSilently({
-        type: 'cell_output',
-        notebook_path: validatedPath,
-        cell_index: cellIndex,
-        output,
-      });
-    }
-
     await postAiEventSilently({
       type: 'cell_execute_end',
       notebook_path: validatedPath,

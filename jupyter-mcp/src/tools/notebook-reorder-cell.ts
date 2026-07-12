@@ -32,7 +32,6 @@ export async function executeNotebookReorderCell(args: Record<string, unknown>):
   return operateCellWithSync(
     validatedPath,
     { action: 'reorder', index: cellIndex, to_index: toIndex },
-    { type: 'cell_reordered', notebook_path: validatedPath, cell_index: cellIndex, to_index: toIndex },
     {
       notebook_path: validatedPath,
       cell_index: cellIndex,

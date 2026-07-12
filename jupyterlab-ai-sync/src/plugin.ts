@@ -4,6 +4,7 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
 
 import { INotebookTracker } from '@jupyterlab/notebook';
+import { IDocumentManager } from '@jupyterlab/docmanager';
 
 import { WebSocketClient } from './websocket-client';
 import { NotebookUpdater } from './notebook-updater';
@@ -15,12 +16,12 @@ import { LockManager } from './lock-manager';
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlab-ai-sync:plugin',
   autoStart: true,
-  requires: [INotebookTracker],
-  activate: (app: JupyterFrontEnd, notebookTracker: INotebookTracker) => {
+  requires: [INotebookTracker, IDocumentManager],
+  activate: (app: JupyterFrontEnd, notebookTracker: INotebookTracker, docManager: IDocumentManager) => {
     console.log('[AI Sync] JupyterLab AI Sync extension is activated!');
 
-    // NotebookUpdater を初期化
-    const updater = new NotebookUpdater(notebookTracker);
+    // NotebookUpdater を初期化（IDocumentManager を渡す）
+    const updater = new NotebookUpdater(notebookTracker, docManager);
 
     // LockManager を初期化
     const lockManager = new LockManager(notebookTracker, app);

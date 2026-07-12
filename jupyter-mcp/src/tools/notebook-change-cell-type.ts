@@ -37,7 +37,6 @@ export async function executeNotebookChangeCellType(args: Record<string, unknown
   return operateCellWithSync(
     validatedPath,
     { action: 'change_type', index: cellIndex, cell_type: newType },
-    { type: 'cell_type_changed', notebook_path: validatedPath, cell_index: cellIndex, new_type: newType },
     {
       notebook_path: validatedPath,
       cell_index: cellIndex,

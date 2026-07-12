@@ -279,42 +279,27 @@ export interface ApiError {
 
 /**
  * AI同期イベントの基底型
+ *
+ * タスク 21.3: 差分イベント配信を廃止し、5 種に縮約。
+ * notebook_changed / lock_acquired / lock_released / cell_execute_start / cell_execute_end
  */
 export interface AiEventBase {
-  type:
-    | 'cell_added'
-    | 'cell_edited'
-    | 'cell_deleted'
-    | 'cell_reordered'
-    | 'cell_execute_start'
-    | 'cell_output'
-    | 'cell_execute_end'
-    | 'lock_acquired'
-    | 'lock_released'
-    | 'cells_merged'
-    | 'cell_split'
-    | 'cell_type_changed'
-    | 'cell_copied'
-    | 'output_cleared'
-    | 'all_outputs_cleared';
+  type: 'notebook_changed' | 'cell_execute_start' | 'cell_execute_end' | 'lock_acquired' | 'lock_released';
 }
 
 /**
- * セル追加イベント
- * AIが notebook_add_cell ツールを実行した際に配信される
+ * ノートブック変更イベント
+ * jupyter-server が .ipynb 保存成功時に配信する。
+ * ブラウザ（jupyterlab-ai-sync）は context.revert() でディスクから再読込する。
  */
-export interface CellAddedEvent extends AiEventBase {
-  type: 'cell_added';
+export interface NotebookChangedEvent extends AiEventBase {
+  type: 'notebook_changed';
   notebook_path: string;
-  cell: {
-    cell_type: 'code' | 'markdown';
-    source: string;
-  };
-  index: number; // -1 = 末尾に追加
+  seq: number;
 }
 
 /**
- * セル実行開始イベント
+ * セル実行開始イベント（ephemeral 通知）
  * AIが execute_code ツールを実行した際に配信される
  */
 export interface CellExecuteStartEvent extends AiEventBase {
@@ -338,18 +323,7 @@ export type CellOutputData =
   | { output_type: 'error'; ename: string; evalue: string; traceback: string[] };
 
 /**
- * セル出力イベント（ストリーミング）
- * コード実行中の出力をリアルタイムで配信する
- */
-export interface CellOutputEvent extends AiEventBase {
-  type: 'cell_output';
-  notebook_path: string;
-  cell_index: number;
-  output: CellOutputData;
-}
-
-/**
- * セル実行完了イベント
+ * セル実行完了イベント（ephemeral 通知）
  * コード実行が完了した際に配信される
  */
 export interface CellExecuteEndEvent extends AiEventBase {
@@ -358,38 +332,6 @@ export interface CellExecuteEndEvent extends AiEventBase {
   cell_index: number;
   execution_count: number;
   success: boolean;
-}
-
-/**
- * セル編集イベント
- * AIが notebook_edit_cell ツールを実行した際に配信される
- */
-export interface CellEditedEvent extends AiEventBase {
-  type: 'cell_edited';
-  notebook_path: string;
-  cell_index: number;
-  source: string;
-}
-
-/**
- * セル削除イベント
- * AIが notebook_delete_cell ツールを実行した際に配信される
- */
-export interface CellDeletedEvent extends AiEventBase {
-  type: 'cell_deleted';
-  notebook_path: string;
-  cell_index: number;
-}
-
-/**
- * セル並び替えイベント
- * AIが notebook_reorder_cell ツールを実行した際に配信される
- */
-export interface CellReorderedEvent extends AiEventBase {
-  type: 'cell_reordered';
-  notebook_path: string;
-  cell_index: number;
-  to_index: number;
 }
 
 /**
@@ -413,87 +355,10 @@ export interface LockReleasedEvent extends AiEventBase {
 }
 
 /**
- * セル結合イベント
- * AIが notebook_merge_cells ツールを実行した際に配信される
- */
-export interface CellsMergedEvent extends AiEventBase {
-  type: 'cells_merged';
-  notebook_path: string;
-  start_index: number;
-  end_index: number;
-}
-
-/**
- * セル分割イベント
- * AIが notebook_split_cell ツールを実行した際に配信される
- */
-export interface CellSplitEvent extends AiEventBase {
-  type: 'cell_split';
-  notebook_path: string;
-  cell_index: number;
-  split_line: number;
-}
-
-/**
- * セルタイプ変更イベント
- * AIが notebook_change_cell_type ツールを実行した際に配信される
- */
-export interface CellTypeChangedEvent extends AiEventBase {
-  type: 'cell_type_changed';
-  notebook_path: string;
-  cell_index: number;
-  new_type: 'code' | 'markdown';
-}
-
-/**
- * セルコピーイベント
- * AIが notebook_copy_cell ツールを実行した際に配信される
- */
-export interface CellCopiedEvent extends AiEventBase {
-  type: 'cell_copied';
-  notebook_path: string;
-  source_index: number;
-  target_index: number;
-}
-
-/**
- * 単一セル出力クリアイベント
- * AIが notebook_clear_outputs ツールを cell_index 指定で実行した際に配信される
- */
-export interface OutputClearedEvent extends AiEventBase {
-  type: 'output_cleared';
-  notebook_path: string;
-  cell_index: number;
-}
-
-/**
- * 全セル出力クリアイベント
- * AIが notebook_clear_outputs ツールを cell_index 省略で実行した際に配信される
- */
-export interface AllOutputsClearedEvent extends AiEventBase {
-  type: 'all_outputs_cleared';
-  notebook_path: string;
-}
-
-/**
- * AI同期イベントの型定義
+ * AI同期イベントの型定義（タスク 21.3: 5 種に縮約）
  */
 export type AiEvent =
-  | CellAddedEvent
-  | CellEditedEvent
-  | CellDeletedEvent
-  | CellReorderedEvent
-  | CellExecuteStartEvent
-  | CellOutputEvent
-  | CellExecuteEndEvent
-  | LockAcquiredEvent
-  | LockReleasedEvent
-  | CellsMergedEvent
-  | CellSplitEvent
-  | CellTypeChangedEvent
-  | CellCopiedEvent
-  | OutputClearedEvent
-  | AllOutputsClearedEvent;
+  NotebookChangedEvent | CellExecuteStartEvent | CellExecuteEndEvent | LockAcquiredEvent | LockReleasedEvent;
 
 export interface BroadcastEventResponse {
   broadcasted: boolean;

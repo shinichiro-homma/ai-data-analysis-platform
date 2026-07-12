@@ -18,9 +18,9 @@ AIが`execute_code`や`notebook_add_cell`でノートブックを操作しても
 jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAIに返却
                     ↓ (WebSocket イベント配信)
               jupyterlab-ai-sync 拡張 → ノートブックUI更新
-                                         ├── セル追加
-                                         ├── 実行結果表示（outputs設定）
-                                         └── ロック/アンロック制御
+                                         ├── notebook_changed → ディスク再読込（context.revert()）
+                                         ├── cell_execute_start/end → 実行中表示の制御
+                                         └── lock_acquired/released → ロック/アンロック制御
 ```
 
 ## 機能要件
@@ -33,21 +33,22 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 - 認証トークンを使用して接続する
 
 #### F1.2: イベント処理
-- AI操作イベント（セルの追加・編集・削除・並び替え、実行開始/出力/完了、AI編集の開始/終了）を受信し、種別ごとに対応する処理へディスパッチする
-- AI編集の開始/終了イベントは jupyter-mcp の handleToolCall ミドルウェアが自動配信する（AI 側が明示送信するのではなく、ノートブック編集系ツール実行に紐づく）
+- AI操作イベント（5 種: `notebook_changed` / `cell_execute_start` / `cell_execute_end` / `lock_acquired` / `lock_released`）を受信し、種別ごとに対応する処理へディスパッチする
+- `notebook_changed`（seq 付き）受信時はディスク再読込（`context.revert()`）でノートブックを同期する
+- `cell_execute_start` / `cell_execute_end` は ephemeral 通知として実行中表示の制御に使用する
+- `lock_acquired` / `lock_released` は jupyter-server のロック API がロック取得・解放・TTL 失効時に配信する
 - 受信するイベント種別の一覧・ペイロード形式・ディスパッチは `src/notebook-updater.ts`（`handleEvent()`・`*Event` 型）が正
 
 ### F2: ノートブックUIのリアルタイム更新
 
-#### F2.1: セル追加の反映
-- `cell_added`イベントを受信したら、対象ノートブックの指定位置にセルを挿入する
-- セルのタイプ（code/markdown）とソースコードを設定する
-- 追加されたセルにスクロールする
+#### F2.1: ディスク再読込による同期
+- `notebook_changed`（seq 付き）イベントを受信したら、`context.revert()` でノートブックをディスクから再読込する
+- セル追加・編集・削除・出力永続化などすべての変更が再読込で一括反映される
 
-#### F2.2: セル実行結果の反映
-- 実行開始イベントを受信したら、対象セルを実行中状態（[*] 表示）にする
-- 出力イベントを受信したら、セルの出力エリアにストリーミング追加する（テキスト出力・リッチ出力・式の評価結果・エラー出力の各種別に対応。種別ごとの処理は `src/notebook-updater.ts` が正）
-- 実行完了イベントを受信したら、セルの実行中状態を解除し、execution_count を設定する
+#### F2.2: セル実行状態の表示
+- `cell_execute_start` イベント（ephemeral 通知）を受信したら、対象セルを実行中状態（[*] 表示）にする
+- `cell_execute_end` イベント（ephemeral 通知）を受信したら、セルの実行中状態を解除する
+- 実行結果（出力・execution_count）は `notebook_changed` による再読込で反映される
 
 ### F3: ノートブックロック機能
 
@@ -136,18 +137,14 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 
 ## 受け入れ条件
 
-### AC1: セル追加のリアルタイム反映
-- [ ] AIが`notebook_add_cell`を呼ぶと、ブラウザ上のノートブックにセルが即座に追加される
-- [ ] 追加されたセルのソースコードが正しく表示される
+### AC1: ノートブック変更のリアルタイム反映
+- [ ] AIが`notebook_add_cell`を呼ぶと、`notebook_changed` 受信 → ディスク再読込でブラウザ上のノートブックにセルが反映される
+- [ ] AIが`notebook_edit_cell`や`notebook_delete_cell`を呼んだ場合も同様に再読込で反映される
 
 ### AC2: セル実行結果のリアルタイム反映
-- [ ] AIが`execute_code`を呼ぶと、ブラウザ上のセルに実行結果が表示される
-- [ ] stdout/stderrが正しく表示される
-- [ ] matplotlib等の画像出力が正しく表示される
-- [ ] エラー出力が正しく表示される
-- [ ] 実行開始時に executionCount が null に設定され、セルに [*] が表示される
-- [ ] 実行完了時に execution_count が正しく設定される
-- [ ] SharedModelの`cell.outputs`に出力が正しく書き戻される（ファイル保存時の整合性）
+- [ ] AIが`execute_code`を呼ぶと、`cell_execute_start` で対象セルに [*] が表示される
+- [ ] `cell_execute_end` で実行中表示が解除される
+- [ ] 実行結果（stdout/stderr/画像/エラー/execution_count）は `notebook_changed` による再読込で反映される
 
 ### AC3: ノートブックロック表示
 - [ ] `lock_acquired` イベント受信時にノートブックが read-only になる

@@ -1,67 +1,28 @@
 /**
  * ノートブックUI更新ロジック
+ *
+ * タスク 21.3: 差分イベント配信を廃止し、notebook_changed → debounce 付き revert に置換。
+ * cell_execute_start / cell_execute_end は ephemeral 通知として維持。
  */
 import { INotebookTracker, NotebookPanel, Notebook } from '@jupyterlab/notebook';
-import { Cell, CodeCell } from '@jupyterlab/cells';
+import { CodeCell } from '@jupyterlab/cells';
 import { ISharedCodeCell } from '@jupyter/ydoc';
 import { INotebookModel } from '@jupyterlab/notebook';
-import { IOutput, IMimeBundle } from '@jupyterlab/nbformat';
+import { IDocumentManager } from '@jupyterlab/docmanager';
 import { AiEvent } from './websocket-client';
 import { LockManager } from './lock-manager';
 import { findNotebookByPath } from './notebook-finder';
 
-export interface CellAddedEvent extends AiEvent {
-  type: 'cell_added';
+export interface NotebookChangedEvent extends AiEvent {
+  type: 'notebook_changed';
   notebook_path: string;
-  cell: {
-    cell_type: 'code' | 'markdown';
-    source: string;
-  };
-  index: number;
-}
-
-export interface CellEditedEvent extends AiEvent {
-  type: 'cell_edited';
-  notebook_path: string;
-  cell_index: number;
-  source: string;
-}
-
-export interface CellDeletedEvent extends AiEvent {
-  type: 'cell_deleted';
-  notebook_path: string;
-  cell_index: number;
-}
-
-export interface CellReorderedEvent extends AiEvent {
-  type: 'cell_reordered';
-  notebook_path: string;
-  cell_index: number;
-  to_index: number;
+  seq: number;
 }
 
 export interface CellExecuteStartEvent extends AiEvent {
   type: 'cell_execute_start';
   notebook_path: string;
   cell_index: number;
-}
-
-export type CellOutputData =
-  | { output_type: 'stream'; name: 'stdout' | 'stderr'; text: string | string[] }
-  | { output_type: 'display_data'; data: Record<string, string>; metadata: Record<string, unknown> }
-  | {
-      output_type: 'execute_result';
-      execution_count: number | null;
-      data: Record<string, string>;
-      metadata: Record<string, unknown>;
-    }
-  | { output_type: 'error'; ename: string; evalue: string; traceback: string[] };
-
-export interface CellOutputEvent extends AiEvent {
-  type: 'cell_output';
-  notebook_path: string;
-  cell_index: number;
-  output: CellOutputData;
 }
 
 export interface CellExecuteEndEvent extends AiEvent {
@@ -82,10 +43,18 @@ export interface LockReleasedEvent extends AiEvent {
   notebook_path: string;
 }
 
+/** ノートブック単位の revert debounce 間隔（ミリ秒） */
+const REVERT_DEBOUNCE_MS = 300;
+
 export class NotebookUpdater {
   private lockManager: LockManager | null = null;
+  /** ノートブックパスごとの debounce タイマー */
+  private revertTimers: Map<string, number> = new Map();
 
-  constructor(private notebookTracker: INotebookTracker) {}
+  constructor(
+    private notebookTracker: INotebookTracker,
+    private docManager: IDocumentManager,
+  ) {}
 
   /**
    * LockManager を設定する（plugin.ts から呼ばれる）
@@ -102,23 +71,11 @@ export class NotebookUpdater {
     console.log(`[NotebookUpdater] Handling ${event.type} event for ${notebookPath ?? 'unknown'}`);
 
     switch (event.type) {
-      case 'cell_added':
-        this.handleCellAdded(event as CellAddedEvent);
-        break;
-      case 'cell_edited':
-        this.handleCellEdited(event as CellEditedEvent);
-        break;
-      case 'cell_deleted':
-        this.handleCellDeleted(event as CellDeletedEvent);
-        break;
-      case 'cell_reordered':
-        this.handleCellReordered(event as CellReorderedEvent);
+      case 'notebook_changed':
+        this.handleNotebookChanged(event as NotebookChangedEvent);
         break;
       case 'cell_execute_start':
         this.handleCellExecuteStart(event as CellExecuteStartEvent);
-        break;
-      case 'cell_output':
-        this.handleCellOutput(event as CellOutputEvent);
         break;
       case 'cell_execute_end':
         this.handleCellExecuteEnd(event as CellExecuteEndEvent);
@@ -135,133 +92,70 @@ export class NotebookUpdater {
   }
 
   /**
-   * セル追加イベントを処理
+   * notebook_changed イベントを処理
+   *
+   * (a) findNotebookByPath で対象パネルを解決（未オープンなら無視）
+   * (b) dirty かつ非ロック中ならスキップ + console.warn
+   * (c) ノートブック単位 300ms trailing debounce で context.revert()
    */
-  private handleCellAdded(event: CellAddedEvent): void {
-    const context = this.getNotebookAndModel(event.notebook_path);
-    if (!context) {
+  private handleNotebookChanged(event: NotebookChangedEvent): void {
+    const panel = findNotebookByPath(this.notebookTracker, event.notebook_path);
+    if (!panel) {
+      // 未オープンなら無視
       return;
     }
 
-    console.log(`[NotebookUpdater] Found notebook: ${event.notebook_path}`);
-
-    try {
-      const cellType = event.cell.cell_type || 'code';
-      const source = event.cell.source || '';
-      const index = event.index;
-
-      // セルを挿入（JupyterLab 4.x の API を使用）
-      const sharedModel = context.model.sharedModel;
-
-      // JupyterLab がデフォルトで追加する空セルを検出して置換する。
-      // JupyterLab は空のノートブックを開くとデフォルトで空のコードセルを1つ追加する。
-      // この空セルは SharedModel にのみ存在し（ディスク上には存在しない）、
-      // MCP サーバーのセルインデックスとブラウザのインデックスがずれる原因になる。
-      // そのため、最初のセル追加時にデフォルト空セルを置換してインデックスを揃える。
-      if (sharedModel.cells.length === 1) {
-        const existingCell = sharedModel.getCell(0);
-        if (existingCell && existingCell.source.trim() === '' && existingCell.cell_type === 'code') {
-          // デフォルト空セルを削除してから新しいセルを挿入
-          sharedModel.deleteCell(0);
-          sharedModel.insertCell(0, {
-            cell_type: cellType,
-            source: source,
-            metadata: {},
-          });
-          console.log(`[NotebookUpdater] Replaced default empty cell at index 0`);
-          this.activateAndScrollToCell(context.notebook, 0);
-          return;
-        }
-      }
-
-      // index が負の値（-1 = 末尾）の場合は末尾に追加
-      const insertIndex = index < 0 ? sharedModel.cells.length : Math.min(index, sharedModel.cells.length);
-
-      sharedModel.insertCell(insertIndex, {
-        cell_type: cellType,
-        source: source,
-        metadata: {},
-      });
-
-      console.log(`[NotebookUpdater] Cell added at index ${insertIndex}`);
-
-      // 追加されたセルにスクロール
-      this.activateAndScrollToCell(context.notebook, insertIndex);
-    } catch (error) {
-      // セル追加失敗時もエラー通知はせず、ログのみ（ノートブックをリロードすればセルは反映される）
-      console.error('[NotebookUpdater] Failed to add cell:', error);
+    // dirty かつ非ロック中ならスキップ（ユーザーの未保存変更を保護）
+    const isLocked = this.lockManager ? this.lockManager.isLocked(event.notebook_path) : false;
+    if (panel.context.model.dirty && !isLocked) {
+      console.warn(
+        `[NotebookUpdater] Skipping revert for ${event.notebook_path}: notebook is dirty and not locked by AI`,
+      );
+      return;
     }
+
+    // ノートブック単位 300ms trailing debounce で revert
+    this.scheduleRevert(event.notebook_path, panel);
   }
 
   /**
-   * セル編集イベントを処理
+   * debounce 付き revert をスケジュールする
    */
-  private handleCellEdited(event: CellEditedEvent): void {
-    const context = this.getNotebookAndModel(event.notebook_path);
-    if (!context) {
-      return;
+  private scheduleRevert(notebookPath: string, panel: NotebookPanel): void {
+    // 既存タイマーをキャンセル
+    const existingTimer = this.revertTimers.get(notebookPath);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
     }
 
-    try {
-      const cell = context.model.sharedModel.getCell(event.cell_index);
-      if (!cell) {
-        console.error(`[NotebookUpdater] Cell not found at index ${event.cell_index}`);
-        return;
-      }
+    const timer = window.setTimeout(() => {
+      this.revertTimers.delete(notebookPath);
+      this.executeRevert(notebookPath, panel);
+    }, REVERT_DEBOUNCE_MS);
 
-      cell.source = event.source;
-      console.log(`[NotebookUpdater] Cell edited at index ${event.cell_index}`);
-    } catch (error) {
-      console.error('[NotebookUpdater] Failed to edit cell:', error);
-    }
+    this.revertTimers.set(notebookPath, timer);
   }
 
   /**
-   * セル削除イベントを処理
+   * context.revert() でディスクから再読込する
    */
-  private handleCellDeleted(event: CellDeletedEvent): void {
-    const context = this.getNotebookAndModel(event.notebook_path);
-    if (!context) {
-      return;
-    }
-
+  private executeRevert(notebookPath: string, panel: NotebookPanel): void {
     try {
-      const sharedModel = context.model.sharedModel;
-      if (event.cell_index >= sharedModel.cells.length) {
-        console.error(`[NotebookUpdater] Cell index ${event.cell_index} out of range`);
-        return;
+      const context = this.docManager.contextForWidget(panel);
+      if (context) {
+        context.revert().then(
+          () => {
+            console.log(`[NotebookUpdater] Reverted notebook from disk: ${notebookPath}`);
+          },
+          (error: unknown) => {
+            console.error(`[NotebookUpdater] Failed to revert notebook ${notebookPath}:`, error);
+          },
+        );
+      } else {
+        console.error(`[NotebookUpdater] No context found for notebook: ${notebookPath}`);
       }
-
-      sharedModel.deleteCell(event.cell_index);
-      console.log(`[NotebookUpdater] Cell deleted at index ${event.cell_index}`);
     } catch (error) {
-      console.error('[NotebookUpdater] Failed to delete cell:', error);
-    }
-  }
-
-  /**
-   * セル並び替えイベントを処理
-   */
-  private handleCellReordered(event: CellReorderedEvent): void {
-    const context = this.getNotebookAndModel(event.notebook_path);
-    if (!context) {
-      return;
-    }
-
-    try {
-      const sharedModel = context.model.sharedModel;
-      if (event.cell_index >= sharedModel.cells.length || event.to_index >= sharedModel.cells.length) {
-        console.error(`[NotebookUpdater] Cell index out of range: ${event.cell_index} -> ${event.to_index}`);
-        return;
-      }
-
-      sharedModel.moveCell(event.cell_index, event.to_index);
-      console.log(`[NotebookUpdater] Cell moved from ${event.cell_index} to ${event.to_index}`);
-
-      // 移動先のセルにスクロール
-      this.activateAndScrollToCell(context.notebook, event.to_index);
-    } catch (error) {
-      console.error('[NotebookUpdater] Failed to reorder cell:', error);
+      console.error(`[NotebookUpdater] Failed to revert notebook ${notebookPath}:`, error);
     }
   }
 
@@ -299,44 +193,6 @@ export class NotebookUpdater {
   }
 
   /**
-   * セル出力イベントを処理
-   */
-  private handleCellOutput(event: CellOutputEvent): void {
-    const context = this.getNotebookAndModel(event.notebook_path);
-    if (!context) {
-      return;
-    }
-
-    try {
-      const codeCellWidget = this.getCodeCellWidget(context.notebook, event.cell_index);
-      if (!codeCellWidget) {
-        return;
-      }
-
-      const outputArea = codeCellWidget.outputArea;
-      if (!outputArea) {
-        console.error(`[NotebookUpdater] OutputArea not found for cell ${event.cell_index}`);
-        return;
-      }
-
-      // output を nbformat の IOutput 形式に変換
-      const output = this.convertToNbformatOutput(event.output);
-      if (!output) {
-        return;
-      }
-
-      // OutputArea.model に直接追加（これがUI更新をトリガーする）
-      // 注: JupyterLab 4.x では OutputAreaModel.add() は SharedModel に自動反映されない。
-      // SharedModel への書き戻しは handleCellExecuteEnd で一括して行う。
-      outputArea.model.add(output);
-
-      console.log(`[NotebookUpdater] Output added to cell ${event.cell_index}`);
-    } catch (error) {
-      console.error('[NotebookUpdater] Failed to add cell output:', error);
-    }
-  }
-
-  /**
    * セル実行完了イベントを処理
    */
   private handleCellExecuteEnd(event: CellExecuteEndEvent): void {
@@ -358,15 +214,6 @@ export class NotebookUpdater {
       const sharedCodeCell = this.getSharedCodeCell(context.model, event.cell_index);
       if (sharedCodeCell) {
         sharedCodeCell.execution_count = event.execution_count;
-
-        // OutputArea に蓄積された出力を SharedModel に書き戻す。
-        // JupyterLab 4.x では OutputAreaModel.add() は SharedModel に自動反映されないため、
-        // ここで明示的に setOutputs() を呼んで永続化する。
-        const outputs = codeCellWidget.outputArea.model.toJSON();
-        sharedCodeCell.setOutputs(outputs);
-        console.log(
-          `[NotebookUpdater] Persisted ${outputs.length} outputs to SharedModel for cell ${event.cell_index}`,
-        );
       }
 
       console.log(
@@ -374,42 +221,6 @@ export class NotebookUpdater {
       );
     } catch (error) {
       console.error('[NotebookUpdater] Failed to complete cell execution:', error);
-    }
-  }
-
-  /**
-   * イベントの出力を nbformat の IOutput 形式に変換
-   */
-  private convertToNbformatOutput(output: CellOutputData): IOutput | null {
-    switch (output.output_type) {
-      case 'stream':
-        return {
-          output_type: 'stream',
-          name: output.name,
-          text: output.text,
-        } as IOutput;
-      case 'display_data':
-        return {
-          output_type: 'display_data',
-          data: output.data as IMimeBundle,
-          metadata: output.metadata,
-        } as IOutput;
-      case 'execute_result':
-        return {
-          output_type: 'execute_result',
-          execution_count: output.execution_count,
-          data: output.data as IMimeBundle,
-          metadata: output.metadata,
-        } as IOutput;
-      case 'error':
-        return {
-          output_type: 'error',
-          ename: output.ename,
-          evalue: output.evalue,
-          traceback: output.traceback,
-        } as IOutput;
-      default:
-        return null;
     }
   }
 

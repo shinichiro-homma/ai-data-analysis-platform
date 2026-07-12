@@ -41,7 +41,6 @@ export async function executeNotebookEditCell(args: Record<string, unknown>): Pr
   return operateCellWithSync(
     validatedPath,
     { action: 'update', index: cellIndex, cell: { source } },
-    { type: 'cell_edited', notebook_path: validatedPath, cell_index: cellIndex, source },
     {
       notebook_path: validatedPath,
       cell_index: cellIndex,

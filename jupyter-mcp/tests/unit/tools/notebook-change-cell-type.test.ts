@@ -34,13 +34,8 @@ describe('executeNotebookChangeCellType', () => {
         cell_type: 'markdown',
       });
 
-      // postAiEvent が cell_type_changed イベントで呼ばれたことを確認
-      expect(jupyterClient.postAiEvent).toHaveBeenCalledWith({
-        type: 'cell_type_changed',
-        notebook_path: 'analysis.ipynb',
-        cell_index: 0,
-        new_type: 'markdown',
-      });
+      // postAiEvent は差分イベント廃止により呼ばれないことを確認
+      expect(jupyterClient.postAiEvent).not.toHaveBeenCalled();
 
       expect(result.content[0].text).toContain('"success": true');
       expect(result.content[0].text).toContain('"notebook_path": "analysis.ipynb"');
