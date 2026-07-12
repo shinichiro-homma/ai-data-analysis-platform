@@ -38,6 +38,7 @@ git status
 - [ ] 「レビューステータス」の「計画レビュー完了」にチェックが入っている
 - [ ] 実装計画が明確である
 - [ ] 完了条件が明確である
+- [ ] 「テスト参照ポインタ」節がある（無い旧形式の計画なら、`.claude/skills/task-plan-creation/SKILL.md` の「旧形式計画の追補」を実施してから先へ進む）
 
 レビューが完了していない場合は、先にレビューを依頼してください。
 
@@ -62,6 +63,7 @@ git status
 | MCP サーバー実装（jupyter-mcp, document-mcp） | `.claude/skills/mcp-typescript-server/SKILL.md` |
 | JupyterLab 拡張実装（jupyterlab-ai-sync） | `.claude/skills/jupyterlab-extension/SKILL.md` |
 | Jupyter カーネル通信 | `.claude/skills/jupyter-kernel-communication/SKILL.md` |
+| テスト作成（全タスク共通・テスト準備エージェントに必ず渡す） | `.claude/skills/testing-strategies/SKILL.md`（「どのリファレンスを読むか」の表から対象コンポーネントのリファレンスを選ばせる） |
 
 該当する Skill パスを記録してください（ステップ 7・8 でサブエージェントに渡します）。
 
