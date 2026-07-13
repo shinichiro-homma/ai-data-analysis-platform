@@ -67,27 +67,36 @@ export class NotebookUpdater {
    * イベントを処理
    */
   handleEvent(event: AiEvent): void {
+    // notebook_path の実行時型検証（全 5 イベント種が必要とする）
     const notebookPath = (event as { notebook_path?: string }).notebook_path;
-    console.log(`[NotebookUpdater] Handling ${event.type} event for ${notebookPath ?? 'unknown'}`);
+    if (typeof notebookPath !== 'string') {
+      console.warn(`[NotebookUpdater] Ignoring event with missing or invalid notebook_path: type=${event.type}`);
+      return;
+    }
+    console.log(`[NotebookUpdater] Handling ${event.type} event for ${notebookPath}`);
 
-    switch (event.type) {
-      case 'notebook_changed':
-        this.handleNotebookChanged(event as NotebookChangedEvent);
-        break;
-      case 'cell_execute_start':
-        this.handleCellExecuteStart(event as CellExecuteStartEvent);
-        break;
-      case 'cell_execute_end':
-        this.handleCellExecuteEnd(event as CellExecuteEndEvent);
-        break;
-      case 'lock_acquired':
-        this.handleLockAcquired(event as LockAcquiredEvent);
-        break;
-      case 'lock_released':
-        this.handleLockReleased(event as LockReleasedEvent);
-        break;
-      default:
-        console.log('[NotebookUpdater] Unknown event type:', event.type);
+    try {
+      switch (event.type) {
+        case 'notebook_changed':
+          this.handleNotebookChanged(event as NotebookChangedEvent);
+          break;
+        case 'cell_execute_start':
+          this.handleCellExecuteStart(event as CellExecuteStartEvent);
+          break;
+        case 'cell_execute_end':
+          this.handleCellExecuteEnd(event as CellExecuteEndEvent);
+          break;
+        case 'lock_acquired':
+          this.handleLockAcquired(event as LockAcquiredEvent);
+          break;
+        case 'lock_released':
+          this.handleLockReleased(event as LockReleasedEvent);
+          break;
+        default:
+          console.log('[NotebookUpdater] Unknown event type:', event.type);
+      }
+    } catch (error) {
+      console.error(`[NotebookUpdater] Error handling ${event.type} event:`, error);
     }
   }
 
