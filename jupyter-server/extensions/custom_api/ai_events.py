@@ -5,10 +5,22 @@ AI同期イベント配信のためのWebSocket/RESTハンドラー
 import json
 import logging
 
-from jupyter_server.base.handlers import JupyterHandler
 from tornado import web, websocket
 
+from .base import BaseCustomHandler
+
 logger = logging.getLogger(__name__)
+
+# イベント type の許可リスト（SSoT）
+ALLOWED_EVENT_TYPES = frozenset(
+    {
+        "notebook_changed",
+        "cell_execute_start",
+        "cell_execute_end",
+        "lock_acquired",
+        "lock_released",
+    }
+)
 
 # WebSocket接続を管理するグローバルset
 _websocket_clients = set()
@@ -84,7 +96,7 @@ class AiEventsWebSocketHandler(websocket.WebSocketHandler):
         logger.info(f"WebSocket client disconnected. Total clients: {len(_websocket_clients)}")
 
 
-class AiEventsPostHandler(JupyterHandler):
+class AiEventsPostHandler(BaseCustomHandler):
     """
     AI同期イベント送信用RESTハンドラー
 
@@ -99,10 +111,9 @@ class AiEventsPostHandler(JupyterHandler):
 
         Request Body:
         {
-            "type": "cell_added",
+            "type": "notebook_changed",
             "notebook_path": "/path/to/notebook.ipynb",
-            "cell": {...},
-            "index": 0
+            "seq": 1
         }
 
         Response:
@@ -116,21 +127,56 @@ class AiEventsPostHandler(JupyterHandler):
         try:
             # リクエストボディをパース
             event = json.loads(self.request.body.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in request body: {e}")
+            self.write_error_response("VALIDATION_ERROR", "Invalid JSON", 400)
+            return
 
-            # 接続中のすべてのWebSocketクライアントにブロードキャスト（配信実装は broadcast_event に統一）
+        # リクエストボディが JSON オブジェクトであることを確認
+        if not isinstance(event, dict):
+            self.write_error_response("VALIDATION_ERROR", "Request body must be a JSON object", 400)
+            return
+
+        # type フィールドの検証
+        event_type = event.get("type")
+        if not isinstance(event_type, str) or event_type not in ALLOWED_EVENT_TYPES:
+            self.write_error_response(
+                "VALIDATION_ERROR",
+                f"Invalid event type: {event_type}",
+                400,
+            )
+            return
+
+        # 全イベント共通: notebook_path の検証
+        notebook_path = event.get("notebook_path")
+        if not isinstance(notebook_path, str):
+            self.write_error_response(
+                "VALIDATION_ERROR",
+                "notebook_path must be a string",
+                400,
+            )
+            return
+
+        # notebook_changed 固有フィールドの検証
+        if event_type == "notebook_changed":
+            seq = event.get("seq")
+            if not isinstance(seq, int) or isinstance(seq, bool):
+                self.write_error_response(
+                    "VALIDATION_ERROR",
+                    "seq must be an integer",
+                    400,
+                )
+                return
+
+        try:
+            # 接続中のすべてのWebSocketクライアントにブロードキャスト
             broadcasted_count = broadcast_event(event)
 
-            logger.info(f"Broadcasted event to {broadcasted_count} clients: {event.get('type')}")
+            logger.info(f"Broadcasted event to {broadcasted_count} clients: {event_type}")
 
             # レスポンス
             self.finish(json.dumps({"data": {"broadcasted": True, "clients": broadcasted_count}}))
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in request body: {e}")
-            self.set_status(400)
-            self.finish(json.dumps({"error": "Invalid JSON"}))
-
         except Exception as e:
             logger.error(f"Error in AiEventsPostHandler: {e}")
-            self.set_status(500)
-            self.finish(json.dumps({"error": str(e)}))
+            self.write_error_response("INTERNAL_ERROR", "Internal server error", 500)
