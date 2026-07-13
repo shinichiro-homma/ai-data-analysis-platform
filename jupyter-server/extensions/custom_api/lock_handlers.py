@@ -45,8 +45,8 @@ def _validate_lock_path(path) -> tuple[str | None, str | None]:
         return None, "notebook_path contains invalid characters"
     if not path.endswith(".ipynb"):
         return None, "notebook_path must be a notebook (.ipynb)"
-    # 先頭スラッシュを除去して正規化（save 検査パスと同一キーにする）
-    normalized = path.lstrip("/")
+    # パスを正規化（save 検査パスと同一キーにする）
+    normalized = notebook_locks.normalize_notebook_path(path)
     if not normalized:
         return None, "notebook_path is required"
     return normalized, None

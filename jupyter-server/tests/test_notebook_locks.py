@@ -381,8 +381,12 @@ def _load_lock_handlers() -> _types.ModuleType:
         sys.modules["custom_api.ai_events"] = _ai_mock
     sys.modules["custom_api.ai_events"].broadcast_event = lambda event: None
 
-    # notebook_locks は本テストが既にロード済みのインスタンスを共有させる
+    # notebook_locks は本テストが既にロード済みのインスタンスを共有させる。
+    # sys.modules とパッケージ属性の両方を設定する。他テストファイルが handlers.py を
+    # 先にロードすると custom_api パッケージに旧インスタンスが残り、lock_handlers の
+    # from . import notebook_locks が旧インスタンスを解決してしまうため。
     sys.modules["custom_api.notebook_locks"] = notebook_locks
+    sys.modules["custom_api"].notebook_locks = notebook_locks
 
     return _load_module("custom_api.lock_handlers", "lock_handlers.py")
 
@@ -482,6 +486,221 @@ class TestLockPathNormalization:
         """.ipynb 以外はエラー"""
         normalized, error = lock_handlers._validate_lock_path("/workspaces/sample/ws-001/data.csv")
         assert error is not None
+
+
+# =============================================================================
+# 10. normalize_notebook_path() の単体テスト（Issue #90）
+# =============================================================================
+
+
+class TestNormalizeNotebookPath:
+    """normalize_notebook_path() に対する正規化ロジックの単体テスト（Issue #90）。
+
+    normalize_notebook_path() は notebook_locks.py に追加される共有関数で、
+    以下の正規化を行う:
+    - 先頭 / の除去
+    - 連続スラッシュの統一
+    - . セグメントの除去
+    """
+
+    def test_dot_segment_removed(self):
+        """./ws/x.ipynb → ws/x.ipynb"""
+        result = notebook_locks.normalize_notebook_path("./ws/x.ipynb")
+        assert result == "ws/x.ipynb"
+
+    def test_consecutive_slashes_unified(self):
+        """ws//x.ipynb → ws/x.ipynb"""
+        result = notebook_locks.normalize_notebook_path("ws//x.ipynb")
+        assert result == "ws/x.ipynb"
+
+    def test_leading_slash_removed(self):
+        """/ws/x.ipynb → ws/x.ipynb"""
+        result = notebook_locks.normalize_notebook_path("/ws/x.ipynb")
+        assert result == "ws/x.ipynb"
+
+    def test_middle_dot_segment_removed(self):
+        """ws/./sub/x.ipynb → ws/sub/x.ipynb"""
+        result = notebook_locks.normalize_notebook_path("ws/./sub/x.ipynb")
+        assert result == "ws/sub/x.ipynb"
+
+    def test_triple_slash_unified(self):
+        """ws///x.ipynb → ws/x.ipynb（3 連スラッシュ）"""
+        result = notebook_locks.normalize_notebook_path("ws///x.ipynb")
+        assert result == "ws/x.ipynb"
+
+    def test_already_normalized_path_unchanged(self):
+        """正規化済みパスはそのまま返る"""
+        result = notebook_locks.normalize_notebook_path("ws/x.ipynb")
+        assert result == "ws/x.ipynb"
+
+    def test_complex_variant(self):
+        """先頭スラッシュ + . セグメント + 連続スラッシュの複合"""
+        result = notebook_locks.normalize_notebook_path("/./ws//sub/./x.ipynb")
+        assert result == "ws/sub/x.ipynb"
+
+
+# =============================================================================
+# 11. _validate_lock_path の . セグメント・連続スラッシュ正規化（Issue #90）
+# =============================================================================
+
+
+class TestValidateLockPathNormalization:
+    """_validate_lock_path が . セグメントと連続スラッシュを正規化する（Issue #90）。
+
+    既存の TestLockPathNormalization は先頭スラッシュのみを検証していた。
+    Issue #90 で normalize_notebook_path() を使用するようになり、
+    . セグメントと連続スラッシュも正規化されることを検証する。
+    """
+
+    def test_dot_segment_normalized(self):
+        """./ws/x.ipynb → ws/x.ipynb に正規化される"""
+        normalized, error = lock_handlers._validate_lock_path("./workspaces/sample/ws-001/test.ipynb")
+        assert error is None
+        assert normalized == "workspaces/sample/ws-001/test.ipynb"
+
+    def test_consecutive_slashes_normalized(self):
+        """ws//x.ipynb → ws/x.ipynb に正規化される"""
+        normalized, error = lock_handlers._validate_lock_path("workspaces//sample/ws-001/test.ipynb")
+        assert error is None
+        assert normalized == "workspaces/sample/ws-001/test.ipynb"
+
+    def test_middle_dot_segment_normalized(self):
+        """ws/./sub/x.ipynb → ws/sub/x.ipynb に正規化される"""
+        normalized, error = lock_handlers._validate_lock_path("workspaces/./sample/ws-001/test.ipynb")
+        assert error is None
+        assert normalized == "workspaces/sample/ws-001/test.ipynb"
+
+    @pytest.mark.asyncio
+    async def test_acquire_with_dot_segment_protects_normalized_save(self):
+        """./ws/x.ipynb で acquire したロックが ws/x.ipynb の save を保護する"""
+        notebook_locks.clear_all()
+        handler = _make_lock_handler(
+            {
+                "notebook_path": "./workspaces/sample/ws-001/dot-test.ipynb",
+                "ttl": 60,
+            }
+        )
+        await lock_handlers.NotebookLocksHandler.post(handler)
+        assert handler._responses[0][0] == "success", f"unexpected response: {handler._responses}"
+
+        normalized = "workspaces/sample/ws-001/dot-test.ipynb"
+        assert lock_handlers.notebook_locks.get_lock_token(normalized) is not None
+
+    @pytest.mark.asyncio
+    async def test_acquire_with_consecutive_slashes_protects_normalized_save(self):
+        """ws//x.ipynb で acquire したロックが ws/x.ipynb の save を保護する"""
+        notebook_locks.clear_all()
+        handler = _make_lock_handler(
+            {
+                "notebook_path": "workspaces//sample/ws-001/slash-test.ipynb",
+                "ttl": 60,
+            }
+        )
+        await lock_handlers.NotebookLocksHandler.post(handler)
+        assert handler._responses[0][0] == "success", f"unexpected response: {handler._responses}"
+
+        normalized = "workspaces/sample/ws-001/slash-test.ipynb"
+        assert lock_handlers.notebook_locks.get_lock_token(normalized) is not None
+
+
+# =============================================================================
+# 12. 表記揺れパスによる save バイパスの回帰テスト（Issue #90）
+# =============================================================================
+
+
+class TestSaveBypassWithPathVariants:
+    """ロック取得パスと異なる表記でも save が 423 で拒否される回帰テスト（Issue #90）。
+
+    バグの本質: ロックは正規化パスで格納されるが、_wrap_contents_save は
+    contents_manager.save に渡る生パスで get_lock_token を呼ぶため、
+    表記揺れパスでロックを迂回できてしまう。
+    """
+
+    @pytest.mark.asyncio
+    async def test_lock_normal_save_with_dot_segment_blocked(self):
+        """正規パスでロック取得 → . セグメント付きパスで save → 423"""
+        init_module = _load_init_module()
+        assert hasattr(init_module, "_wrap_contents_save")
+
+        path_normal = "workspaces/sample/ws-001/test.ipynb"
+        path_dot = "./workspaces/sample/ws-001/test.ipynb"
+
+        notebook_locks.acquire(path_normal, ttl=60)
+
+        original_save = AsyncMock()
+        wrapped = init_module._wrap_contents_save(original_save)
+
+        # . セグメント付きパスでも 423 で拒否される
+        notebook_locks.lock_token_ctx.set(None)
+        with pytest.raises(Exception) as exc_info:
+            await wrapped({"type": "notebook"}, path_dot)
+        assert getattr(exc_info.value, "status_code", None) == 423
+        original_save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_lock_normal_save_with_consecutive_slashes_blocked(self):
+        """正規パスでロック取得 → 連続スラッシュパスで save → 423"""
+        init_module = _load_init_module()
+        assert hasattr(init_module, "_wrap_contents_save")
+
+        path_normal = "workspaces/sample/ws-001/test.ipynb"
+        path_double_slash = "workspaces//sample/ws-001/test.ipynb"
+
+        notebook_locks.acquire(path_normal, ttl=60)
+
+        original_save = AsyncMock()
+        wrapped = init_module._wrap_contents_save(original_save)
+
+        # 連続スラッシュパスでも 423 で拒否される
+        notebook_locks.lock_token_ctx.set(None)
+        with pytest.raises(Exception) as exc_info:
+            await wrapped({"type": "notebook"}, path_double_slash)
+        assert getattr(exc_info.value, "status_code", None) == 423
+        original_save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_lock_variant_save_with_normal_path_blocked(self):
+        """表記揺れパスでロック取得 → 正規パスで save → 423（逆方向）"""
+        init_module = _load_init_module()
+        assert hasattr(init_module, "_wrap_contents_save")
+
+        path_dot = "./workspaces/sample/ws-001/reverse.ipynb"
+        path_normal = "workspaces/sample/ws-001/reverse.ipynb"
+
+        # 表記揺れパスでロック取得（acquire が内部で正規化する前提）
+        notebook_locks.acquire(path_dot, ttl=60)
+
+        original_save = AsyncMock()
+        wrapped = init_module._wrap_contents_save(original_save)
+
+        # 正規パスでも 423 で拒否される
+        notebook_locks.lock_token_ctx.set(None)
+        with pytest.raises(Exception) as exc_info:
+            await wrapped({"type": "notebook"}, path_normal)
+        assert getattr(exc_info.value, "status_code", None) == 423
+        original_save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_lock_leading_slash_save_with_normal_path_blocked(self):
+        """先頭スラッシュ付きパスでロック取得 → 正規パスで save → 423"""
+        init_module = _load_init_module()
+        assert hasattr(init_module, "_wrap_contents_save")
+
+        path_slash = "/workspaces/sample/ws-001/leading.ipynb"
+        path_normal = "workspaces/sample/ws-001/leading.ipynb"
+
+        # 先頭スラッシュ付きパスでロック取得（acquire が内部で正規化する前提）
+        notebook_locks.acquire(path_slash, ttl=60)
+
+        original_save = AsyncMock()
+        wrapped = init_module._wrap_contents_save(original_save)
+
+        # 正規パスでも 423 で拒否される
+        notebook_locks.lock_token_ctx.set(None)
+        with pytest.raises(Exception) as exc_info:
+            await wrapped({"type": "notebook"}, path_normal)
+        assert getattr(exc_info.value, "status_code", None) == 423
+        original_save.assert_not_called()
 
 
 # =============================================================================

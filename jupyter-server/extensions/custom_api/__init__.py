@@ -61,7 +61,8 @@ def _wrap_contents_save(original_save):
         locks = sys.modules.get("custom_api.notebook_locks", notebook_locks)
         # 検査対象は .ipynb のみ（それ以外は貫通）
         if isinstance(path, str) and path.endswith(".ipynb"):
-            expected_token = locks.get_lock_token(path)
+            normalized_path = locks.normalize_notebook_path(path)
+            expected_token = locks.get_lock_token(normalized_path)
             # ロック中: ContextVar のトークンが一致しない書き込みは拒否
             if expected_token is not None and locks.lock_token_ctx.get() != expected_token:
                 raise http_error_cls(423, f"Notebook is locked: {path}")
