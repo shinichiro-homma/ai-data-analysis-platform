@@ -75,6 +75,23 @@ def _load_init_module():
         WorkspaceSummarizeHandler=type("WorkspaceSummarizeHandler", (), {}),
     )
 
+    # kernel_executor モジュールのモック（__init__.py が from . import kernel_executor する）
+    _ensure_ca(
+        "kernel_executor",
+        KernelExecutor=type("KernelExecutor", (), {}),
+    )
+    # session_handlers モジュールのモック
+    _ensure_ca(
+        "session_handlers",
+        get_kernel_workspace=lambda *a, **kw: None,
+        unregister_kernel=lambda *a, **kw: None,
+    )
+    # workspace_sandbox モジュールのモック
+    _ensure_ca(
+        "workspace_sandbox",
+        generate_sandbox_code=lambda *a, **kw: "",
+    )
+
     # handlers モジュールのモック（get_handlers だけ提供）
     _ensure_ca("handlers", get_handlers=lambda *a, **kw: [])
 

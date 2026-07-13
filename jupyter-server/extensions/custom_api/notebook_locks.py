@@ -50,11 +50,32 @@ def _clamp_ttl(ttl: int) -> int:
     return ttl
 
 
+def normalize_notebook_path(path: str) -> str:
+    """ノートブックパスを正規化する（ロック取得・save 検査の共有関数）。
+
+    - 先頭 `/` の除去
+    - 連続スラッシュの統一（`ws//x.ipynb` → `ws/x.ipynb`）
+    - `.` セグメントの除去（`./ws/x.ipynb` → `ws/x.ipynb`）
+
+    `..` と `\\0` の拒否はバリデーション側（_validate_lock_path）の責務とし、
+    ここでは正規化のみ行う。
+    """
+    # `/` で分割すると連続スラッシュは空文字列セグメントになる。
+    # 空文字列と `.` セグメントを除去することで、連続スラッシュの統一と
+    # `.` セグメントの除去を一度に行う。
+    parts = [p for p in path.split("/") if p and p != "."]
+    normalized = "/".join(parts)
+    # 先頭スラッシュを除去
+    normalized = normalized.lstrip("/")
+    return normalized
+
+
 def acquire(path: str, ttl: int = DEFAULT_TTL) -> LockEntry | None:
     """ロックを取得する。成功時 {token, expires_at}、競合時 None。
 
     既存のロックが失効している場合は取得を許可する（先勝ちだが、失効エントリは上書き可）。
     """
+    path = normalize_notebook_path(path)
     current = now()
     existing = _locks.get(path)
     if existing is not None and existing["expires_at"] > current:
@@ -101,6 +122,7 @@ def is_locked(path: str, current: float | None = None) -> bool:
 
 def get_lock_token(path: str) -> str | None:
     """path の有効なロックトークンを返す（未ロック・失効時は None）。"""
+    path = normalize_notebook_path(path)
     existing = _locks.get(path)
     if existing is None:
         return None
