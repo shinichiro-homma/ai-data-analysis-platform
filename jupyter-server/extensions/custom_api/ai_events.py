@@ -2,6 +2,7 @@
 AI同期イベント配信のためのWebSocket/RESTハンドラー
 """
 
+import contextlib
 import json
 import logging
 
@@ -32,17 +33,23 @@ def broadcast_event(event: dict) -> int:
     ロック取得/解放/失効通知（lock_acquired / lock_released）等、
     RESTハンドラー以外からの配信口として使用する。
 
+    write_message が失敗したクライアントは _websocket_clients から除去し
+    close() を呼ぶ。これによりブラウザ側の再接続 → 再同期経路に載せる。
+
     Returns:
         配信に成功したクライアント数。
     """
     payload = json.dumps(event)
     broadcasted_count = 0
-    for client in _websocket_clients:
+    for client in list(_websocket_clients):
         try:
             client.write_message(payload)
             broadcasted_count += 1
         except Exception as e:
             logger.error(f"Failed to send message to WebSocket client: {e}")
+            _websocket_clients.discard(client)
+            with contextlib.suppress(Exception):
+                client.close()
     return broadcasted_count
 
 

@@ -108,6 +108,11 @@ JupyterLabをベースとしたデータ分析実行環境。生成AIからの�
 - ロックは TTL で失効し、失効時に `lock_released` を配信する（イベント配信の成否に依存しない = 固着バグの根絶）
 - `interrupt`（カーネル中断）はノートブック書き込みを伴わないためロック検査の対象外
 
+#### F4.5: 同期状態照会 API（不変条件 I5）
+- 再接続時の再同期用に、現在の seq とロック一覧を返す `GET /api/ai/sync-state` を提供する
+- レスポンスにロックトークンは含めない（セキュリティ）
+- WS 送信失敗したクライアントは接続リストから除去し close する（ゾンビ接続の防止）
+
 #### F4.3: コード実行時のイベント配信
 
 - コード実行時、jupyter-mcp が `POST /api/ai/events/broadcast` を通じて ephemeral イベント（`cell_execute_start` / `cell_execute_end`）を配信する

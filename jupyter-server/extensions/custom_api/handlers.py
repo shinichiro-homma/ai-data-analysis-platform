@@ -1512,6 +1512,22 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
 
 
 # =============================================================================
+# 同期状態照会
+# =============================================================================
+
+
+class SyncStateHandler(BaseCustomHandler):
+    """GET /api/ai/sync-state"""
+
+    @web.authenticated
+    def get(self):
+        from . import sync_state
+
+        payload = sync_state.get_sync_state_payload()
+        self.write_success(payload)
+
+
+# =============================================================================
 # ハンドラー登録
 # =============================================================================
 
@@ -1540,6 +1556,8 @@ def get_handlers(base_url: str = ""):
         (f"{base_url}/api/ai/events/broadcast", AiEventsPostHandler),
         # ノートブックロック（取得/解放/延長）
         (f"{base_url}/api/ai/locks", NotebookLocksHandler),
+        # 同期状態照会（再接続時の再同期用）
+        (f"{base_url}/api/ai/sync-state", SyncStateHandler),
         # ワークスペース管理
         (f"{base_url}/api/workspaces", WorkspacesHandler),
         (f"{base_url}/api/workspaces/([^/]+)/summarize", WorkspaceSummarizeHandler),

@@ -28,6 +28,21 @@ def get_all() -> dict[str, int]:
     return dict(_seq_store)
 
 
+def get_sync_state_payload() -> dict:
+    """同期状態照会ペイロードを返す。
+
+    Returns:
+        {"notebooks": {path: seq, ...}, "locks": [{notebook_path, expires_at}, ...]}
+        token はレスポンスに含めない。
+    """
+    from .notebook_locks import get_locks
+
+    notebooks = get_all()
+    active_locks = get_locks()
+    locks = [{"notebook_path": path, "expires_at": entry["expires_at"]} for path, entry in active_locks.items()]
+    return {"notebooks": notebooks, "locks": locks}
+
+
 def clear_all() -> None:
     """テスト用リセット。"""
     _seq_store.clear()
