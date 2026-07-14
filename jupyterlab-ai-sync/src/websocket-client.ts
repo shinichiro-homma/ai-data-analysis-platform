@@ -14,6 +14,7 @@ export interface AiEvent {
 
 export type EventCallback = (event: AiEvent) => void;
 export type DisconnectCallback = () => void;
+export type OpenCallback = () => void;
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;
@@ -21,10 +22,12 @@ export class WebSocketClient {
   private readonly url: string;
   private callback: EventCallback;
   private onDisconnect?: DisconnectCallback;
+  private onOpen?: OpenCallback;
 
-  constructor(callback: EventCallback, onDisconnect?: DisconnectCallback) {
+  constructor(callback: EventCallback, onDisconnect?: DisconnectCallback, onOpen?: OpenCallback) {
     this.callback = callback;
     this.onDisconnect = onDisconnect;
+    this.onOpen = onOpen;
 
     // WebSocketのURLを構築
     const settings = ServerConnection.makeSettings();
@@ -55,6 +58,9 @@ export class WebSocketClient {
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;
+        }
+        if (this.onOpen) {
+          this.onOpen();
         }
       };
 

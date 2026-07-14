@@ -38,6 +38,7 @@
 | POST | /api/ai/locks | ノートブックロックを取得（競合時 423） |
 | DELETE | /api/ai/locks | ノートブックロックを解放 |
 | PUT | /api/ai/locks | ノートブックロックの TTL を延長（heartbeat） |
+| GET | /api/ai/sync-state | 同期状態照会（現在の seq とロック一覧。再接続時の再同期用。認証必須） |
 | POST | /api/workspaces | ワークスペースを作成 |
 | GET | /api/workspaces | ワークスペース一覧を取得 |
 | PUT | /api/workspaces/{workspace_id} | ワークスペースのメタデータを更新 |

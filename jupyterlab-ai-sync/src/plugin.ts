@@ -27,6 +27,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const lockManager = new LockManager(notebookTracker, app);
     updater.setLockManager(lockManager);
 
+    // 保存完了フックを設定（自己エコー revert 防止）
+    updater.setupSaveHook();
+
     // WebSocketクライアントを初期化
     const wsClient = new WebSocketClient(
       (event) => {
@@ -35,6 +38,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
       () => {
         // WebSocket 切断時に全ノートブックのロックを解除
         lockManager.unlockAll();
+      },
+      () => {
+        // WebSocket 接続/再接続時に再同期（resync は冪等）
+        void updater.resync();
       },
     );
 

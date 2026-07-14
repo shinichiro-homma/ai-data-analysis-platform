@@ -30,6 +30,9 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 #### F1.1: WebSocket接続
 - jupyter-serverの`/api/ai/events` WebSocketエンドポイントに接続する
 - 接続が切断された場合、自動的に再接続する
+- 再接続時に照会 API（`GET /api/ai/sync-state`）で seq とロック一覧を取得し、差分のあるノートブックを revert、ロック状態を再適用する（不変条件 I5）
+- ユーザーの未保存変更（dirty）がある場合は revert をスキップし競合を warn する
+- 自己保存のエコーイベントによる誤 revert を seq 記録で防止する
 - 認証トークンを使用して接続する
 
 #### F1.2: イベント処理
@@ -156,6 +159,8 @@ jupyter-mcp → jupyter-server REST API → カーネル実行 → 結果をAI�
 ### AC4: WebSocket接続
 - [ ] JupyterLab起動時に自動的にWebSocket接続が確立される
 - [ ] 接続が切断された場合、自動的に再接続される
+- [ ] 再接続後、切断中の変更が revert で反映される
+- [ ] 再接続後、ロック状態が再適用される
 
 ### AC5: ファイルブラウザUI
 - [ ] フォルダをシングルクリックすると、そのフォルダの中身がインライン展開される
