@@ -134,6 +134,7 @@ git diff --name-only HEAD~1
 
 `scripts/test.sh --quiet {対象コンポーネント名}`（lint + 型チェック + 全テスト）を実行してください。
 ユニットテストにリビルドは不要（`.claude/rules/build-freshness.md` 参照）。
+統合テストの実行要否は `.claude/rules/testing.md` の「フルゲート実行時の統合テスト検出」に従って判定すること。
 lint 失敗時は `.claude/rules/lint.md` に従うこと。
 
 ### 4.3.1 シェルスクリプトの動作確認（対象に `*.sh` が含まれる場合）

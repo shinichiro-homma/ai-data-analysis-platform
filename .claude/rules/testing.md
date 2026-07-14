@@ -76,6 +76,20 @@ jest.spyOn(axios, 'post').mockResolvedValue({ data: { /* ... */ } });
 
 `scripts/test.sh` を使う（`.claude/rules/scripts.md` 参照）。`npm test` / `pytest` の直接実行は禁止。
 
+### フルゲート実行時の統合テスト検出
+
+タスク完了・リファクタリング等でフルゲートテストを実行する際、統合テストの実行要否を以下で判定する:
+
+1. `git status` の変更・未追跡ファイルに `tests/integration/` 配下が含まれるか確認する
+2. 含まれる場合、そのパスからコンポーネントを判定し `scripts/test.sh --quiet --integration --rebuild {コンポーネント名}` も実行する
+3. 計画の完了条件に統合テスト（`--integration`）が明記されている場合も同様に実行する
+
+| パス | コンポーネント |
+|------|---------------|
+| `jupyter-mcp/tests/integration/` | jupyter-mcp |
+| `document-mcp/tests/integration/` | document-mcp |
+| `tests/e2e/` | e2e |
+
 ## ブラウザ動作確認（playwright-cli）
 
 動作確認や結合テストでブラウザ操作が必要な場合は、`@playwright/cli` で自律的に操作すること。セットアップ・コマンド一覧・JupyterLab のトークン認証の扱いは [`docs/guides/browser-automation.md`](../../docs/guides/browser-automation.md) を参照する。

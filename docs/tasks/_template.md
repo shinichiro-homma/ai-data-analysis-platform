@@ -82,11 +82,11 @@ ADR 要否: （状態の所有権・コンポーネント間契約・方式選�
 
 ### テスト参照ポインタ（テスト準備フェーズはこの範囲のみ Read する）
 
-| 参照 | パス:行範囲 | 用途 |
-|------|------------|------|
-| 模倣する代表テスト | `path/to/similar.test.ts:40-80` | （テスト構成の雛形。1 件に絞る） |
-| fixture / ヘルパー | `tests/conftest.py:255-330` | （使用する fixture・ヘルパー名） |
-| 規約チートシート | `.claude/skills/testing-strategies/reference/XXX.md` | （フレームワーク規約） |
+| 参照 | パス:行範囲 | 用途 | 注意点 |
+|------|------------|------|--------|
+| 模倣する代表テスト | `path/to/similar.test.ts:40-80` | （テスト構成の雛形。1 件に絞る） | （このパターンを使う理由・制約。例: 「fetch は DELETE body 非送信のため axios 経由」） |
+| fixture / ヘルパー | `tests/conftest.py:255-330` | （使用する fixture・ヘルパー名） | |
+| 規約チートシート | `.claude/skills/testing-strategies/reference/XXX.md` | （フレームワーク規約） | |
 
 ---
 
