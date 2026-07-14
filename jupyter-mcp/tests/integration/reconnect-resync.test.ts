@@ -158,17 +158,8 @@ describe('再接続時の再同期の統合テスト', () => {
   test('ロック中の sync-state にロック一覧が反映される', async () => {
     const { notebookPath } = await createTestNotebook('lock-reflect');
 
-    // 1. ロック取得
-    const lockResponse = await fetch(`${serverUrl}/api/ai/locks?token=${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notebook_path: notebookPath }),
-    });
-    expect(lockResponse.ok).toBe(true);
-    const lockBody = (await lockResponse.json()) as {
-      data: { token: string; expires_at: number };
-    };
-    const lockToken = lockBody.data.token;
+    // 1. ロック取得（jupyterClient 経由 — axios は DELETE body を正しく送信する）
+    const lock = await jupyterClient.acquireLock(notebookPath);
 
     // 2. sync-state にロックが反映されていることを確認
     const stateWithLock = await fetchSyncState();
@@ -182,12 +173,7 @@ describe('再接続時の再同期の統合テスト', () => {
     expect(foundLock?.expires_at).toBeGreaterThan(0);
 
     // 3. ロック解放
-    const releaseResponse = await fetch(`${serverUrl}/api/ai/locks?token=${token}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notebook_path: notebookPath, lock_token: lockToken }),
-    });
-    expect(releaseResponse.ok).toBe(true);
+    await jupyterClient.releaseLock(notebookPath, lock.lockToken);
 
     // 4. 解放後の sync-state からロックが消えていることを確認
     const stateAfterRelease = await fetchSyncState();
