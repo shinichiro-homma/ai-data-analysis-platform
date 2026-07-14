@@ -184,11 +184,8 @@ describe('再接続時の再同期の統合テスト', () => {
     // 3. ロック解放
     const releaseResponse = await fetch(`${serverUrl}/api/ai/locks?token=${token}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Lock-Token': lockToken,
-      },
-      body: JSON.stringify({ notebook_path: notebookPath }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notebook_path: notebookPath, lock_token: lockToken }),
     });
     expect(releaseResponse.ok).toBe(true);
 
