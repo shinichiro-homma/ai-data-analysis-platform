@@ -242,3 +242,15 @@ jupyter-mcp の構造的問題（コピペコード・無検証キャスト・�
 | 22.1 | 編集系7ツールの operateCellWithSync 共通化 | [x] | 7ツールの既存ユニットテストが全件成功し、`grep -l 'operateCellWithSync' jupyter-mcp/src/tools/notebook-*.ts` が7件 | I8 違反の解消。Phase 21.3 で postAiEvent 変更が1箇所で済むようになる |
 | 22.2 | API レスポンスの zod 境界検証 | [x] | 不正形式の API レスポンスで `RESPONSE_VALIDATION_ERROR` が発生する。統合テストで実レスポンスが検証を通る | I4 違反の解消。本タスクでは operateCell 関連に限定 |
 | 22.3 | ツール定義の各ファイルへの分散 | [x] | `wc -l jupyter-mcp/src/tools/index.ts` が 100 行以下。全ツールファイルが `toolEntry` を export | Phase 21.1 で `mutatesNotebook` を各ファイル内で宣言する前提 |
+
+## Phase 21: AI リアルタイム同期の再設計（ADR-0002）
+
+[ADR-0002](../adr/0002-ai-sync-notify-reload.md) に基づき、差分同期を廃止して「ディスク上の .ipynb を唯一の真実とし、変更通知 + ブラウザ側再読込で同期する」方式へ移行する。不変条件 I1/I2/I5（`docs/design/invariants.md`）の既知違反の解消が目的。実装順は 21.1 → 21.2 → 21.3 → 21.4 → 21.5（各タスクが次の前提）。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 21.1 | ノートブック編集ツール宣言の型化 | [x] | `mutatesNotebook` 未宣言のツール登録が型チェックで失敗し、レジストリ走査テストが既知の編集ツール12個の宣言を検証する | `NOTEBOOK_EDIT_TOOLS` Set の廃止。21.2 のミドルウェア変更の前提 |
+| 21.2 | ノートブックロックのサーバー側強制 | [x] | AI 編集ツール実行中に別クライアントからのセル操作 API・ブラウザ保存が 423 で拒否される。MCP がロック解放に失敗しても TTL 失効後に編集が可能に戻る（異常系） | ロックストア + ロック API + lock_acquired/released 通知。`ai_edit_start/end` 廃止 |
+| 21.3 | 変更通知 + 再読込の完全同期 | [x] | AI がセルを追加するとブラウザのノートブックに反映される。ブラウザが対象ノートブックを開いていなくても実行出力がファイルに保存される（Issue #76 の異常系） | 差分イベント12種を廃止し `notebook_changed`（seq 付き）へ。ブラウザは `context.revert()` |
+| 21.4 | 再接続時の再同期 | [x] | WebSocket 切断中に AI がセルを追加しても、再接続後にブラウザ表示が実ファイルと一致する（異常系） | 状態照会 API + seq ギャップ検出 + ロック状態再適用 |
+| 21.5 | 同期再設計の統合テストとドキュメント整合 | [x] | ロック強制・通知再読込・再接続再同期の統合テストが `scripts/test.sh jupyter-mcp --integration` で成功する | 要件定義・API 契約の総点検を含む |

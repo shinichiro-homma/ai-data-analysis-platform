@@ -7,10 +7,49 @@
 
 import WebSocket from 'ws';
 
+/**
+ * Phase 21 で定義されたイベントタイプ
+ */
+export const AI_EVENT_TYPES = {
+  NOTEBOOK_CHANGED: 'notebook_changed',
+  LOCK_ACQUIRED: 'lock_acquired',
+  LOCK_RELEASED: 'lock_released',
+  CELL_EXECUTE_START: 'cell_execute_start',
+  CELL_EXECUTE_END: 'cell_execute_end',
+} as const;
+
+export type AiEventType = (typeof AI_EVENT_TYPES)[keyof typeof AI_EVENT_TYPES];
+
 export interface AiEvent {
   type: string;
   notebook_path: string;
   [key: string]: unknown;
+}
+
+/** notebook_changed イベント（seq 付き） */
+export interface NotebookChangedEvent extends AiEvent {
+  type: typeof AI_EVENT_TYPES.NOTEBOOK_CHANGED;
+  seq: number;
+}
+
+/** lock_acquired イベント */
+export interface LockAcquiredEvent extends AiEvent {
+  type: typeof AI_EVENT_TYPES.LOCK_ACQUIRED;
+}
+
+/** lock_released イベント */
+export interface LockReleasedEvent extends AiEvent {
+  type: typeof AI_EVENT_TYPES.LOCK_RELEASED;
+}
+
+/** cell_execute_start イベント */
+export interface CellExecuteStartEvent extends AiEvent {
+  type: typeof AI_EVENT_TYPES.CELL_EXECUTE_START;
+}
+
+/** cell_execute_end イベント */
+export interface CellExecuteEndEvent extends AiEvent {
+  type: typeof AI_EVENT_TYPES.CELL_EXECUTE_END;
 }
 
 export class WsEventClient {
@@ -89,6 +128,32 @@ export class WsEventClient {
   }
 
   /**
+   * 段階的にポーリング間隔を増加させながら（最大200ms）条件を満たすまで待機する共通ループ
+   *
+   * @param check 条件チェック関数。値が見つかれば返し、未検出なら undefined を返す
+   * @param timeoutMs タイムアウト（ミリ秒）
+   * @param errorMessage タイムアウト時のエラーメッセージを生成する関数
+   * @returns check が返した値
+   * @throws タイムアウトした場合
+   */
+  private async pollUntil<T>(check: () => T | undefined, timeoutMs: number, errorMessage: () => string): Promise<T> {
+    const startTime = Date.now();
+    let pollInterval = 50;
+
+    while (Date.now() - startTime < timeoutMs) {
+      const result = check();
+      if (result) {
+        return result;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      // 段階的にポーリング間隔を増加（最大200ms）
+      pollInterval = Math.min(pollInterval + 25, 200);
+    }
+
+    throw new Error(errorMessage());
+  }
+
+  /**
    * 特定のイベントタイプを待機する
    *
    * @param type イベントタイプ
@@ -97,21 +162,11 @@ export class WsEventClient {
    * @throws タイムアウトした場合
    */
   async waitForEvent(type: string, timeoutMs = 5000): Promise<AiEvent> {
-    const startTime = Date.now();
-    let pollInterval = 50;
-
-    while (Date.now() - startTime < timeoutMs) {
-      const event = this.events.find((e) => e.type === type);
-      if (event) {
-        return event;
-      }
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      // 段階的にポーリング間隔を増加（最大200ms）
-      pollInterval = Math.min(pollInterval + 25, 200);
-    }
-
-    throw new Error(
-      `Timeout waiting for event type "${type}" after ${timeoutMs}ms. ` +
+    return this.pollUntil(
+      () => this.events.find((e) => e.type === type),
+      timeoutMs,
+      () =>
+        `Timeout waiting for event type "${type}" after ${timeoutMs}ms. ` +
         `Received events: ${this.events.map((e) => e.type).join(', ')}`,
     );
   }
@@ -172,19 +227,35 @@ export class WsEventClient {
    */
   async waitForEventCount(count: number, timeoutMs = 10000): Promise<AiEvent[]> {
     const startTime = Date.now();
-    let pollInterval = 50;
-
-    while (Date.now() - startTime < timeoutMs) {
-      if (this.events.length >= count) {
-        return [...this.events];
-      }
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      pollInterval = Math.min(pollInterval + 25, 200);
-    }
-
-    throw new Error(
-      `Timeout waiting for ${count} events after ${Date.now() - startTime}ms. ` +
+    return this.pollUntil(
+      () => (this.events.length >= count ? [...this.events] : undefined),
+      timeoutMs,
+      () =>
+        `Timeout waiting for ${count} events after ${Date.now() - startTime}ms. ` +
         `Got ${this.events.length} events: [${this.events.map((e) => e.type).join(', ')}]`,
+    );
+  }
+
+  /**
+   * 条件に一致するイベントを待機する
+   *
+   * @param predicate マッチ条件
+   * @param description タイムアウト時のエラーメッセージ用説明
+   * @param timeoutMs タイムアウト（ミリ秒）
+   * @returns マッチしたイベント
+   * @throws タイムアウトした場合
+   */
+  async waitForEventMatching<T extends AiEvent = AiEvent>(
+    predicate: (event: AiEvent) => boolean,
+    description: string,
+    timeoutMs = 5000,
+  ): Promise<T> {
+    return this.pollUntil(
+      () => this.events.find(predicate) as T | undefined,
+      timeoutMs,
+      () =>
+        `Timeout waiting for event matching "${description}" after ${timeoutMs}ms. ` +
+        `Received events: ${this.events.map((e) => `${e.type}(${e.notebook_path})`).join(', ')}`,
     );
   }
 
