@@ -19,6 +19,9 @@ log = logging.getLogger(__name__)
 # カーネルごとの画像出力カウンター（セッション横断で連番を振るため）
 _kernel_image_counters: dict[str, int] = {}
 
+# カーネルごとの実行直列化ロック（同一カーネルへの並行 execute を直列化するため）
+_kernel_locks: dict[str, asyncio.Lock] = {}
+
 
 def _next_image_index(kernel_id: str) -> int:
     """カーネルの画像カウンターをインクリメントし、新しいインデックスを返す。"""
@@ -27,9 +30,19 @@ def _next_image_index(kernel_id: str) -> int:
     return count
 
 
+def _get_kernel_lock(kernel_id: str) -> asyncio.Lock:
+    """カーネルの実行ロックを取得（未生成なら生成して登録）する。"""
+    lock = _kernel_locks.get(kernel_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _kernel_locks[kernel_id] = lock
+    return lock
+
+
 def cleanup_kernel_state(kernel_id: str) -> None:
-    """カーネル削除時に画像カウンターをクリーンアップする。"""
+    """カーネル削除時に画像カウンターと実行ロックをクリーンアップする。"""
     _kernel_image_counters.pop(kernel_id, None)
+    _kernel_locks.pop(kernel_id, None)
 
 
 def _save_display_image(
@@ -92,88 +105,99 @@ class KernelExecutor:
         output_dir: Path | None = None,
         workspace_rel_path: str | None = None,
     ) -> dict:
-        """コードを実行"""
-        client = await self._get_client()
+        """コードを実行
 
-        try:
-            # コードを実行
-            _ = client.execute(code)
+        同一カーネルへの並行 execute はカーネル単位のロックで直列化する。
+        タイムアウトの deadline はロック取得後に計算する（timeout はロック待機時間を含めない）。
+        """
+        async with _get_kernel_lock(self.kernel_id):
+            client = await self._get_client()
 
-            # 結果を収集
-            outputs = []
-            images = []
-            result = None
-            error = None
-            execution_count = 0
+            try:
+                # コードを実行し、リクエスト固有の msg_id を保持する
+                # （収集ループで自リクエスト由来のメッセージのみをフィルタするため）
+                msg_id = client.execute(code)
 
-            deadline = asyncio.get_running_loop().time() + timeout
+                # 結果を収集
+                outputs = []
+                images = []
+                result = None
+                error = None
+                execution_count = 0
 
-            while True:
-                remaining = deadline - asyncio.get_running_loop().time()
-                if remaining <= 0:
-                    raise TimeoutError(f"Execution timed out after {timeout} seconds")
+                deadline = asyncio.get_running_loop().time() + timeout
 
-                try:
-                    msg = await asyncio.wait_for(client.get_iopub_msg(), timeout=min(remaining, 1.0))
-                except TimeoutError:
-                    continue
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        raise TimeoutError(f"Execution timed out after {timeout} seconds")
 
-                msg_type = msg["header"]["msg_type"]
-                content = msg["content"]
+                    try:
+                        msg = await asyncio.wait_for(client.get_iopub_msg(), timeout=min(remaining, 1.0))
+                    except TimeoutError:
+                        continue
 
-                if msg_type == "status":
-                    if content.get("execution_state") == "idle":
-                        break
+                    # 自リクエスト由来（parent_header.msg_id 一致）のメッセージのみを処理する。
+                    # parent_header がない・msg_id を取得できないメッセージも skip する。
+                    if msg.get("parent_header", {}).get("msg_id") != msg_id:
+                        continue
 
-                elif msg_type == "execute_input":
-                    execution_count = content.get("execution_count", 0)
+                    msg_type = msg["header"]["msg_type"]
+                    content = msg["content"]
 
-                elif msg_type == "stream":
-                    stream_name = content.get("name", "stdout")
-                    text = content.get("text", "")
-                    outputs.append(
-                        {
-                            "type": stream_name,
-                            "text": text,
-                        }
-                    )
+                    if msg_type == "status":
+                        if content.get("execution_state") == "idle":
+                            break
 
-                elif msg_type == "execute_result":
-                    execution_count = content.get("execution_count", 0)
-                    data = content.get("data", {})
-                    if "text/plain" in data:
-                        result = data["text/plain"]
+                    elif msg_type == "execute_input":
+                        execution_count = content.get("execution_count", 0)
 
-                elif msg_type == "display_data":
-                    data = content.get("data", {})
-                    if "image/png" in data:
-                        image_entry = _save_display_image(
-                            img_data=data["image/png"],
-                            image_index=_next_image_index(self.kernel_id),
-                            execution_count=execution_count,
-                            output_dir=output_dir,
-                            workspace_rel_path=workspace_rel_path,
+                    elif msg_type == "stream":
+                        stream_name = content.get("name", "stdout")
+                        text = content.get("text", "")
+                        outputs.append(
+                            {
+                                "type": stream_name,
+                                "text": text,
+                            }
                         )
-                        images.append(image_entry)
 
-                elif msg_type == "error":
-                    error = {
-                        "type": content.get("ename", "Error"),
-                        "message": content.get("evalue", "Unknown error"),
-                        "traceback": content.get("traceback", []),
-                    }
+                    elif msg_type == "execute_result":
+                        execution_count = content.get("execution_count", 0)
+                        data = content.get("data", {})
+                        if "text/plain" in data:
+                            result = data["text/plain"]
 
-            return {
-                "success": error is None,
-                "execution_count": execution_count,
-                "outputs": outputs,
-                "result": result,
-                "images": images,
-                "error": error,
-            }
+                    elif msg_type == "display_data":
+                        data = content.get("data", {})
+                        if "image/png" in data:
+                            image_entry = _save_display_image(
+                                img_data=data["image/png"],
+                                image_index=_next_image_index(self.kernel_id),
+                                execution_count=execution_count,
+                                output_dir=output_dir,
+                                workspace_rel_path=workspace_rel_path,
+                            )
+                            images.append(image_entry)
 
-        finally:
-            client.stop_channels()
+                    elif msg_type == "error":
+                        error = {
+                            "type": content.get("ename", "Error"),
+                            "message": content.get("evalue", "Unknown error"),
+                            "traceback": content.get("traceback", []),
+                        }
+
+                return {
+                    "success": error is None,
+                    "execution_count": execution_count,
+                    "outputs": outputs,
+                    "result": result,
+                    "images": images,
+                    "error": error,
+                }
+
+            finally:
+                client.stop_channels()
 
     async def get_execution_count(self) -> int:
         """現在の実行カウントを取得"""
