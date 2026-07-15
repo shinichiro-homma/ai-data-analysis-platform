@@ -5,6 +5,7 @@ api-contracts.md に定義された REST API を提供する Jupyter Server 拡�
 """
 
 import asyncio
+import atexit
 import functools
 import logging
 import sys
@@ -15,6 +16,7 @@ from . import kernel_executor as _kernel_executor_module
 from . import notebook_locks
 from .handlers import get_handlers
 from .session_handlers import get_kernel_workspace, unregister_kernel
+from .sql_handlers import shutdown_engines
 from .workspace_sandbox import generate_sandbox_code
 
 log = logging.getLogger(__name__)
@@ -265,6 +267,9 @@ def _load_jupyter_server_extension(server_app):
     # モジュールレベル変数に保持する（バグ 4: Python 公式ドキュメント記載の落とし穴）。
     global _lock_sweeper_task
     _lock_sweeper_task = asyncio.ensure_future(_lock_sweeper_loop())
+
+    # SQL エンジンプールをプロセス終了時に破棄する
+    atexit.register(shutdown_engines)
 
     log.info("Custom API extension loaded")
 
