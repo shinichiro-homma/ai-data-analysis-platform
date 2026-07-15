@@ -9,6 +9,7 @@ SQL を実行する。SELECT 系は結果 CSV をワークスペースの data/ 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import csv
 import logging
 import os
@@ -423,7 +424,9 @@ def _write_csv_chunked(conn, sql: str, output_path, chunk_size: int = 10_000) ->
     return total_rows
 
 
-def _export_sql_sync(database_url: str, sql: str, timeout: int, output_path, export_format: str) -> dict:
+def _export_sql_sync(
+    engine, sql: str, timeout: int, output_path, export_format: str, dbapi_ref: list | None = None
+) -> dict:
     """
     SELECT SQL をチャンク処理でファイルにエクスポートする（スレッドプールで実行される想定）。
 
@@ -434,40 +437,57 @@ def _export_sql_sync(database_url: str, sql: str, timeout: int, output_path, exp
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラーなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # 読み取り専用トランザクション
-            conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
+    with engine.connect() as conn:
+        if dbapi_ref is not None:
+            dbapi_ref.append(conn.connection.dbapi_connection)
 
-            # PostgreSQL statement_timeout を設定（ミリ秒単位）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
+        # 読み取り専用トランザクション（SET LOCAL でトランザクションスコープに限定）
+        conn.execute(sqlalchemy.text("SET LOCAL default_transaction_read_only = ON"))
 
-            if export_format == "parquet":
-                row_count = _write_parquet_chunked(conn, sql, output_path)
-            else:
-                row_count = _write_csv_chunked(conn, sql, output_path)
+        # PostgreSQL statement_timeout を設定（ミリ秒単位、SET LOCAL でトランザクションスコープ）
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET LOCAL statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
 
-            return {"row_count": row_count}
-    finally:
-        engine.dispose()
+        if export_format == "parquet":
+            row_count = _write_parquet_chunked(conn, sql, output_path)
+        else:
+            row_count = _write_csv_chunked(conn, sql, output_path)
 
-
-def _create_sql_engine(database_url: str):
-    """SQLAlchemy エンジンを作成する。"""
-    return sqlalchemy.create_engine(
-        database_url,
-        connect_args={"connect_timeout": 5},
-        pool_size=1,
-        max_overflow=0,
-    )
+        return {"row_count": row_count}
 
 
-def _execute_sql_sync(database_url: str, sql: str, timeout: int, max_rows: int) -> dict:
+# 共有エンジンキャッシュ: database_url -> Engine
+_engine_cache: dict[str, object] = {}
+
+
+def _get_engine(database_url: str):
+    """同じ database_url に対してはキャッシュされた共有エンジンを返す。"""
+    if database_url not in _engine_cache:
+        _engine_cache[database_url] = sqlalchemy.create_engine(
+            database_url,
+            connect_args={"connect_timeout": 5},
+            pool_size=5,
+            max_overflow=2,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+        )
+    return _engine_cache[database_url]
+
+
+def shutdown_engines() -> None:
+    """キャッシュされた全エンジンを dispose する（アプリケーション終了時に呼ぶ）。"""
+    for engine in _engine_cache.values():
+        try:
+            engine.dispose()
+        except Exception:
+            log.warning("Failed to dispose engine", exc_info=True)
+    _engine_cache.clear()
+
+
+def _execute_sql_sync(engine, sql: str, timeout: int, max_rows: int, dbapi_ref: list | None = None) -> dict:
     """
     SQL を同期的に実行する（スレッドプールで実行される想定）。
 
@@ -478,35 +498,34 @@ def _execute_sql_sync(database_url: str, sql: str, timeout: int, max_rows: int) 
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラー、テーブルが存在しないなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # 読み取り専用トランザクション（SQLインジェクションの多層防御）
-            conn.execute(sqlalchemy.text("SET default_transaction_read_only = ON"))
+    with engine.connect() as conn:
+        if dbapi_ref is not None:
+            dbapi_ref.append(conn.connection.dbapi_connection)
 
-            # PostgreSQL statement_timeout を設定（ミリ秒単位）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
+        # 読み取り専用トランザクション（SQLインジェクションの多層防御、SET LOCAL でトランザクションスコープに限定）
+        conn.execute(sqlalchemy.text("SET LOCAL default_transaction_read_only = ON"))
 
-            result = conn.execute(sqlalchemy.text(sql))
-            columns = list(result.keys())
+        # PostgreSQL statement_timeout を設定（ミリ秒単位、SET LOCAL でトランザクションスコープ）
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET LOCAL statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
 
-            # max_rows + 1 行フェッチして、切り捨てが発生するか確認
-            rows = result.fetchmany(max_rows + 1)
-            truncated = len(rows) > max_rows
-            if truncated:
-                rows = rows[:max_rows]
+        result = conn.execute(sqlalchemy.text(sql))
+        columns = list(result.keys())
 
-            df = pd.DataFrame(rows, columns=columns)
-            return {"df": df, "truncated": truncated}
-    finally:
-        engine.dispose()
+        # max_rows + 1 行フェッチして、切り捨てが発生するか確認
+        rows = result.fetchmany(max_rows + 1)
+        truncated = len(rows) > max_rows
+        if truncated:
+            rows = rows[:max_rows]
+
+        df = pd.DataFrame(rows, columns=columns)
+        return {"df": df, "truncated": truncated}
 
 
-def _execute_non_select_sync(database_url: str, sql: str, timeout: int) -> dict:
+def _execute_non_select_sync(engine, sql: str, timeout: int, dbapi_ref: list | None = None) -> dict:
     """
     非 SELECT SQL を同期的に実行する。
 
@@ -517,21 +536,21 @@ def _execute_non_select_sync(database_url: str, sql: str, timeout: int) -> dict:
         sqlalchemy.exc.OperationalError: DB接続エラー、タイムアウトなど
         sqlalchemy.exc.ProgrammingError: SQL構文エラーなど
     """
-    engine = _create_sql_engine(database_url)
-    try:
-        with engine.connect() as conn:
-            # ※ read_only は設定しない（書き込み操作を許可）
-            timeout_ms = timeout * 1000
-            conn.execute(
-                sqlalchemy.text("SET statement_timeout = :timeout_ms"),
-                {"timeout_ms": timeout_ms},
-            )
-            result = conn.execute(sqlalchemy.text(sql))
-            conn.commit()
-            affected_rows = result.rowcount if result.rowcount >= 0 else 0
-            return {"affected_rows": affected_rows}
-    finally:
-        engine.dispose()
+    with engine.connect() as conn:
+        if dbapi_ref is not None:
+            dbapi_ref.append(conn.connection.dbapi_connection)
+
+        # ※ read_only は設定しない（書き込み操作を許可）
+        # SET LOCAL でトランザクションスコープに限定
+        timeout_ms = timeout * 1000
+        conn.execute(
+            sqlalchemy.text("SET LOCAL statement_timeout = :timeout_ms"),
+            {"timeout_ms": timeout_ms},
+        )
+        result = conn.execute(sqlalchemy.text(sql))
+        conn.commit()
+        affected_rows = result.rowcount if result.rowcount >= 0 else 0
+        return {"affected_rows": affected_rows}
 
 
 class SqlExecuteHandler(BaseCustomHandler):
@@ -636,12 +655,20 @@ class SqlExecuteHandler(BaseCustomHandler):
 
         # SQL 実行
         start_time = time.time()
+        engine = _get_engine(database_url)
+        dbapi_ref: list = []
         try:
             loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, _execute_sql_sync, database_url, sql, timeout, max_rows),
+                loop.run_in_executor(None, _execute_sql_sync, engine, sql, timeout, max_rows, dbapi_ref),
                 timeout=timeout + 5,
             )
+        except TimeoutError:
+            if dbapi_ref:
+                with contextlib.suppress(Exception):
+                    dbapi_ref[0].cancel()
+            _handle_sql_error(self, TimeoutError(), timeout, "SQL_TIMEOUT", "SQL_EXECUTION_ERROR")
+            return
         except Exception as e:
             _handle_sql_error(self, e, timeout, "SQL_TIMEOUT", "SQL_EXECUTION_ERROR")
             return
@@ -678,12 +705,20 @@ class SqlExecuteHandler(BaseCustomHandler):
     async def _handle_non_select(self, sql, timeout, database_url):
         """非 SELECT 系 SQL の処理"""
         start_time = time.time()
+        engine = _get_engine(database_url)
+        dbapi_ref: list = []
         try:
             loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, _execute_non_select_sync, database_url, sql, timeout),
+                loop.run_in_executor(None, _execute_non_select_sync, engine, sql, timeout, dbapi_ref),
                 timeout=timeout + 5,
             )
+        except TimeoutError:
+            if dbapi_ref:
+                with contextlib.suppress(Exception):
+                    dbapi_ref[0].cancel()
+            _handle_sql_error(self, TimeoutError(), timeout, "SQL_TIMEOUT", "SQL_EXECUTION_ERROR")
+            return
         except Exception as e:
             _handle_sql_error(self, e, timeout, "SQL_TIMEOUT", "SQL_EXECUTION_ERROR")
             return
@@ -792,12 +827,28 @@ class SqlExportHandler(BaseCustomHandler):
 
         # --- 8. SQL エクスポート実行 ---
         start_time = time.time()
+        engine = _get_engine(database_url)
+        dbapi_ref: list = []
         try:
             loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, _export_sql_sync, database_url, sql, timeout, output_path, export_format),
+                loop.run_in_executor(
+                    None, _export_sql_sync, engine, sql, timeout, output_path, export_format, dbapi_ref
+                ),
                 timeout=timeout + 5,
             )
+        except TimeoutError:
+            if dbapi_ref:
+                with contextlib.suppress(Exception):
+                    dbapi_ref[0].cancel()
+            # 中間ファイルを削除
+            if output_path.exists():
+                try:
+                    output_path.unlink()
+                except Exception as unlink_error:
+                    log.warning("Failed to remove intermediate file %s: %s", output_path, unlink_error)
+            _handle_sql_error(self, TimeoutError(), timeout, "SQL_TIMEOUT", "FILE_WRITE_ERROR")
+            return
         except Exception as e:
             # 中間ファイルを削除
             if output_path.exists():
