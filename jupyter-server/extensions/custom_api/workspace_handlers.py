@@ -4,6 +4,7 @@
 チャット（AI会話）ごとに独立した作業空間（ワークスペース）の作成・一覧を提供する。
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -89,6 +90,108 @@ def _read_workspace(workspace_dir: Path) -> dict | None:
         return None
 
 
+def _create_workspace_sync(root: str, workspace_id: str, name: str, summary: str, status: str, created_at: str) -> dict:
+    """ワークスペースのディレクトリ作成と metadata.json 書き込みを同期実行する（スレッドプールで実行される想定）。
+
+    Returns:
+        dict: ワークスペース情報（_format_workspace_info 形式）
+    """
+    root_path = Path(root)
+    workspace_dir = root_path / workspace_id
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    (workspace_dir / "data").mkdir(exist_ok=True)
+    (workspace_dir / "output").mkdir(exist_ok=True)
+
+    metadata = {
+        "workspace_id": workspace_id,
+        "name": name,
+        "created_at": created_at,
+        "summary": summary,
+        "status": status,
+    }
+
+    metadata_path = workspace_dir / "metadata.json"
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False)
+
+    return _format_workspace_info(workspace_id, name, created_at, summary, status)
+
+
+def _list_workspaces_sync(root: str) -> list[dict]:
+    """ワークスペース一覧を同期取得する（スレッドプールで実行される想定）。
+
+    Returns:
+        list[dict]: created_at 降順でソートされたワークスペース情報のリスト
+    """
+    root_path = Path(root)
+    workspaces = []
+
+    for entry in root_path.iterdir():
+        if not entry.is_dir():
+            continue
+        ws = _read_workspace(entry)
+        if ws is not None:
+            workspaces.append(ws)
+
+    workspaces.sort(key=lambda w: w["created_at"], reverse=True)
+    return workspaces
+
+
+def _update_metadata_sync(root: str, workspace_id: str, summary: str | None, status: str | None) -> dict:
+    """ワークスペースのメタデータを部分更新する（スレッドプールで実行される想定）。
+
+    Returns:
+        dict: 更新後のワークスペース情報（_format_workspace_info 形式）
+
+    Raises:
+        FileNotFoundError: metadata.json が存在しない場合
+        json.JSONDecodeError: metadata.json が壊れている場合
+    """
+    root_path = Path(root)
+    workspace_dir = root_path / workspace_id
+    metadata_path = workspace_dir / "metadata.json"
+
+    with open(metadata_path, encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    if summary is not None:
+        metadata["summary"] = summary
+    if status is not None:
+        metadata["status"] = status
+
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False)
+
+    return _format_workspace_info(
+        metadata["workspace_id"],
+        metadata["name"],
+        metadata["created_at"],
+        metadata.get("summary", ""),
+        metadata.get("status", "not_started"),
+    )
+
+
+def _read_templates_sync(template_dir: str) -> dict:
+    """テンプレートファイルを同期読み込みする（スレッドプールで実行される想定）。
+
+    Returns:
+        dict: {"template": ..., "verification_criteria": ...}
+
+    Raises:
+        FileNotFoundError: テンプレートファイルが存在しない場合
+    """
+    template_path = Path(template_dir) / "summary_template.md"
+    criteria_path = Path(template_dir) / "verification_criteria.md"
+
+    template = template_path.read_text(encoding="utf-8")
+    verification_criteria = criteria_path.read_text(encoding="utf-8")
+
+    return {
+        "template": template,
+        "verification_criteria": verification_criteria,
+    }
+
+
 class WorkspacesHandler(BaseCustomHandler):
     """POST /api/workspaces, GET /api/workspaces"""
 
@@ -118,25 +221,14 @@ class WorkspacesHandler(BaseCustomHandler):
         try:
             root = _ensure_workspace_root()
             workspace_id = _generate_workspace_id()
-            workspace_dir = root / workspace_id
-            workspace_dir.mkdir(parents=True, exist_ok=True)
-            (workspace_dir / "data").mkdir(exist_ok=True)
-            (workspace_dir / "output").mkdir(exist_ok=True)
-
             created_at = utc_now_iso()
-            metadata = {
-                "workspace_id": workspace_id,
-                "name": name.strip(),
-                "created_at": created_at,
-                "summary": summary,
-                "status": status,
-            }
 
-            metadata_path = workspace_dir / "metadata.json"
-            with open(metadata_path, "w", encoding="utf-8") as f:
-                json.dump(metadata, f, ensure_ascii=False)
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None, _create_workspace_sync, str(root), workspace_id, name.strip(), summary, status, created_at
+            )
 
-            self.write_success(_format_workspace_info(workspace_id, metadata["name"], created_at, summary, status))
+            self.write_success(result)
         except Exception as e:
             log.error("Failed to create workspace: %s", e, exc_info=True)
             self.write_error_response("INTERNAL_ERROR", "Failed to create workspace", 500)
@@ -146,17 +238,9 @@ class WorkspacesHandler(BaseCustomHandler):
         """ワークスペース一覧を取得する"""
         try:
             root = _ensure_workspace_root()
-            workspaces = []
 
-            for entry in root.iterdir():
-                if not entry.is_dir():
-                    continue
-                ws = _read_workspace(entry)
-                if ws is not None:
-                    workspaces.append(ws)
-
-            # created_at 降順でソート
-            workspaces.sort(key=lambda w: w["created_at"], reverse=True)
+            loop = asyncio.get_running_loop()
+            workspaces = await loop.run_in_executor(None, _list_workspaces_sync, str(root))
 
             self.write_success({"workspaces": workspaces})
         except Exception as e:
@@ -200,29 +284,10 @@ class WorkspaceHandler(BaseCustomHandler):
                 self.write_error_response("NOT_FOUND", f"Workspace not found: {workspace_id}", 404)
                 return
 
-            # 既存メタデータを読み込み
-            with open(metadata_path, encoding="utf-8") as f:
-                metadata = json.load(f)
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(None, _update_metadata_sync, str(root), workspace_id, summary, status)
 
-            # 指定されたフィールドのみ更新
-            if summary is not None:
-                metadata["summary"] = summary
-            if status is not None:
-                metadata["status"] = status
-
-            # 書き戻し
-            with open(metadata_path, "w", encoding="utf-8") as f:
-                json.dump(metadata, f, ensure_ascii=False)
-
-            self.write_success(
-                _format_workspace_info(
-                    metadata["workspace_id"],
-                    metadata["name"],
-                    metadata["created_at"],
-                    metadata.get("summary", ""),
-                    metadata.get("status", "not_started"),
-                )
-            )
+            self.write_success(result)
         except json.JSONDecodeError:
             log.error("Corrupted metadata.json for workspace %s", workspace_id)
             self.write_error_response("INTERNAL_ERROR", "Workspace metadata is corrupted", 500)
@@ -253,11 +318,8 @@ class WorkspaceSummarizeHandler(BaseCustomHandler):
 
         # テンプレートファイル読み込み
         try:
-            template_path = _TEMPLATES_DIR / "summary_template.md"
-            criteria_path = _TEMPLATES_DIR / "verification_criteria.md"
-
-            template = template_path.read_text(encoding="utf-8")
-            verification_criteria = criteria_path.read_text(encoding="utf-8")
+            loop = asyncio.get_running_loop()
+            templates = await loop.run_in_executor(None, _read_templates_sync, str(_TEMPLATES_DIR))
         except FileNotFoundError as e:
             log.error("Template file not found: %s", e)
             self.write_error_response("INTERNAL_ERROR", "Template file not found", 500)
@@ -280,8 +342,8 @@ class WorkspaceSummarizeHandler(BaseCustomHandler):
         self.write_success(
             {
                 "workspace_id": workspace_id,
-                "template": template,
-                "verification_criteria": verification_criteria,
+                "template": templates["template"],
+                "verification_criteria": templates["verification_criteria"],
                 "instructions": instructions,
             }
         )

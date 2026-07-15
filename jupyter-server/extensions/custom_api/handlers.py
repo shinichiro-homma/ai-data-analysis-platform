@@ -6,6 +6,7 @@ api-contracts.md に定義された仕様に従った API を提供する。
 
 from __future__ import annotations
 
+import asyncio
 import copy as _copy
 import logging
 import re
@@ -997,15 +998,50 @@ def _df_to_records(df: pd.DataFrame) -> list[dict]:
     return rows
 
 
+def _preview_file_sync(abs_path: str, file_format: str, head_rows: int) -> dict:
+    """ファイルプレビューを同期実行する（スレッドプールで実行される想定）。
+
+    Returns:
+        dict: {"path", "format", "columns", "row_count", "head", "file_size_bytes"}
+    """
+    import pandas as pd
+
+    p = Path(abs_path)
+    file_size_bytes = p.stat().st_size
+
+    if file_format == "csv":
+        head_df = pd.read_csv(p, nrows=head_rows)
+        # ヘッダー行を除いた全行数をカウント
+        with open(p, encoding="utf-8") as f:
+            row_count = sum(1 for _ in f) - 1
+        columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+        head_records = _df_to_records(head_df)
+
+    else:  # parquet
+        import pyarrow.parquet as pq
+
+        pf = pq.ParquetFile(p)
+        row_count = pf.metadata.num_rows
+        head_df = pf.read_row_group(0).to_pandas().head(head_rows)
+        columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
+        head_records = _df_to_records(head_df)
+
+    return {
+        "path": abs_path,
+        "format": file_format,
+        "columns": columns,
+        "row_count": row_count,
+        "head": head_records,
+        "file_size_bytes": file_size_bytes,
+    }
+
+
 class ContentsPreviewHandler(BaseCustomHandler):
     """GET /api/custom/contents/{path}/preview"""
 
     @web.authenticated
-    def get(self, path: str):
+    async def get(self, path: str):
         """CSV/Parquetファイルの先頭行・カラム情報・行数を返す"""
-        import pandas as pd
-        import pyarrow.parquet as pq
-
         try:
             path = validate_path(path)
         except ValueError as e:
@@ -1044,33 +1080,10 @@ class ContentsPreviewHandler(BaseCustomHandler):
             return
 
         try:
-            file_size_bytes = abs_path.stat().st_size
-
-            if file_format == "csv":
-                head_df = pd.read_csv(abs_path, nrows=head_rows)
-                # ヘッダー行を除いた全行数をカウント
-                with open(abs_path, encoding="utf-8") as f:
-                    row_count = sum(1 for _ in f) - 1
-                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
-                head_records = _df_to_records(head_df)
-
-            else:  # parquet
-                pf = pq.ParquetFile(abs_path)
-                row_count = pf.metadata.num_rows
-                head_df = pf.read_row_group(0).to_pandas().head(head_rows)
-                columns = [{"name": col, "dtype": str(head_df[col].dtype)} for col in head_df.columns]
-                head_records = _df_to_records(head_df)
-
-            self.write_success(
-                {
-                    "path": "/" + path,
-                    "format": file_format,
-                    "columns": columns,
-                    "row_count": row_count,
-                    "head": head_records,
-                    "file_size_bytes": file_size_bytes,
-                }
-            )
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(None, _preview_file_sync, str(abs_path), file_format, head_rows)
+            result["path"] = "/" + path
+            self.write_success(result)
         except Exception as e:
             log.error("Failed to preview file '%s': %s", path, e, exc_info=True)
             self.write_error_response("INTERNAL_ERROR", "Failed to preview file", 500)
