@@ -67,6 +67,7 @@ def _load_init_module():
         "sql_handlers",
         SqlExecuteHandler=type("SqlExecuteHandler", (), {}),
         SqlExportHandler=type("SqlExportHandler", (), {}),
+        shutdown_engines=lambda: None,
     )
     _ensure_ca(
         "workspace_handlers",

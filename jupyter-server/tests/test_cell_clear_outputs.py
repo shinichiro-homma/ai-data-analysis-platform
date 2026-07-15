@@ -1,7 +1,7 @@
 """ContentsCellsHandler の clear_output アクションと
 ContentsCellsClearAllOutputsHandler のユニットテスト
 
-handlers.py の ContentsCellsHandler.patch() に clear_output アクションを追加し、
+cell_handlers.py の ContentsCellsHandler.patch() に clear_output アクションを追加し、
 ContentsCellsClearAllOutputsHandler.post() で全セル出力クリアを行う。
 ハンドラーの処理ロジックを直接インポートしてモックでテストする。
 
@@ -48,15 +48,9 @@ if "custom_api.base" not in sys.modules:
     _base_mock.WORKSPACE_PATH_PREFIX = "workspaces/sample"
     _base_mock.JUPYTER_ROOT_DIR = "/home/jovyan/work"
     _base_mock.validate_kernel_name = lambda *a, **kw: None
+    _base_mock.validate_path = lambda path, *a, **kw: path
+    _base_mock._apply_lock_token = lambda handler: None
     sys.modules["custom_api.base"] = _base_mock
-
-# ai_events モジュールのモック
-if "custom_api.ai_events" not in sys.modules:
-    _ai_events_mock = _types.ModuleType("custom_api.ai_events")
-    _ai_events_mock.__package__ = "custom_api"
-    _ai_events_mock.AiEventsWebSocketHandler = type("AiEventsWebSocketHandler", (), {})
-    _ai_events_mock.AiEventsPostHandler = type("AiEventsPostHandler", (), {})
-    sys.modules["custom_api.ai_events"] = _ai_events_mock
 
 # code_validator モジュール（実際にロード — 純粋関数のため）
 if "custom_api.code_validator" not in sys.modules:
@@ -76,45 +70,19 @@ if "custom_api.kernel_executor" not in sys.modules:
     _ke_mock.KernelExecutor = MagicMock
     sys.modules["custom_api.kernel_executor"] = _ke_mock
 
-# session_handlers モジュールのモック
-if "custom_api.session_handlers" not in sys.modules:
-    _sh_mock = _types.ModuleType("custom_api.session_handlers")
-    _sh_mock.__package__ = "custom_api"
-    _sh_mock.CustomSessionsHandler = type("CustomSessionsHandler", (), {})
-    _sh_mock.get_kernel_workspace = lambda *a: None
-    _sh_mock.unregister_kernel = lambda *a: None
-    sys.modules["custom_api.session_handlers"] = _sh_mock
-
-# sql_handlers モジュールのモック
-if "custom_api.sql_handlers" not in sys.modules:
-    _sql_mock = _types.ModuleType("custom_api.sql_handlers")
-    _sql_mock.__package__ = "custom_api"
-    _sql_mock.SqlExecuteHandler = type("SqlExecuteHandler", (), {})
-    _sql_mock.SqlExportHandler = type("SqlExportHandler", (), {})
-    sys.modules["custom_api.sql_handlers"] = _sql_mock
-
-# workspace_handlers モジュールのモック
-if "custom_api.workspace_handlers" not in sys.modules:
-    _wh_mock = _types.ModuleType("custom_api.workspace_handlers")
-    _wh_mock.__package__ = "custom_api"
-    _wh_mock.WorkspaceHandler = type("WorkspaceHandler", (), {})
-    _wh_mock.WorkspacesHandler = type("WorkspacesHandler", (), {})
-    _wh_mock.WorkspaceSummarizeHandler = type("WorkspaceSummarizeHandler", (), {})
-    sys.modules["custom_api.workspace_handlers"] = _wh_mock
-
-# --- 3. handlers モジュールをロード ---
-_module_path = _ext_dir / "custom_api" / "handlers.py"
-_handlers_spec = importlib.util.spec_from_file_location(
-    "custom_api.handlers",
+# --- 3. cell_handlers モジュールをロード ---
+_module_path = _ext_dir / "custom_api" / "cell_handlers.py"
+_cell_handlers_spec = importlib.util.spec_from_file_location(
+    "custom_api.cell_handlers",
     _module_path,
     submodule_search_locations=[],
 )
-_handlers = importlib.util.module_from_spec(_handlers_spec)
-_handlers.__package__ = "custom_api"
-sys.modules["custom_api.handlers"] = _handlers
-_handlers_spec.loader.exec_module(_handlers)
+_cell_handlers = importlib.util.module_from_spec(_cell_handlers_spec)
+_cell_handlers.__package__ = "custom_api"
+sys.modules["custom_api.cell_handlers"] = _cell_handlers
+_cell_handlers_spec.loader.exec_module(_cell_handlers)
 
-ContentsCellsHandler = _handlers.ContentsCellsHandler
+ContentsCellsHandler = _cell_handlers.ContentsCellsHandler
 
 
 # ============================================================
@@ -160,7 +128,7 @@ async def _call_patch(handler, path, body):
 
 def _make_clear_all_handler(cells: list[dict], path: str = "workspaces/sample/ws-001/test.ipynb"):
     """ContentsCellsClearAllOutputsHandler のモックを作成し、post() を呼べるようにする"""
-    ContentsCellsClearAllOutputsHandler = _handlers.ContentsCellsClearAllOutputsHandler
+    ContentsCellsClearAllOutputsHandler = _cell_handlers.ContentsCellsClearAllOutputsHandler
     handler = MagicMock(spec=ContentsCellsClearAllOutputsHandler)
 
     model = {
