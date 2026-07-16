@@ -100,18 +100,20 @@ def _setup_workspace_sandbox():
     _orig_rename = _os.rename
     _orig_replace = _os.replace
 
+    def _check_rename_paths(src, dst):
+        src_str = _os.fsdecode(src) if isinstance(src, bytes) else str(src)
+        dst_str = _os.fsdecode(dst) if isinstance(dst, bytes) else str(dst)
+        if _is_denied(src_str):
+            _deny(src_str)
+        if _is_denied(dst_str):
+            _deny(dst_str)
+
     def _sandbox_rename(src, dst):
-        if _is_denied(str(src)):
-            _deny(src)
-        if _is_denied(str(dst)):
-            _deny(dst)
+        _check_rename_paths(src, dst)
         return _orig_rename(src, dst)
 
     def _sandbox_replace(src, dst):
-        if _is_denied(str(src)):
-            _deny(src)
-        if _is_denied(str(dst)):
-            _deny(dst)
+        _check_rename_paths(src, dst)
         return _orig_replace(src, dst)
 
     _b.open = _sandbox_open

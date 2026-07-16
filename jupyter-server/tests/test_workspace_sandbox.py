@@ -294,3 +294,19 @@ class TestFileRenameBlocked:
         dst = str(self.other_ws / "target.txt")
         with pytest.raises(PermissionError, match="another workspace"):
             os.replace(src, dst)
+
+    def test_replace_from_other_workspace_blocked(self):
+        """他 WS から自 WS への replace は PermissionError"""
+        src = str(self.other_ws / "target.txt")
+        dst = str(self.ws_dir / "replaced.txt")
+        with pytest.raises(PermissionError, match="another workspace"):
+            os.replace(src, dst)
+
+    def test_replace_within_workspace_allowed(self):
+        """自 WS 内の replace は成功する"""
+        (self.ws_dir / "dest.txt").write_text("old data")
+        src = str(self.ws_dir / "source.txt")
+        dst = str(self.ws_dir / "dest.txt")
+        os.replace(src, dst)
+        assert os.path.exists(dst)
+        assert not os.path.exists(src)
