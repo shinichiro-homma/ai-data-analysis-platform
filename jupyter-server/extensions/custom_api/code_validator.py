@@ -83,6 +83,7 @@ ALLOWED_OS_ATTRIBUTES = {
     "sep",
     "linesep",
     "getcwd",
+    "chdir",
     "listdir",
     "stat",
     "fspath",
@@ -90,17 +91,6 @@ ALLOWED_OS_ATTRIBUTES = {
     "environ",
 }
 
-# os モジュールの危険な関数（前方一致で検出）
-BLOCKED_OS_FUNCTIONS = {
-    "system",
-    "popen",
-    "remove",
-    "unlink",
-    "rmdir",
-}
-
-# os.exec*, os.spawn* は前方一致で検出
-BLOCKED_OS_PREFIXES = ("exec", "spawn")
 
 # 危険な組み込み関数
 BLOCKED_BUILTINS = {"eval", "exec", "__import__", "getattr", "setattr", "compile", "globals", "locals", "vars"}
@@ -135,11 +125,6 @@ def _get_top_module(name: str) -> str:
 def _block_result(error: str, blocked_item: str) -> CodeValidationResult:
     """ブロック結果を生成するヘルパー関数"""
     return CodeValidationResult(valid=False, error=error, blocked_item=blocked_item)
-
-
-def _is_blocked_os_attr(attr: str) -> bool:
-    """os モジュールの危険な属性かどうかを判定する共通関数"""
-    return attr in BLOCKED_OS_FUNCTIONS or any(attr.startswith(prefix) for prefix in BLOCKED_OS_PREFIXES)
 
 
 def _check_import(node: ast.Import) -> CodeValidationResult | None:
@@ -216,9 +201,8 @@ def _check_attribute(node: ast.Attribute) -> CodeValidationResult | None:
     if attr in BLOCKED_DUNDER_ATTRS:
         return _block_result(f"Blocked attribute access: {attr}", attr)
 
-    # os.system, os.popen, os.exec*, os.spawn*, os.remove, os.unlink, os.rmdir の検出
-    # 値が ast.Name で 'os' の場合
-    if isinstance(node.value, ast.Name) and node.value.id == "os" and _is_blocked_os_attr(attr):
+    # os 属性のホワイトリスト検査: 許可リスト外の属性アクセスをブロック
+    if isinstance(node.value, ast.Name) and node.value.id == "os" and attr not in ALLOWED_OS_ATTRIBUTES:
         return _block_result(f"Blocked os function: os.{attr}", f"os.{attr}")
 
     return None

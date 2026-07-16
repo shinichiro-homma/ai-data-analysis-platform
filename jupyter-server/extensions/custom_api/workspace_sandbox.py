@@ -97,8 +97,29 @@ def _setup_workspace_sandbox():
             _deny(path)
         return _orig_chdir(path)
 
+    _orig_rename = _os.rename
+    _orig_replace = _os.replace
+
+    def _check_rename_paths(src, dst):
+        src_str = _os.fsdecode(src) if isinstance(src, bytes) else str(src)
+        dst_str = _os.fsdecode(dst) if isinstance(dst, bytes) else str(dst)
+        if _is_denied(src_str):
+            _deny(src_str)
+        if _is_denied(dst_str):
+            _deny(dst_str)
+
+    def _sandbox_rename(src, dst):
+        _check_rename_paths(src, dst)
+        return _orig_rename(src, dst)
+
+    def _sandbox_replace(src, dst):
+        _check_rename_paths(src, dst)
+        return _orig_replace(src, dst)
+
     _b.open = _sandbox_open
     _os.chdir = _sandbox_chdir
+    _os.rename = _sandbox_rename
+    _os.replace = _sandbox_replace
 
     # globals() はカーネルの user_ns を返す。builtins パッチが効かない環境でも
     # user_ns の 'open' がビルトイン検索より先に参照されるため、確実に制限できる
