@@ -83,6 +83,7 @@ ALLOWED_OS_ATTRIBUTES = {
     "sep",
     "linesep",
     "getcwd",
+    "chdir",
     "listdir",
     "stat",
     "fspath",
