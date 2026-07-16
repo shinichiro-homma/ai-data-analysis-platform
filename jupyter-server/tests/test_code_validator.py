@@ -344,6 +344,21 @@ class TestBlockedOsFunctions:
         assert result.valid is False
         assert result.error is not None
 
+    def test_os_rename(self):
+        result = validate_code("import os\nos.rename('old.txt', 'new.txt')")
+        assert result.valid is False
+        assert result.error is not None
+
+    def test_os_replace(self):
+        result = validate_code("import os\nos.replace('old.txt', 'new.txt')")
+        assert result.valid is False
+        assert result.error is not None
+
+    def test_from_os_import_rename(self):
+        result = validate_code("from os import rename")
+        assert result.valid is False
+        assert result.error is not None
+
 
 # ============================================================
 # 異常系: 危険パターン

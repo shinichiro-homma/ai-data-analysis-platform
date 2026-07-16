@@ -248,3 +248,49 @@ class TestWorkspaceFileAccessRegression:
         """他のワークスペースへの chdir は PermissionError"""
         with pytest.raises(PermissionError, match="another workspace"):
             os.chdir(str(self.other_ws))
+
+
+class TestFileRenameBlocked:
+    """os.rename / os.replace のワークスペース境界チェック"""
+
+    @pytest.fixture(autouse=True)
+    def setup_sandbox(self, tmp_path):
+        ws_root = tmp_path / "workspaces"
+        self.ws_dir = ws_root / "ws-001"
+        self.other_ws = ws_root / "ws-002"
+        self.ws_dir.mkdir(parents=True)
+        self.other_ws.mkdir(parents=True)
+        # 自ワークスペースにファイルを作成
+        (self.ws_dir / "source.txt").write_text("source data")
+        # 他ワークスペースにファイルを作成
+        (self.other_ws / "target.txt").write_text("target data")
+        self.ns = _exec_sandbox(str(self.ws_dir), "ws-001")
+
+    def test_rename_to_other_workspace_blocked(self):
+        """自 WS から他 WS への rename は PermissionError"""
+        src = str(self.ws_dir / "source.txt")
+        dst = str(self.other_ws / "moved.txt")
+        with pytest.raises(PermissionError, match="another workspace"):
+            os.rename(src, dst)
+
+    def test_rename_from_other_workspace_blocked(self):
+        """他 WS から自 WS への rename は PermissionError"""
+        src = str(self.other_ws / "target.txt")
+        dst = str(self.ws_dir / "moved.txt")
+        with pytest.raises(PermissionError, match="another workspace"):
+            os.rename(src, dst)
+
+    def test_rename_within_workspace_allowed(self):
+        """自 WS 内の rename は成功する"""
+        src = str(self.ws_dir / "source.txt")
+        dst = str(self.ws_dir / "renamed.txt")
+        os.rename(src, dst)
+        assert os.path.exists(dst)
+        assert not os.path.exists(src)
+
+    def test_replace_to_other_workspace_blocked(self):
+        """自 WS から他 WS への replace は PermissionError"""
+        src = str(self.ws_dir / "source.txt")
+        dst = str(self.other_ws / "target.txt")
+        with pytest.raises(PermissionError, match="another workspace"):
+            os.replace(src, dst)
