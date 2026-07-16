@@ -1,7 +1,8 @@
 """ContentsCellExecuteBatchHandler のユニットテスト
 
-handlers.py の ContentsCellExecuteBatchHandler は Tornado/Jupyter の重い依存を持つため、
+cell_handlers.py の ContentsCellExecuteBatchHandler は Tornado/Jupyter の重い依存を持つため、
 ハンドラーの処理ロジックを直接インポートしてモックでテストする。
+handlers.py の get_handlers() によるルート登録もテストする。
 
 テスト対象のハンドラがまだ存在しないため（TDD Red フェーズ）、
 ハンドラの存在確認と純粋関数部分のテストを行う。
@@ -46,6 +47,21 @@ if "custom_api.base" not in sys.modules:
     _base_mock.WORKSPACE_PATH_PREFIX = "workspaces/sample"
     _base_mock.JUPYTER_ROOT_DIR = "/home/jovyan/work"
     _base_mock.validate_kernel_name = lambda *a, **kw: None
+    _base_mock._apply_lock_token = lambda handler: None
+
+    def _real_validate_path(user_input, base_dir="/home/jovyan/work"):
+        if not user_input:
+            return ""
+        clean_path = user_input.lstrip("/")
+        base = Path(base_dir).resolve()
+        target = (base / clean_path).resolve()
+        try:
+            target.relative_to(base)
+        except ValueError:
+            raise ValueError(f"不正なパスです: {user_input}") from None
+        return clean_path
+
+    _base_mock.validate_path = _real_validate_path
     sys.modules["custom_api.base"] = _base_mock
 
 # ai_events モジュールのモック
@@ -89,6 +105,7 @@ if "custom_api.sql_handlers" not in sys.modules:
     _sql_mock.__package__ = "custom_api"
     _sql_mock.SqlExecuteHandler = type("SqlExecuteHandler", (), {})
     _sql_mock.SqlExportHandler = type("SqlExportHandler", (), {})
+    _sql_mock.shutdown_engines = lambda: None
     sys.modules["custom_api.sql_handlers"] = _sql_mock
 
 # workspace_handlers モジュールのモック
@@ -100,7 +117,19 @@ if "custom_api.workspace_handlers" not in sys.modules:
     _wh_mock.WorkspaceSummarizeHandler = type("WorkspaceSummarizeHandler", (), {})
     sys.modules["custom_api.workspace_handlers"] = _wh_mock
 
-# --- 3. handlers モジュールをロード ---
+# --- 3. cell_handlers モジュールをロード（handlers.py が import 時に解決できるよう先に登録） ---
+_cell_module_path = _ext_dir / "custom_api" / "cell_handlers.py"
+_cell_handlers_spec = importlib.util.spec_from_file_location(
+    "custom_api.cell_handlers",
+    _cell_module_path,
+    submodule_search_locations=[],
+)
+_cell_handlers = importlib.util.module_from_spec(_cell_handlers_spec)
+_cell_handlers.__package__ = "custom_api"
+sys.modules["custom_api.cell_handlers"] = _cell_handlers
+_cell_handlers_spec.loader.exec_module(_cell_handlers)
+
+# --- 4. handlers モジュールをロード（get_handlers のルート登録テスト用） ---
 _module_path = _ext_dir / "custom_api" / "handlers.py"
 _handlers_spec = importlib.util.spec_from_file_location(
     "custom_api.handlers",
@@ -113,7 +142,7 @@ sys.modules["custom_api.handlers"] = _handlers
 _handlers_spec.loader.exec_module(_handlers)
 
 get_handlers = _handlers.get_handlers
-validate_path = _handlers.validate_path
+validate_path = _cell_handlers.validate_path
 
 
 # ============================================================
@@ -125,9 +154,9 @@ class TestContentsCellExecuteBatchHandlerExists:
     """ContentsCellExecuteBatchHandler がハンドラーモジュールに存在することを確認する"""
 
     def test_handler_class_exists(self):
-        """ContentsCellExecuteBatchHandler クラスが handlers.py に定義されている"""
-        assert hasattr(_handlers, "ContentsCellExecuteBatchHandler"), (
-            "ContentsCellExecuteBatchHandler が handlers.py に定義されていません"
+        """ContentsCellExecuteBatchHandler クラスが cell_handlers.py に定義されている"""
+        assert hasattr(_cell_handlers, "ContentsCellExecuteBatchHandler"), (
+            "ContentsCellExecuteBatchHandler が cell_handlers.py に定義されていません"
         )
 
     def test_handler_registered_in_get_handlers(self):

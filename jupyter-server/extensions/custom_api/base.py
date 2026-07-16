@@ -148,3 +148,57 @@ class BaseCustomHandler(APIHandler):
     def contents_manager(self):
         """コンテンツマネージャーを取得"""
         return self.settings["contents_manager"]
+
+
+# =============================================================================
+# 共有ヘルパー関数
+# =============================================================================
+
+
+def validate_path(user_input: str, base_dir: str = JUPYTER_ROOT_DIR) -> str:
+    """
+    パストラバーサル攻撃を防ぐためのパス検証
+
+    Args:
+        user_input: ユーザーからの入力パス
+        base_dir: ベースディレクトリ
+
+    Returns:
+        検証済みの相対パス
+
+    Raises:
+        ValueError: 不正なパスの場合
+    """
+    if not user_input:
+        return ""
+
+    # 先頭の / を削除（相対パスとして扱う）
+    clean_path = user_input.lstrip("/")
+
+    # 絶対パス化して検証
+    base = Path(base_dir).resolve()
+    target = (base / clean_path).resolve()
+
+    # ベースディレクトリ配下にあることを確認
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise ValueError(f"不正なパスです: {user_input}") from None
+
+    return clean_path
+
+
+def _apply_lock_token(handler) -> None:
+    """X-Lock-Token ヘッダーをロックトークン ContextVar に設定する。
+
+    contents_manager.save のラップ（_wrap_contents_save）が、この ContextVar と
+    ロックストアのトークンを照合してロック中ノートブックへの書き込み可否を判定する。
+    書き込み系ハンドラーの冒頭で呼ぶこと。request が存在しない（テストのモック等）場合は
+    トークンを None に設定する。
+    """
+    from . import notebook_locks
+
+    request = getattr(handler, "request", None)
+    headers = getattr(request, "headers", None)
+    token = headers.get("X-Lock-Token") if headers is not None else None
+    notebook_locks.lock_token_ctx.set(token)

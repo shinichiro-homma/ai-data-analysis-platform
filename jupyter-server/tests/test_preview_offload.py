@@ -15,7 +15,6 @@ import inspect
 import sys
 import types as _types
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -206,44 +205,12 @@ _pd_mock.DataFrame = _MockDataFrame
 base_mod = _load_module("custom_api.base", "base.py")
 
 
-# 4. handlers.py がインポートするサブモジュールのモック
-def _ensure_ca(name, **attrs):
-    return _ensure_mock_module(f"custom_api.{name}", __package__="custom_api", **attrs)
+# 4. preview_handlers.py のロード
+preview_mod = _load_module("custom_api.preview_handlers", "preview_handlers.py")
 
-
-_ensure_ca(
-    "ai_events",
-    AiEventsPostHandler=type("AiEventsPostHandler", (), {}),
-    AiEventsWebSocketHandler=type("AiEventsWebSocketHandler", (), {}),
-)
-_ensure_ca("code_validator", validate_code=lambda *a, **kw: None)
-_ensure_ca("kernel_executor", KernelExecutor=type("KernelExecutor", (), {}))
-_ensure_ca("lock_handlers", NotebookLocksHandler=type("NotebookLocksHandler", (), {}))
-_ensure_ca(
-    "session_handlers",
-    CustomSessionsHandler=type("CustomSessionsHandler", (), {}),
-    get_kernel_workspace=lambda *a, **kw: None,
-    unregister_kernel=lambda *a, **kw: None,
-)
-_ensure_ca(
-    "sql_handlers",
-    SqlExecuteHandler=type("SqlExecuteHandler", (), {}),
-    SqlExportHandler=type("SqlExportHandler", (), {}),
-)
-_ensure_ca(
-    "workspace_handlers",
-    WorkspaceHandler=type("WorkspaceHandler", (), {}),
-    WorkspacesHandler=type("WorkspacesHandler", (), {}),
-    WorkspaceSummarizeHandler=type("WorkspaceSummarizeHandler", (), {}),
-)
-_ensure_ca("notebook_locks", lock_token_ctx=MagicMock())
-
-# 5. handlers.py のロード
-handlers_mod = _load_module("custom_api.handlers", "handlers.py")
-
-ContentsPreviewHandler = handlers_mod.ContentsPreviewHandler
+ContentsPreviewHandler = preview_mod.ContentsPreviewHandler
 # _preview_file_sync は未実装なので getattr でフォールバック
-_preview_file_sync = getattr(handlers_mod, "_preview_file_sync", None)
+_preview_file_sync = getattr(preview_mod, "_preview_file_sync", None)
 
 
 # =============================================================================
