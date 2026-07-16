@@ -33,20 +33,15 @@ interface ExecuteCodeResponse {
 }
 
 /**
- * カーネルをクラッシュさせる（os._exit(1) を実行する）
+ * カーネルを再起動してクラッシュからの復旧をシミュレートする
  *
- * @param sessionId クラッシュさせるセッションID
+ * code_validator のホワイトリストにより os._exit() は実行できないため、
+ * Jupyter REST API 経由でカーネルを再起動する。
+ *
+ * @param kernelId 再起動するカーネルID
  */
-async function crashKernel(sessionId: string): Promise<void> {
-  try {
-    await handleToolCall('execute_code', {
-      session_id: sessionId,
-      code: 'import os; os._exit(1)',
-      timeout: 10,
-    });
-  } catch {
-    // クラッシュによるエラーは無視
-  }
+async function crashKernel(kernelId: string): Promise<void> {
+  await jupyterClient.restartKernel(kernelId);
 }
 
 /**
@@ -127,7 +122,7 @@ describe('カーネル自動復旧の結合テスト', () => {
     const { sessionId, kernelId } = await createTestSession('crash-and-recover');
 
     // カーネルをクラッシュさせる
-    await crashKernel(sessionId);
+    await crashKernel(kernelId);
 
     // カーネルの自動復旧を待機
     await waitForKernelRecovery(kernelId);
@@ -157,7 +152,7 @@ describe('カーネル自動復旧の結合テスト', () => {
     expect(defineData.success).toBe(true);
 
     // カーネルをクラッシュさせる
-    await crashKernel(sessionId);
+    await crashKernel(kernelId);
 
     // カーネルの自動復旧を待機
     await waitForKernelRecovery(kernelId);
@@ -190,7 +185,7 @@ describe('カーネル自動復旧の結合テスト', () => {
     createdWorkspaceIds.push(otherWorkspaceId);
 
     // カーネルをクラッシュさせる
-    await crashKernel(sessionId);
+    await crashKernel(kernelId);
 
     // カーネルの自動復旧を待機
     await waitForKernelRecovery(kernelId);
