@@ -209,6 +209,7 @@ jobs:
         working-directory: jupyterlab-ai-sync
         run: |
           npm ci
+          npm test
           uv run --project .. npm run build
 
       - name: Skip (docs-only change)
