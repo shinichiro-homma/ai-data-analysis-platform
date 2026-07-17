@@ -155,6 +155,28 @@ class BaseCustomHandler(APIHandler):
 # =============================================================================
 
 
+def _build_timeout_error_result(timeout: int, execution_time_ms: int) -> dict:
+    """タイムアウトエラーの結果 dict を生成する共通ヘルパー。
+
+    Args:
+        timeout: タイムアウト秒数
+        execution_time_ms: 実行経過時間（ミリ秒）
+
+    Returns:
+        タイムアウトエラーを表す結果 dict
+    """
+    return {
+        "success": False,
+        "execution_count": 0,
+        "error": {
+            "type": "TimeoutError",
+            "message": f"Execution timed out after {timeout} seconds",
+            "traceback": [],
+        },
+        "execution_time_ms": execution_time_ms,
+    }
+
+
 def validate_path(user_input: str, base_dir: str = JUPYTER_ROOT_DIR) -> str:
     """
     パストラバーサル攻撃を防ぐためのパス検証

@@ -319,6 +319,26 @@ def _handle_sql_error(handler, e, timeout: int, timeout_error_code: str, generic
         )
 
 
+def _require_database_url(handler) -> str | None:
+    """DATABASE_URL 環境変数を取得し、未設定なら handler にエラー応答して None を返す。
+
+    Args:
+        handler: BaseCustomHandler インスタンス
+
+    Returns:
+        DATABASE_URL の値。未設定時は None（handler にエラー応答済み）
+    """
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        handler.write_error_response(
+            "DATABASE_NOT_CONFIGURED",
+            "DATABASE_URL is not configured",
+            500,
+        )
+        return None
+    return database_url
+
+
 def _normalize_parquet_schema(schema: pa.Schema) -> pa.Schema:
     """decimal128 を float64 に正規化したスキーマを返す。
 
@@ -579,13 +599,8 @@ class SqlExecuteHandler(BaseCustomHandler):
             return
 
         # --- 3. DATABASE_URL 確認 ---
-        database_url = os.environ.get("DATABASE_URL")
-        if not database_url:
-            self.write_error_response(
-                "DATABASE_NOT_CONFIGURED",
-                "DATABASE_URL is not configured",
-                400,
-            )
+        database_url = _require_database_url(self)
+        if database_url is None:
             return
 
         # --- 4. timeout バリデーション（共通） ---
@@ -754,13 +769,8 @@ class SqlExportHandler(BaseCustomHandler):
             return
 
         # --- 2. DATABASE_URL 確認 ---
-        database_url = os.environ.get("DATABASE_URL")
-        if not database_url:
-            self.write_error_response(
-                "DATABASE_NOT_CONFIGURED",
-                "DATABASE_URL is not configured",
-                500,
-            )
+        database_url = _require_database_url(self)
+        if database_url is None:
             return
 
         # --- 3. workspace_id バリデーション ---

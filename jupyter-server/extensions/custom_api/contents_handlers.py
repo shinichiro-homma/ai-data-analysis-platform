@@ -113,26 +113,37 @@ class ContentsListHandler(BaseCustomHandler):
     async def post(self):
         """ノートブックまたはファイルを作成"""
         body = self.get_json_body()
-        content_type = body.get("type", "notebook")
-        target_path = body.get("path", "")
+        await _create_content_response(self, body, path_default="")
 
-        try:
-            # パストラバーサル対策
-            target_path = validate_path(target_path)
-            # 既存ファイルとの重複を避ける自動連番
-            target_path = await _find_available_path(self.contents_manager, target_path)
-            model = await _create_content(self.contents_manager, target_path, content_type)
 
-            self.write_success(
-                {
-                    "path": "/" + model["path"],
-                    "type": model["type"],
-                    "created_at": model.get("created") or model.get("last_modified"),
-                }
-            )
-        except Exception as e:
-            log.error("Failed to create content: %s", e, exc_info=True)
-            self.write_error_response("INTERNAL_ERROR", "Failed to create content", 500)
+async def _create_content_response(handler, body: dict, path_default: str = "") -> None:
+    """ContentsListHandler.post / ContentsHandler.post の共通ヘルパー。
+
+    Args:
+        handler: BaseCustomHandler インスタンス
+        body: リクエストボディ dict
+        path_default: body に path が含まれない場合のデフォルト値
+    """
+    content_type = body.get("type", "notebook")
+    target_path = body.get("path", path_default)
+
+    try:
+        # パストラバーサル対策
+        target_path = validate_path(target_path)
+        # 既存ファイルとの重複を避ける自動連番
+        target_path = await _find_available_path(handler.contents_manager, target_path)
+        model = await _create_content(handler.contents_manager, target_path, content_type)
+
+        handler.write_success(
+            {
+                "path": "/" + model["path"],
+                "type": model["type"],
+                "created_at": model.get("created") or model.get("last_modified"),
+            }
+        )
+    except Exception as e:
+        log.error("Failed to create content: %s", e, exc_info=True)
+        handler.write_error_response("INTERNAL_ERROR", "Failed to create content", 500)
 
 
 class ContentsHandler(BaseCustomHandler):
@@ -173,26 +184,7 @@ class ContentsHandler(BaseCustomHandler):
     async def post(self, path: str = ""):
         """ノートブックまたはファイルを作成"""
         body = self.get_json_body()
-        content_type = body.get("type", "notebook")
-        target_path = body.get("path", path)
-
-        try:
-            # パストラバーサル対策
-            target_path = validate_path(target_path)
-            # 既存ファイルとの重複を避ける自動連番
-            target_path = await _find_available_path(self.contents_manager, target_path)
-            model = await _create_content(self.contents_manager, target_path, content_type)
-
-            self.write_success(
-                {
-                    "path": "/" + model["path"],
-                    "type": model["type"],
-                    "created_at": model.get("created") or model.get("last_modified"),
-                }
-            )
-        except Exception as e:
-            log.error("Failed to create content: %s", e, exc_info=True)
-            self.write_error_response("INTERNAL_ERROR", "Failed to create content", 500)
+        await _create_content_response(self, body, path_default=path)
 
     @web.authenticated
     async def put(self, path: str):

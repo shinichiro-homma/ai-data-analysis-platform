@@ -23,6 +23,11 @@ def get_seq(path: str) -> int:
     return _seq_store.get(path, 0)
 
 
+def remove_path(path: str) -> None:
+    """指定パスの seq エントリを削除する。未知パスは何もしない。"""
+    _seq_store.pop(path, None)
+
+
 def get_all() -> dict[str, int]:
     """全パスの seq dict を返す。"""
     return dict(_seq_store)
