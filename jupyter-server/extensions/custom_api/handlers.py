@@ -15,6 +15,7 @@ from tornado import web
 from .ai_events import AiEventsPostHandler, AiEventsWebSocketHandler
 from .base import (
     BaseCustomHandler,
+    _build_timeout_error_result,
     validate_kernel_name,
     validate_timeout,
 )
@@ -258,18 +259,7 @@ class KernelExecuteHandler(BaseCustomHandler):
             self.write_success(result)
         except TimeoutError:
             execution_time_ms = int((time.time() - start_time) * 1000)
-            self.write_success(
-                {
-                    "success": False,
-                    "execution_count": 0,
-                    "error": {
-                        "type": "TimeoutError",
-                        "message": f"Execution timed out after {timeout} seconds",
-                        "traceback": [],
-                    },
-                    "execution_time_ms": execution_time_ms,
-                }
-            )
+            self.write_success(_build_timeout_error_result(timeout, execution_time_ms))
         except Exception as e:
             execution_time_ms = int((time.time() - start_time) * 1000)
             log.error("Execution error in kernel %s: %s", kernel_id, e, exc_info=True)

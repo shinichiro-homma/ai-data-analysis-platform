@@ -19,6 +19,7 @@ from .base import (
     WORKSPACE_ROOT_DIR,
     BaseCustomHandler,
     _apply_lock_token,
+    _build_timeout_error_result,
     resolve_workspace_dir,
     validate_path,
     validate_timeout,
@@ -63,8 +64,11 @@ async def resolve_workspace_for_kernel(handler: BaseCustomHandler, kernel_id: st
                     if match:
                         workspace_id = match.group(1)
                     break
-        except Exception:
-            log.debug("Failed to list sessions for workspace resolution", exc_info=True)
+        except Exception as exc:
+            if isinstance(exc, ValueError):
+                log.info("Failed to list sessions for workspace resolution", exc_info=True)
+            else:
+                log.warning("Failed to list sessions for workspace resolution", exc_info=True)
 
     # 2. kernel_id → workspace_id マッピングから検索
     if workspace_id is None:
@@ -84,8 +88,11 @@ async def resolve_workspace_for_kernel(handler: BaseCustomHandler, kernel_id: st
                 rel = Path(cwd).resolve().relative_to(workspace_root)
                 if rel.parts:
                     workspace_id = str(rel.parts[0])
-        except Exception:
-            log.debug("Failed to resolve workspace from kernel cwd", exc_info=True)
+        except Exception as exc:
+            if isinstance(exc, ValueError):
+                log.info("Failed to resolve workspace from kernel cwd", exc_info=True)
+            else:
+                log.warning("Failed to resolve workspace from kernel cwd", exc_info=True)
 
     if workspace_id is None:
         return None, None
@@ -556,18 +563,7 @@ class ContentsCellExecuteHandler(BaseCustomHandler):
             execution_time_ms = int((time.time() - start_time) * 1000)
         except TimeoutError:
             execution_time_ms = int((time.time() - start_time) * 1000)
-            self.write_success(
-                {
-                    "success": False,
-                    "execution_count": 0,
-                    "error": {
-                        "type": "TimeoutError",
-                        "message": f"Execution timed out after {validated_timeout} seconds",
-                        "traceback": [],
-                    },
-                    "execution_time_ms": execution_time_ms,
-                }
-            )
+            self.write_success(_build_timeout_error_result(validated_timeout, execution_time_ms))
             return
         except Exception as e:
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -786,16 +782,12 @@ class ContentsCellExecuteBatchHandler(BaseCustomHandler):
                     workspace_rel_path=workspace_rel_path,
                 )
             except TimeoutError:
-                error_info = {
-                    "type": "TimeoutError",
-                    "message": f"Execution timed out after {validated_timeout} seconds",
-                    "traceback": [],
-                }
+                error_info = _build_timeout_error_result(validated_timeout, 0)["error"]
                 cells[i]["outputs"] = [
                     {
                         "output_type": "error",
                         "ename": "TimeoutError",
-                        "evalue": f"Execution timed out after {validated_timeout} seconds",
+                        "evalue": error_info["message"],
                         "traceback": [],
                     }
                 ]

@@ -2,7 +2,7 @@
 
 コード実行、セッション管理、SQL、画像、AI同期に関する Phase。
 
-完了した Phase 1〜22 は [archive/01-jupyter.md](archive/01-jupyter.md) を参照。
+完了した Phase 1〜23 は [archive/01-jupyter.md](archive/01-jupyter.md) を参照。
 
 ---
 
@@ -15,20 +15,5 @@
 | 20.1 | 環境変数 `EXECUTION_TIMEOUT` 対応 | [ ] | `EXECUTION_TIMEOUT=10` で起動し、10秒超のコード実行がタイムアウトする | 現在はAPIパラメータのデフォルト30秒をハードコード |
 | 20.2 | 環境変数 `MAX_OUTPUT_SIZE` 対応 | [ ] | `MAX_OUTPUT_SIZE` を小さく設定し、超過する出力が切り詰められる | NF1で1MB/実行と定義 |
 | 20.3 | 同時カーネル上限の強制 | [ ] | 上限（5カーネル）到達後の session_create がエラーになる | F1.1で定義、未実装 |
-
----
-
-## Phase 23: jupyter-server 堅牢化
-
-`tmp/refactor-notes.md` §4 で指摘された jupyter-server の構造問題を解消する。不変条件 I3（async コンテキストでブロッキング I/O をしない）・I6（並行アクセスの直列化）の既知違反の解消が目的。実施順は 23.1 → 23.2 → 23.3 → 23.4 → 23.5 → 23.6（23.2 と 23.4 は同じ handlers.py を触るため、23.4 の分割は 23.2 のオフロード完了後に行う）。各タスクの詳細計画は着手時に `/custom-plan-task` で個別に作成する。
-
-| # | タスク | ステータス | E2Eテスト | 備考 |
-|---|--------|-----------|-----------|------|
-| 23.1 | カーネル単位の実行直列化 | [x] | 同一カーネルへ 2 つのコード実行を並行リクエストしても、各レスポンスに他方の出力が混入しない（並行・異常系） | I6 違反の解消。`kernel_executor.py` の実行をカーネル単位で直列化 |
-| 23.2 | 同期 I/O のイベントループ外オフロード | [x] | 大きな CSV のプレビュー処理中も他の API リクエストが応答する（並行・異常系） | I3 違反の解消。`handlers.py` の preview・`workspace_handlers.py` の同期 I/O を run_in_executor へ |
-| 23.3 | SQL エンジンのプール化とタイムアウト後の接続解放 | [x] | 連続 SQL 実行で DB 接続数が増え続けない。クエリタイムアウト後も後続クエリが成功する（タイムアウト・異常系） | リクエストごとの create_engine + dispose を廃止しプール共有。wait_for 残置スレッドによるプール枯渇対策を含む |
-| 23.4 | handlers.py の分割 | [x] | 既存テストが全件成功し、分割後の各ハンドラファイルが肥大していない（行数検証コマンドは詳細計画で確定） | 1,515 行のモノリスを cell_actions / contents / preview に分割。挙動を変えない純リファクタ |
-| 23.5 | sandbox の os ホワイトリスト統一 | [x] | `os.rename` / `shutil.move` によるワークスペース外へのファイル移動が拒否される（不正入力・異常系） | `workspace_sandbox.py` / `code_validator.py` の os 関数をブロックリストからホワイトリスト方式へ統一 |
-| 23.6 | 軽微な負債の解消 | [ ] | DATABASE_URL 未設定時のエラーステータスが実行系・エクスポート系で一致する | §4-6/7: except 握りつぶし・Contents POST 重複・タイムアウトエラー組み立て3重複・`sync_state.py` `_seq_store` 残置エントリの掃除 |
 
 

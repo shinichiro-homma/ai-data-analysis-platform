@@ -82,6 +82,28 @@ def _wrap_contents_save(original_save):
     return wrapper
 
 
+def _wrap_contents_delete(original_delete):
+    """contents_manager.delete をラップし、.ipynb 削除成功後に sync_state.remove_path を呼ぶ。
+
+    削除されたノートブックの seq エントリが _seq_store に残り続けるのを防ぐ。
+    検査対象は .ipynb パスに限定し、それ以外（データファイル等）は貫通させる。
+    """
+
+    @functools.wraps(original_delete)
+    async def wrapper(path, *args, **kwargs):
+        result = await original_delete(path, *args, **kwargs)
+        if isinstance(path, str) and path.endswith(".ipynb"):
+            try:
+                from .sync_state import remove_path
+
+                remove_path(path)
+            except Exception:
+                log.error("Failed to remove_path for %s", path, exc_info=True)
+        return result
+
+    return wrapper
+
+
 async def _lock_sweeper_loop() -> None:
     """失効したロックを定期的に除去し、失効時に lock_released を配信する。"""
     from .ai_events import broadcast_event
@@ -261,6 +283,7 @@ def _load_jupyter_server_extension(server_app):
     # 標準 /api/contents 保存・カスタム API を含むすべての書き込みが通る単一チョークポイント。
     cm = server_app.contents_manager
     cm.save = _wrap_contents_save(cm.save)
+    cm.delete = _wrap_contents_delete(cm.delete)
 
     # ロック失効スイーパーを起動する（TTL 失効の根絶と lock_released 配信）。
     # タスクへの強参照を保持しないと GC に実行中タスクを回収され得るため、
