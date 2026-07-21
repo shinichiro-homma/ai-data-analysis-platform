@@ -315,7 +315,7 @@ for component in "${TARGETS[@]}"; do
       FAILED+=("$component:skip"); continue
     fi
     # jupyterlab-ai-sync は npm workspaces 非参加のため node_modules を個別管理する
-    if [[ ! -d "$component/node_modules" ]]; then
+    if [[ ! -d "$component/node_modules" ]] || [[ "$component/package-lock.json" -nt "$component/node_modules" ]]; then
       echo "  Installing npm dependencies..."
       (cd "$component" && npm install) \
         || { FAILED+=("$component:install"); echo "  FAILED: npm install"; continue; }
@@ -324,15 +324,22 @@ for component in "${TARGETS[@]}"; do
       echo "  Type checking..."
       (cd "$component" && npx tsc --noEmit) \
         || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck"; continue; }
+      echo "  Type checking (tests)..."
+      (cd "$component" && npx tsc --noEmit -p tsconfig.test.json) \
+        || { FAILED+=("$component:typecheck"); echo "  FAILED: typecheck (tests)"; continue; }
       echo "  Typecheck OK"
     fi
     if $TEST; then
       if $INTEGRATION; then
         echo "  SKIP: integration tests not supported for jupyterlab-ai-sync"
       else
+        echo "  Running unit tests..."
+        (cd "$component" && npm test) \
+          || { FAILED+=("$component:test"); echo "  FAILED: unit tests"; continue; }
+        echo "  Unit tests OK"
         echo "  Building labextension (uv run)..."
         (cd "$component" && uv run --project "$REPO_ROOT" npm run build) \
-          || { FAILED+=("$component:test"); echo "  FAILED: build"; continue; }
+          || { FAILED+=("$component:build"); echo "  FAILED: build"; continue; }
         echo "  Build OK"
       fi
     fi
