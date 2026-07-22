@@ -4,6 +4,7 @@
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { ReadonlyPartialJSONObject } from '@lumino/coreutils';
+import { ISharedNotebook } from '@jupyter/ydoc';
 import { LockIndicator } from './ui/lock-indicator';
 import { normalizeNotebookPath } from './path-utils';
 import { findNotebookByPath } from './notebook-finder';
@@ -90,7 +91,7 @@ export function createIsEnabledGuard(
 interface LockState {
   indicator: LockIndicator;
   cellChangedCallback?: () => void;
-  sharedModel?: { changed: { connect(cb: () => void): void; disconnect(cb: () => void): void } };
+  sharedModel?: ISharedNotebook;
   modeChangedDisposer?: () => void;
 }
 

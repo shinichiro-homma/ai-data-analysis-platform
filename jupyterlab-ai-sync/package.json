@@ -36,7 +36,9 @@
     "@jupyterlab/nbformat": "^4.0.0",
     "@jupyterlab/notebook": "^4.0.0",
     "@jupyterlab/services": "^7.0.0",
-    "@lumino/widgets": "^2.0.0"
+    "@jupyter/ydoc": "^3.0.0",
+    "@lumino/widgets": "^2.0.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^4.0.0",
