@@ -30,7 +30,7 @@ uv run jupyter labextension develop . --overwrite
 
 ## 受信イベント
 
-受信イベントの一覧・ペイロード型・ディスパッチは `src/notebook-updater.ts` が正（`handleEvent()` の `switch (event.type)` と各 `*Event` インターフェース定義）。基底の `AiEvent` 型と WebSocket 受信処理は `src/websocket-client.ts` を参照。機能要件との対応は [docs/requirements/jupyterlab-ai-sync.md](../docs/requirements/jupyterlab-ai-sync.md) を参照。
+受信イベントの一覧・ペイロード型・ディスパッチは `src/notebook-updater.ts` が正（`handleEvent()` の `switch (event.type)` と各 `*EventSchema`（zod）から推論される `*Event` 型）。基底の `AiEvent` 型と WebSocket 受信処理は `src/websocket-client.ts` を参照。機能要件との対応は [docs/requirements/jupyterlab-ai-sync.md](../docs/requirements/jupyterlab-ai-sync.md) を参照。
 
 ## 要件定義
 
