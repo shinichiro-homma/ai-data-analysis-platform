@@ -3,6 +3,7 @@
  */
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { JupyterFrontEnd } from '@jupyterlab/application';
+import { ReadonlyPartialJSONObject } from '@lumino/coreutils';
 import { LockIndicator } from './ui/lock-indicator';
 import { normalizeNotebookPath } from './path-utils';
 import { findNotebookByPath } from './notebook-finder';
@@ -11,20 +12,20 @@ import { findNotebookByPath } from './notebook-finder';
  * ロック中でもユーザー操作を許可するコマンド ID（allowlist）。
  *
  * ここに ID を追加すると、以下が自動的に適用される:
- * 1. installCommandBlocker が BLOCKED_COMMAND_IDS 判定をスキップし originalExecute に委譲する
+ * 1. isEnabled ガードが BLOCKED_COMMAND_IDS 判定をスキップし元の isEnabled に委譲する
  * 2. lockNotebook が notebook を command mode + container focus に維持し、
  *    exempt コマンドのキーボードショートカットが発火可能な UI 状態を保つ
  *
  * 将来的にロック対象外とする機能を追加する際は、このセットに ID を追加するだけで済む。
  */
-const LOCK_EXEMPT_COMMAND_IDS = new Set<string>(['notebook:interrupt-kernel', 'kernelmenu:interrupt']);
+export const LOCK_EXEMPT_COMMAND_IDS = new Set<string>(['notebook:interrupt-kernel', 'kernelmenu:interrupt']);
 
 /**
  * ロック中にブロックするコマンド ID セット。
  * カーネル中断（notebook:interrupt-kernel / kernelmenu:interrupt）は F3.3 の要件により含めない。
  * カーネル再起動はロック中に許可すべきでない（kernel 状態破壊と AI との競合を防ぐため）。
  */
-const BLOCKED_COMMAND_IDS = new Set<string>([
+export const BLOCKED_COMMAND_IDS = new Set<string>([
   // セル実行
   'notebook:run-cell',
   'notebook:run-cell-and-select-next',
@@ -64,9 +65,30 @@ const BLOCKED_COMMAND_IDS = new Set<string>([
   'notebook:change-cell-to-raw',
 ]);
 
+/**
+ * commands.isEnabled をラップするガード関数を生成する。
+ * ロック中のブロック対象コマンドに対して false を返し、それ以外は元の isEnabled に委譲する。
+ */
+export function createIsEnabledGuard(
+  isCurrentNotebookLocked: () => boolean,
+  originalIsEnabled: (id: string, args?: ReadonlyPartialJSONObject) => boolean,
+): (id: string, args?: ReadonlyPartialJSONObject) => boolean {
+  return (id: string, args?: ReadonlyPartialJSONObject): boolean => {
+    // exempt コマンドは常に元の isEnabled に委譲
+    if (LOCK_EXEMPT_COMMAND_IDS.has(id)) {
+      return originalIsEnabled(id, args);
+    }
+    // ブロック対象コマンドかつロック中は false を返す
+    if (BLOCKED_COMMAND_IDS.has(id) && isCurrentNotebookLocked()) {
+      return false;
+    }
+    // それ以外は元の isEnabled に委譲
+    return originalIsEnabled(id, args);
+  };
+}
+
 interface LockState {
   indicator: LockIndicator;
-  keydownHandler: (event: KeyboardEvent) => void;
   cellChangedCallback?: () => void;
   sharedModel?: { changed: { connect(cb: () => void): void; disconnect(cb: () => void): void } };
   modeChangedDisposer?: () => void;
@@ -74,13 +96,12 @@ interface LockState {
 
 export class LockManager {
   private lockedNotebooks: Map<string, LockState> = new Map();
-  private commandsWrapped = false;
 
   constructor(
     private notebookTracker: INotebookTracker,
     private app: JupyterFrontEnd,
   ) {
-    this.installCommandBlocker();
+    this.installIsEnabledGuard();
   }
 
   /**
@@ -103,17 +124,13 @@ export class LockManager {
     }
 
     try {
-      // セル実行ショートカットをブロック
-      const keydownHandler = this.createExecutionBlockHandler();
-      notebookPanel.node.addEventListener('keydown', keydownHandler, true);
-
       // ロックインジケータを表示
       const indicator = new LockIndicator();
       notebookPanel.toolbar.addItem('ai-lock-indicator', indicator);
 
       // ロック状態を記録（setNotebookReadOnly より先に設定する。
       // setNotebookReadOnly 内で cellChangedCallback を保存するために必要）
-      this.lockedNotebooks.set(normalizedPath, { indicator, keydownHandler });
+      this.lockedNotebooks.set(normalizedPath, { indicator });
 
       // セルエディタを read-only 化
       this.setNotebookReadOnly(notebookPanel, normalizedPath, true);
@@ -137,6 +154,9 @@ export class LockManager {
           notebookPanel.content.stateChanged.disconnect(onStateChanged);
         };
       }
+
+      // ロック状態の変更をコマンドシステムに通知し、isEnabled ガードを再評価させる
+      this.app.commands.notifyCommandChanged();
 
       console.log(`[LockManager] Notebook locked: ${normalizedPath}`);
     } catch (error) {
@@ -162,6 +182,7 @@ export class LockManager {
     if (!notebookPanel) {
       console.log(`[LockManager] Notebook not open (but was locked): ${normalizedPath}`);
       this.lockedNotebooks.delete(normalizedPath);
+      this.app.commands.notifyCommandChanged();
       return;
     }
 
@@ -172,9 +193,6 @@ export class LockManager {
       // mode 変更監視を解除
       state.modeChangedDisposer?.();
 
-      // セル実行ショートカットのブロックを解除
-      notebookPanel.node.removeEventListener('keydown', state.keydownHandler, true);
-
       // ロックインジケータを削除
       state.indicator.dispose();
 
@@ -184,6 +202,8 @@ export class LockManager {
     } finally {
       // 例外発生時もロック状態を確実に削除（操作不能状態を防止）
       this.lockedNotebooks.delete(normalizedPath);
+      // アンロック状態の変更をコマンドシステムに通知し、isEnabled ガードを再評価させる
+      this.app.commands.notifyCommandChanged();
     }
   }
 
@@ -201,35 +221,22 @@ export class LockManager {
   }
 
   /**
-   * app.commands.execute をラップし、ロック中ノートブックへのブロック対象コマンドを抑止する。
-   * コンストラクタから一度だけ呼び出す（commandsWrapped フラグで idempotent ガード）。
+   * commands.isEnabled を createIsEnabledGuard でラップし、
+   * ロック中ノートブックへのブロック対象コマンドを UI 全経路で無効化する。
+   * コンストラクタから一度だけ呼び出す。
    */
-  private installCommandBlocker(): void {
-    if (this.commandsWrapped) {
-      return;
-    }
-    this.commandsWrapped = true;
-
+  private installIsEnabledGuard(): void {
     const commands = this.app.commands;
-    const originalExecute = commands.execute.bind(commands);
+    const originalIsEnabled = commands.isEnabled.bind(commands);
 
-    // CommandRegistry.execute は `execute<T>(id, args?) => Promise<T>` のジェネリック関数。
-    // プロパティとして差し替えるため、ジェネリクスを除いた互換シグネチャで定義する。
-    const wrapper = (id: string, args?: Parameters<typeof originalExecute>[1]): Promise<unknown> => {
-      // exempt はロック状態に関係なく常に originalExecute に委譲する
-      if (LOCK_EXEMPT_COMMAND_IDS.has(id)) {
-        return originalExecute(id, args);
-      }
-      if (BLOCKED_COMMAND_IDS.has(id) && this.isCurrentNotebookLocked()) {
-        console.warn('[LockManager] Blocked command:', id);
-        return Promise.resolve(undefined);
-      }
-      return originalExecute(id, args);
-    };
+    const guard = createIsEnabledGuard(() => this.isCurrentNotebookLocked(), originalIsEnabled);
 
-    // CommandRegistry は sealed ではないため execute を差し替え可能。
+    // CommandRegistry は sealed ではないため isEnabled を差し替え可能。
     // 型上は互換の `as unknown` キャストを経由して代入する。
-    (commands as unknown as { execute: typeof wrapper }).execute = wrapper;
+    (commands as unknown as { isEnabled: typeof guard }).isEnabled = guard;
+
+    // 初期状態を反映
+    this.app.commands.notifyCommandChanged();
   }
 
   /**
@@ -250,27 +257,6 @@ export class LockManager {
     }
     const path = normalizeNotebookPath(current.context.path);
     return this.lockedNotebooks.has(path);
-  }
-
-  /**
-   * ロック中にセル実行ショートカットをブロックするキーダウンハンドラを作成する。
-   * capture フェーズで登録し、JupyterLab のコマンドシステムに到達させない。
-   */
-  private createExecutionBlockHandler(): (event: KeyboardEvent) => void {
-    return (event: KeyboardEvent) => {
-      if (event.key !== 'Enter') {
-        return;
-      }
-
-      // Shift+Enter, Ctrl/Cmd+Enter, Alt/Option+Enter をブロック
-      if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        console.log(
-          `[LockManager] Blocked cell execution shortcut: ${event.key} (shift=${event.shiftKey}, ctrl=${event.ctrlKey}, meta=${event.metaKey}, alt=${event.altKey})`,
-        );
-      }
-    };
   }
 
   /**
