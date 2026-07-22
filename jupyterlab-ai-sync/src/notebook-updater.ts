@@ -12,57 +12,65 @@ import { INotebookModel } from '@jupyterlab/notebook';
 import { IDocumentManager } from '@jupyterlab/docmanager';
 import { ServerConnection } from '@jupyterlab/services';
 import { URLExt } from '@jupyterlab/coreutils';
+import { z } from 'zod';
 import { AiEvent } from './websocket-client';
 import { LockManager } from './lock-manager';
 import { findNotebookByPath } from './notebook-finder';
 import { normalizeNotebookPath } from './path-utils';
 
-export interface NotebookChangedEvent extends AiEvent {
-  type: 'notebook_changed';
-  notebook_path: string;
-  seq: number;
-}
+// --- zod スキーマ（プロセス境界の受信データをランタイム検証する） ---
+export const NotebookChangedEventSchema = z.object({
+  type: z.literal('notebook_changed'),
+  notebook_path: z.string(),
+  seq: z.number(),
+});
+export type NotebookChangedEvent = z.infer<typeof NotebookChangedEventSchema>;
 
-export interface CellExecuteStartEvent extends AiEvent {
-  type: 'cell_execute_start';
-  notebook_path: string;
-  cell_index: number;
-}
+export const CellExecuteStartEventSchema = z.object({
+  type: z.literal('cell_execute_start'),
+  notebook_path: z.string(),
+  cell_index: z.number(),
+});
+export type CellExecuteStartEvent = z.infer<typeof CellExecuteStartEventSchema>;
 
-export interface CellExecuteEndEvent extends AiEvent {
-  type: 'cell_execute_end';
-  notebook_path: string;
-  cell_index: number;
-  execution_count: number;
-  success: boolean;
-}
+export const CellExecuteEndEventSchema = z.object({
+  type: z.literal('cell_execute_end'),
+  notebook_path: z.string(),
+  cell_index: z.number(),
+  execution_count: z.number(),
+  success: z.boolean(),
+});
+export type CellExecuteEndEvent = z.infer<typeof CellExecuteEndEventSchema>;
 
-export interface LockAcquiredEvent extends AiEvent {
-  type: 'lock_acquired';
-  notebook_path: string;
-}
+export const LockAcquiredEventSchema = z.object({
+  type: z.literal('lock_acquired'),
+  notebook_path: z.string(),
+});
+export type LockAcquiredEvent = z.infer<typeof LockAcquiredEventSchema>;
 
-export interface LockReleasedEvent extends AiEvent {
-  type: 'lock_released';
-  notebook_path: string;
-}
+export const LockReleasedEventSchema = z.object({
+  type: z.literal('lock_released'),
+  notebook_path: z.string(),
+});
+export type LockReleasedEvent = z.infer<typeof LockReleasedEventSchema>;
 
-/** 同期状態照会レスポンスの型 */
-interface SyncStateLock {
-  notebook_path: string;
-  expires_at: number;
-}
+/** 同期状態照会レスポンスの zod スキーマ */
+const SyncStateLockSchema = z.object({
+  notebook_path: z.string(),
+  expires_at: z.number(),
+});
 
-interface SyncStateResponse {
-  notebooks: Record<string, number>;
-  locks: SyncStateLock[];
-}
+export const SyncStateResponseSchema = z.object({
+  notebooks: z.record(z.string(), z.number()),
+  locks: z.array(SyncStateLockSchema),
+});
+type SyncStateResponse = z.infer<typeof SyncStateResponseSchema>;
 
 /**
  * 同期状態照会 API を呼び出す。
  * ServerConnection.makeSettings + makeRequest を使用する。
  */
-async function fetchSyncState(): Promise<SyncStateResponse> {
+async function fetchSyncState(): Promise<SyncStateResponse | null> {
   const settings = ServerConnection.makeSettings();
   const url = URLExt.join(settings.baseUrl, 'api/ai/sync-state');
   const response = await ServerConnection.makeRequest(url, {}, settings);
@@ -71,7 +79,12 @@ async function fetchSyncState(): Promise<SyncStateResponse> {
   }
   const json = await response.json();
   // レスポンスは {"data": {notebooks, locks}} 形式
-  return json.data as SyncStateResponse;
+  const result = SyncStateResponseSchema.safeParse(json.data);
+  if (!result.success) {
+    console.warn('[NotebookUpdater] fetchSyncState: invalid response:', result.error.message);
+    return null;
+  }
+  return result.data;
 }
 
 /** ノートブック単位の revert debounce 間隔（ミリ秒） */
@@ -96,35 +109,58 @@ export class NotebookUpdater {
     this.lockManager = lockManager;
   }
 
+  private parseEventOrWarn<T>(schema: z.ZodType<T>, event: AiEvent, label: string): T | null {
+    const result = schema.safeParse(event);
+    if (!result.success) {
+      console.warn(`[NotebookUpdater] Invalid ${label} event:`, result.error.message);
+      return null;
+    }
+    return result.data;
+  }
+
   /**
    * イベントを処理
    */
   handleEvent(event: AiEvent): void {
-    // notebook_path の実行時型検証（全 5 イベント種が必要とする）
-    const notebookPath = (event as { notebook_path?: string }).notebook_path;
-    if (typeof notebookPath !== 'string') {
-      console.warn(`[NotebookUpdater] Ignoring event with missing or invalid notebook_path: type=${event.type}`);
+    if (!event || typeof event !== 'object') {
+      console.warn('[NotebookUpdater] Ignoring non-object event');
       return;
     }
-    console.log(`[NotebookUpdater] Handling ${event.type} event for ${notebookPath}`);
+
+    console.log(`[NotebookUpdater] Handling ${event.type} event`);
 
     try {
       switch (event.type) {
-        case 'notebook_changed':
-          this.handleNotebookChanged(event as NotebookChangedEvent);
+        case 'notebook_changed': {
+          const data = this.parseEventOrWarn(NotebookChangedEventSchema, event, 'notebook_changed');
+          if (!data) return;
+          this.handleNotebookChanged(data);
           break;
-        case 'cell_execute_start':
-          this.handleCellExecuteStart(event as CellExecuteStartEvent);
+        }
+        case 'cell_execute_start': {
+          const data = this.parseEventOrWarn(CellExecuteStartEventSchema, event, 'cell_execute_start');
+          if (!data) return;
+          this.handleCellExecuteStart(data);
           break;
-        case 'cell_execute_end':
-          this.handleCellExecuteEnd(event as CellExecuteEndEvent);
+        }
+        case 'cell_execute_end': {
+          const data = this.parseEventOrWarn(CellExecuteEndEventSchema, event, 'cell_execute_end');
+          if (!data) return;
+          this.handleCellExecuteEnd(data);
           break;
-        case 'lock_acquired':
-          this.handleLockAcquired(event as LockAcquiredEvent);
+        }
+        case 'lock_acquired': {
+          const data = this.parseEventOrWarn(LockAcquiredEventSchema, event, 'lock_acquired');
+          if (!data) return;
+          this.handleLockAcquired(data);
           break;
-        case 'lock_released':
-          this.handleLockReleased(event as LockReleasedEvent);
+        }
+        case 'lock_released': {
+          const data = this.parseEventOrWarn(LockReleasedEventSchema, event, 'lock_released');
+          if (!data) return;
+          this.handleLockReleased(data);
           break;
+        }
         default:
           console.log('[NotebookUpdater] Unknown event type:', event.type);
       }
@@ -343,11 +379,15 @@ export class NotebookUpdater {
    * パスで構築されるため、キー正規化基準は一致する前提。
    */
   async resync(): Promise<void> {
-    let syncState: SyncStateResponse;
+    let syncState: SyncStateResponse | null;
     try {
       syncState = await fetchSyncState();
     } catch (error) {
       console.warn('[NotebookUpdater] resync: failed to fetch sync state, skipping', error);
+      return;
+    }
+    if (!syncState) {
+      console.warn('[NotebookUpdater] resync: invalid sync state response, skipping');
       return;
     }
 
@@ -421,6 +461,10 @@ export class NotebookUpdater {
           const path = normalizeNotebookPath(panel.context.path);
           fetchSyncState()
             .then((syncState) => {
+              if (!syncState) {
+                console.warn(`[NotebookUpdater] Save completed but sync state response was invalid for ${path}`);
+                return;
+              }
               const serverSeq = syncState.notebooks[path];
               if (serverSeq !== undefined) {
                 this.lastSeq.set(path, serverSeq);
