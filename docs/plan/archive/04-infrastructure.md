@@ -172,3 +172,13 @@ AIエージェントが読み込むコンテキストの削減と、ドキュメ
 | 12.3 | docker-compose 表記の v2 統一 | [x] | `grep -r "docker-compose"` がプロジェクト内でヒットしない（docker compose v2 表記に統一） | bootstrap.sh、CLAUDE.md 類 |
 | 12.4 | Node.js バージョンの明示固定 | [x] | .nvmrc が存在し、package.json に engines フィールドがあり、CI と一致する | 全 package.json + .nvmrc |
 | 12.5 | jupyterlab-ai-sync ビルドの決定的化 | [x] | Dockerfile と CI で `npm ci` が使用され、`npm install` が使われていない | npm install → npm ci |
+
+---
+
+## Phase 13: npm 依存パッケージの脆弱性修正
+
+npm audit で検出された high/moderate 脆弱性の解消。CI の npm audit (informational) ジョブを pass させ、PR の `mergeStateStatus` が `UNSTABLE` にならないようにする。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 13.1 | npm 依存パッケージの脆弱性修正 | [x] | `npm audit --audit-level=high` が exit 0 で終了する。CI の npm audit (informational) ジョブが pass する | `fast-uri` 3.0.0-3.1.3 (high: host confusion via backslash)、`@hono/node-server` <2.0.5 (moderate: path traversal on Windows, `@modelcontextprotocol/sdk` 経由の間接依存) |
