@@ -2,7 +2,7 @@
 
 テスト、ビルド、データロード、Formatter に関する Phase。
 
-完了した Phase 1〜10, 12 は [archive/04-infrastructure.md](archive/04-infrastructure.md) を参照。
+完了した Phase 1〜10, 12〜13 は [archive/04-infrastructure.md](archive/04-infrastructure.md) を参照。
 
 ---
 
