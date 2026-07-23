@@ -48,6 +48,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // 接続を開始
     wsClient.connect();
 
+    // シェル破棄時にリソースをクリーンアップ
+    app.shell.disposed.connect(() => {
+      wsClient.dispose();
+      updater.dispose();
+    });
+
     console.log('[AI Sync] WebSocket client initialized with LockManager');
   },
 };

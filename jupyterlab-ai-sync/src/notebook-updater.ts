@@ -88,7 +88,7 @@ async function fetchSyncState(): Promise<SyncStateResponse | null> {
 }
 
 /** ノートブック単位の revert debounce 間隔（ミリ秒） */
-const REVERT_DEBOUNCE_MS = 300;
+export const REVERT_DEBOUNCE_MS = 300;
 
 export class NotebookUpdater {
   private lockManager: LockManager | null = null;
@@ -107,6 +107,30 @@ export class NotebookUpdater {
    */
   setLockManager(lockManager: LockManager): void {
     this.lockManager = lockManager;
+  }
+
+  /**
+   * 指定パスの pending revert タイマーをキャンセルする。
+   * ephemeral イベント（cell_execute_start/end）到着時に呼ばれ、
+   * revert によるちらつきを防ぐ。
+   */
+  cancelPendingRevert(notebookPath: string): void {
+    const existingTimer = this.revertTimers.get(notebookPath);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
+      this.revertTimers.delete(notebookPath);
+    }
+  }
+
+  /**
+   * 全タイマーと seq 情報をクリアする（プラグイン破棄時）。
+   */
+  dispose(): void {
+    for (const timer of this.revertTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    this.revertTimers.clear();
+    this.lastSeq.clear();
   }
 
   private parseEventOrWarn<T>(schema: z.ZodType<T>, event: AiEvent, label: string): T | null {
@@ -204,22 +228,18 @@ export class NotebookUpdater {
     }
 
     // ノートブック単位 300ms trailing debounce で revert
-    this.scheduleRevert(event.notebook_path, panel, event.seq);
+    this.scheduleRevert(event.notebook_path, event.seq);
   }
 
   /**
    * debounce 付き revert をスケジュールする
    */
-  private scheduleRevert(notebookPath: string, panel: NotebookPanel, seq: number): void {
-    // 既存タイマーをキャンセル
-    const existingTimer = this.revertTimers.get(notebookPath);
-    if (existingTimer !== undefined) {
-      window.clearTimeout(existingTimer);
-    }
+  private scheduleRevert(notebookPath: string, seq: number): void {
+    this.cancelPendingRevert(notebookPath);
 
     const timer = window.setTimeout(() => {
       this.revertTimers.delete(notebookPath);
-      this.executeRevert(notebookPath, panel, seq);
+      this.executeRevert(notebookPath, seq);
     }, REVERT_DEBOUNCE_MS);
 
     this.revertTimers.set(notebookPath, timer);
@@ -227,9 +247,10 @@ export class NotebookUpdater {
 
   /**
    * context.revert() でディスクから再読込する。
-   * 発火時に seq <= lastSeq を再チェックし、revert 成功時に lastSeq を更新する。
+   * 発火時に panel を再解決し、クローズ済みならスキップする。
+   * seq <= lastSeq を再チェックし、revert 成功時に lastSeq を更新する。
    */
-  private executeRevert(notebookPath: string, panel: NotebookPanel, seq: number): void {
+  private executeRevert(notebookPath: string, seq: number): void {
     const normalizedPath = normalizeNotebookPath(notebookPath);
     const knownSeq = this.lastSeq.get(normalizedPath) ?? 0;
 
@@ -238,6 +259,13 @@ export class NotebookUpdater {
       console.log(
         `[NotebookUpdater] Skipping revert at fire time for ${notebookPath}: seq ${seq} <= lastSeq ${knownSeq}`,
       );
+      return;
+    }
+
+    // panel を再解決（debounce 中にパネルが閉じられた場合はスキップ）
+    const panel = findNotebookByPath(this.notebookTracker, notebookPath);
+    if (!panel) {
+      console.log(`[NotebookUpdater] Panel closed, skipping revert for ${notebookPath}`);
       return;
     }
 
@@ -264,8 +292,11 @@ export class NotebookUpdater {
   /**
    * セル実行開始イベントを処理。
    * ephemeral 更新で dirty を汚染しないよう、変更前の dirty を退避し変更後に復元する。
+   * pending revert がある場合はキャンセルする（ちらつき防止）。
    */
   private handleCellExecuteStart(event: CellExecuteStartEvent): void {
+    this.cancelPendingRevert(normalizeNotebookPath(event.notebook_path));
+
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -304,8 +335,11 @@ export class NotebookUpdater {
   /**
    * セル実行完了イベントを処理。
    * ephemeral 更新で dirty を汚染しないよう、変更前の dirty を退避し変更後に復元する。
+   * pending revert がある場合はキャンセルする（ちらつき防止）。
    */
   private handleCellExecuteEnd(event: CellExecuteEndEvent): void {
+    this.cancelPendingRevert(normalizeNotebookPath(event.notebook_path));
+
     const context = this.getNotebookAndModel(event.notebook_path);
     if (!context) {
       return;
@@ -456,6 +490,14 @@ export class NotebookUpdater {
    */
   setupSaveHook(): void {
     this.notebookTracker.widgetAdded.connect((_sender: INotebookTracker, panel: NotebookPanel) => {
+      const normalizedPath = normalizeNotebookPath(panel.context.path);
+
+      // パネル破棄時にタイマーと seq をクリーンアップ
+      panel.disposed.connect(() => {
+        this.cancelPendingRevert(normalizedPath);
+        this.lastSeq.delete(normalizedPath);
+      });
+
       panel.context.saveState.connect((_context, state) => {
         if (state === 'completed') {
           const path = normalizeNotebookPath(panel.context.path);
