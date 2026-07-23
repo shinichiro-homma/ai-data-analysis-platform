@@ -15,26 +15,80 @@ const INDENT_PX = 16;
 const DBLCLICK_TIMEOUT_MS = 250;
 
 /**
- * DOM 要素からアイテム名を取得する。
- * JupyterLab 4.x の DirListing ではテキスト要素にアイテム名が表示される。
+ * JupyterLab 4.x 非公開セレクタ: DirListing のアイテム要素。
+ * DOM 構造が変わった場合は findListingItem が null を返し、標準動作にフォールバックする。
  */
-function getItemName(itemEl: Element): string | null {
-  const textEl = itemEl.querySelector('.jp-DirListing-itemText');
-  return textEl?.textContent?.trim() ?? null;
-}
+const LISTING_ITEM_SELECTOR = '.jp-DirListing-item';
+
+/**
+ * JupyterLab 4.x 非公開セレクタ: DirListing のアイテム名テキスト要素。
+ * DirListing-item の子要素にはアイコン・名前・更新日時・サイズが混在し、
+ * textContent ベースでは名前のみの分離が困難なため、セレクタによる取得を維持する。
+ * フォールバック: セレクタでヒットしない場合は null を返し標準動作に委譲する。
+ */
+const LISTING_ITEM_TEXT_SELECTOR = '.jp-DirListing-itemText';
+
+const DIRECTORY_TYPE = 'directory';
+
+type ItemsCacheEntry = { type: string };
+type ItemsCache = Map<string, ItemsCacheEntry>;
+
+// --- 純粋関数（export / テスト対象） ---
 
 /**
  * アイテム名と現在のディレクトリパスからフルパスを構築する。
  */
-function buildItemPath(currentDir: string, itemName: string): string {
+export function buildItemPath(currentDir: string, itemName: string): string {
   return currentDir ? `${currentDir}/${itemName}` : itemName;
 }
 
 /**
- * DOM 要素がフォルダかどうかを判定する。
+ * Contents.IModel 配列からアイテム名をキー、type を値とするキャッシュを構築する。
+ * 同名アイテムがある場合は後のエントリが優先される。
  */
-function isDirectory(itemEl: Element): boolean {
-  return itemEl.getAttribute('data-isdir') === 'true';
+export function buildItemsCache(items: Array<{ name: string; type: string }>): ItemsCache {
+  const cache: ItemsCache = new Map();
+  for (const item of items) {
+    cache.set(item.name, { type: item.type });
+  }
+  return cache;
+}
+
+/**
+ * クリックされたアイテム名とキャッシュから、アイテム情報を解決する。
+ * name が null、またはキャッシュにヒットしない場合は null を返す（= 標準動作にフォールバック）。
+ */
+export function resolveClickedItem(
+  name: string | null,
+  cache: ItemsCache,
+): { name: string; isDirectory: boolean } | null {
+  if (name === null) return null;
+  const entry = cache.get(name);
+  if (!entry) return null;
+  return { name, isDirectory: entry.type === DIRECTORY_TYPE };
+}
+
+/**
+ * アイテムをフォルダ優先・名前アルファベット順でソートする。
+ * 元の配列は変更しない（新しい配列を返す）。
+ */
+export function sortItems<T extends { name: string; type: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.type === DIRECTORY_TYPE && b.type !== DIRECTORY_TYPE) return -1;
+    if (a.type !== DIRECTORY_TYPE && b.type === DIRECTORY_TYPE) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// --- 内部ヘルパー関数 ---
+
+/**
+ * DOM 要素からアイテム名を取得する。
+ * LISTING_ITEM_TEXT_SELECTOR でヒットしない場合は null を返す。
+ */
+function getItemName(itemEl: Element): string | null {
+  const textEl = itemEl.querySelector(LISTING_ITEM_TEXT_SELECTOR);
+  return textEl?.textContent?.trim() ?? null;
 }
 
 /**
@@ -47,12 +101,16 @@ function isInsideTreeItem(target: EventTarget | null): boolean {
 }
 
 /**
- * クリックターゲットから最も近い jp-DirListing-item 要素を返す。
+ * クリックターゲットから最も近いアイテム要素を返す。
+ * JupyterLab 4.x の DirListing 非公開 DOM 構造に依存する。
+ * DOM 構造が変わった場合は null を返し、標準動作にフォールバックする。
  */
 function findListingItem(target: EventTarget | null): Element | null {
   if (!(target instanceof Element)) return null;
-  return target.closest('.jp-DirListing-item');
+  return target.closest(LISTING_ITEM_SELECTOR);
 }
+
+// --- ツリー UI ---
 
 /**
  * ツリーアイテム行 (div.jp-fb-tree-item) を生成する。
@@ -159,14 +217,10 @@ function makeToggleTreeExpansion(
     childContainer.className = `jp-fb-tree-children jp-fb-tree-level-${level}`;
 
     // ソート: フォルダを先に、名前順
-    items.sort((a, b) => {
-      if (a.type === 'directory' && b.type !== 'directory') return -1;
-      if (a.type !== 'directory' && b.type === 'directory') return 1;
-      return a.name.localeCompare(b.name);
-    });
+    const sorted = sortItems(items);
 
-    for (const item of items) {
-      const isDir = item.type === 'directory';
+    for (const item of sorted) {
+      const isDir = item.type === DIRECTORY_TYPE;
       const row = createTreeItemEl(item.name, isDir, item.path, level);
       childContainer.appendChild(row);
     }
@@ -236,6 +290,9 @@ const fileBrowserPlugin: JupyterFrontEndPlugin<void> = {
     console.log('[FileBrowser] File browser customizer activated');
     const contentsManager = app.serviceManager.contents;
 
+    /** ディレクトリアイテムキャッシュ: アイテム名 -> { type } */
+    let itemsCache: ItemsCache = new Map();
+
     /** ツリー展開状態: パス -> 展開中かどうか */
     const expandedPaths = new Map<string, boolean>();
 
@@ -264,17 +321,21 @@ const fileBrowserPlugin: JupyterFrontEndPlugin<void> = {
       navigateToFolder,
     );
 
-    const clickHandler = (e: MouseEvent) => {
-      // ツリーアイテム内のクリックは無視（子コンテナのリスナーで処理）
-      if (isInsideTreeItem(e.target)) return;
-
-      const itemEl = findListingItem(e.target);
-      if (!itemEl) return;
-      if (!isDirectory(itemEl)) return; // ファイルは介入しない
-
+    function resolveDirectoryClick(target: EventTarget | null): { itemEl: Element; name: string } | null {
+      if (isInsideTreeItem(target)) return null;
+      const itemEl = findListingItem(target);
+      if (!itemEl) return null;
       const itemName = getItemName(itemEl);
-      if (!itemName) return;
-      const path = buildItemPath(browser.model.path, itemName);
+      const resolved = resolveClickedItem(itemName, itemsCache);
+      if (!resolved || !resolved.isDirectory) return null;
+      return { itemEl, name: resolved.name };
+    }
+
+    const clickHandler = (e: MouseEvent) => {
+      const hit = resolveDirectoryClick(e.target);
+      if (!hit) return;
+
+      const path = buildItemPath(browser.model.path, hit.name);
 
       // デフォルトのフォルダ移動を抑制
       e.preventDefault();
@@ -285,28 +346,20 @@ const fileBrowserPlugin: JupyterFrontEndPlugin<void> = {
         // ダブルクリック検出: タイマーをクリアして標準移動を実行
         cancelPendingClick();
         // JupyterLab のデフォルト cd 動作: model.cd() は相対パスを受け取る
-        void browser.model.cd(itemName);
+        void browser.model.cd(hit.name);
         return;
       }
 
       // シングルクリック: タイマーを設定してツリー展開を遅延実行
       clickTimer = setTimeout(() => {
         clickTimer = null;
-        void toggleTreeExpansion(itemEl, path, contentsManager, 1);
+        void toggleTreeExpansion(hit.itemEl, path, contentsManager, 1);
       }, DBLCLICK_TIMEOUT_MS);
     };
 
     const dblclickHandler = (e: MouseEvent) => {
-      // ツリーアイテム内のダブルクリックは無視
-      if (isInsideTreeItem(e.target)) return;
-
-      const itemEl = findListingItem(e.target);
-      if (!itemEl) return;
-      if (!isDirectory(itemEl)) return;
-
-      const itemName = getItemName(itemEl);
-      if (!itemName) return;
-      const path = buildItemPath(browser.model.path, itemName);
+      const hit = resolveDirectoryClick(e.target);
+      if (!hit) return;
 
       // シングルクリックタイマーをキャンセル
       cancelPendingClick();
@@ -314,12 +367,23 @@ const fileBrowserPlugin: JupyterFrontEndPlugin<void> = {
       // デフォルト動作を抑制し、cd を直接実行（相対パス）
       e.preventDefault();
       e.stopPropagation();
-      void browser.model.cd(itemName);
+      void browser.model.cd(hit.name);
     };
 
     // DirListing の DOM ノードにキャプチャフェーズでイベントリスナーを追加
     browser.node.addEventListener('click', clickHandler, true);
     browser.node.addEventListener('dblclick', dblclickHandler, true);
+
+    // モデル更新時にアイテムキャッシュを再構築
+    // refreshed はアイテム格納後に発火するため、items() で全アイテムを取得できる
+    // pathChanged は refreshed より先に発火し、アイテム未格納のため使用しない
+    browser.model.refreshed.connect(() => {
+      const items: Array<{ name: string; type: string }> = [];
+      for (const model of browser.model.items()) {
+        items.push({ name: model.name, type: model.type });
+      }
+      itemsCache = buildItemsCache(items);
+    });
 
     // ディレクトリ変更時にツリー展開状態をクリア
     browser.model.pathChanged.connect(() => {
