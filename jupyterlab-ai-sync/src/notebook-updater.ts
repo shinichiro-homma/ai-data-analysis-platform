@@ -115,10 +115,11 @@ export class NotebookUpdater {
    * revert によるちらつきを防ぐ。
    */
   cancelPendingRevert(notebookPath: string): void {
-    const existingTimer = this.revertTimers.get(notebookPath);
+    const normalizedPath = normalizeNotebookPath(notebookPath);
+    const existingTimer = this.revertTimers.get(normalizedPath);
     if (existingTimer !== undefined) {
       window.clearTimeout(existingTimer);
-      this.revertTimers.delete(notebookPath);
+      this.revertTimers.delete(normalizedPath);
     }
   }
 
@@ -235,14 +236,15 @@ export class NotebookUpdater {
    * debounce 付き revert をスケジュールする
    */
   private scheduleRevert(notebookPath: string, seq: number): void {
-    this.cancelPendingRevert(notebookPath);
+    const normalizedPath = normalizeNotebookPath(notebookPath);
+    this.cancelPendingRevert(normalizedPath);
 
     const timer = window.setTimeout(() => {
-      this.revertTimers.delete(notebookPath);
+      this.revertTimers.delete(normalizedPath);
       this.executeRevert(notebookPath, seq);
     }, REVERT_DEBOUNCE_MS);
 
-    this.revertTimers.set(notebookPath, timer);
+    this.revertTimers.set(normalizedPath, timer);
   }
 
   /**
