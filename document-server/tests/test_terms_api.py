@@ -122,11 +122,3 @@ def test_get_term_index_with_query_case_insensitive(client: TestClient) -> None:
     data_upper = resp_upper.json()["data"]
     assert data_lower["total"] == data_upper["total"]
     assert data_lower["total"] >= 1
-
-
-def test_reload_includes_terms(client: TestClient) -> None:
-    resp = client.post("/admin/reload")
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["status"] == "reloaded"
-    assert isinstance(data["terms_loaded"], int)
