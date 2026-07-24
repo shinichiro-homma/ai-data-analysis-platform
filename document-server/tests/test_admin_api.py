@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from .conftest import (
-    SAMPLE_LOGIC_META_AGGREGATION_YAML,
-    SAMPLE_LOGIC_META_REMAPPING_YAML,
-    SAMPLE_PYTHON_CODE,
-    SAMPLE_SQL_CODE,
-    SAMPLE_TERM_MEMBER_ID_YAML,
-    SAMPLE_TERM_STAR_RANK_YAML,
-    SAMPLE_TERM_TATE_YAML,
-)
+
+@pytest.fixture()
+def patch_data_dir(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], None]:
+    import src.routers.admin as admin_module
+
+    def _patch(path: Path) -> None:
+        monkeypatch.setattr(admin_module, "DATA_DIR", path)
+
+    return _patch
+
 
 # ---------------------------------------------------------------------------
 # 移設テスト: test_tables_api.py / test_terms_api.py から移設
@@ -43,27 +45,12 @@ def test_reload_includes_terms(client: TestClient) -> None:
 # 新規テスト: アトミック性の検証
 # ---------------------------------------------------------------------------
 
-_COMMON_TERM_YAMLS = {
-    "ロイヤルティランク.yaml": SAMPLE_TERM_STAR_RANK_YAML,
-    "統合会員ID.yaml": SAMPLE_TERM_MEMBER_ID_YAML,
-    "店舗.yaml": SAMPLE_TERM_TATE_YAML,
-}
-
-_COMMON_LOGIC_META_YAMLS = {
-    "member_id_remapping.yaml": SAMPLE_LOGIC_META_REMAPPING_YAML,
-    "sales_basic_aggregation.yaml": SAMPLE_LOGIC_META_AGGREGATION_YAML,
-}
-
-_COMMON_LOGIC_CODE_FILES = {
-    "code/sql/member_id_remapping.sql": SAMPLE_SQL_CODE,
-    "code/python/sales_basic_aggregation.py": SAMPLE_PYTHON_CODE,
-}
-
 
 def test_reload_failure_keeps_old_catalog(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    patch_data_dir: Callable[[Path], None],
 ) -> None:
     """reload が失敗した場合、旧データがそのまま残ること。"""
 
@@ -87,9 +74,7 @@ def test_reload_failure_keeps_old_catalog(
         encoding="utf-8",
     )
 
-    import src.routers.admin as admin_module
-
-    monkeypatch.setattr(admin_module, "DATA_DIR", broken_dir)
+    patch_data_dir(broken_dir)
 
     # Act: reload を実行（失敗を期待）
     resp_reload = client.post("/admin/reload")
@@ -114,6 +99,7 @@ def test_reload_partial_failure_keeps_old_catalog(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    patch_data_dir: Callable[[Path], None],
 ) -> None:
     """catalog は有効だが glossary が壊れている場合、部分適用されないこと。"""
 
@@ -163,9 +149,7 @@ columns:
         encoding="utf-8",
     )
 
-    import src.routers.admin as admin_module
-
-    monkeypatch.setattr(admin_module, "DATA_DIR", partial_dir)
+    patch_data_dir(partial_dir)
 
     # Act
     resp_reload = client.post("/admin/reload")
@@ -185,7 +169,7 @@ columns:
 def test_reload_swaps_store_instance(
     client: TestClient,
     sample_data_dir: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    patch_data_dir: Callable[[Path], None],
 ) -> None:
     """reload 成功後に app.state.catalog_store が別インスタンスに差し替わること。"""
     from src.main import app
@@ -193,9 +177,7 @@ def test_reload_swaps_store_instance(
     # Arrange: reload 前のストアインスタンスを記録
     old_store = app.state.catalog_store
 
-    import src.routers.admin as admin_module
-
-    monkeypatch.setattr(admin_module, "DATA_DIR", sample_data_dir)
+    patch_data_dir(sample_data_dir)
 
     # Act: reload 実行
     resp = client.post("/admin/reload")
