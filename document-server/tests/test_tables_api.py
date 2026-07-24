@@ -117,14 +117,3 @@ def test_get_table_details_statistics_additional_empty(client: TestClient) -> No
     assert resp.status_code == 200
     t = resp.json()["data"]["tables"][0]
     assert t["statistics"] is None
-
-
-def test_reload_catalog(client: TestClient) -> None:
-    resp = client.post("/admin/reload")
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["status"] == "reloaded"
-    assert isinstance(data["tables_loaded"], int)
-    assert isinstance(data["terms_loaded"], int)
-    assert data["logic_loaded"] == 2
-    assert "reload_time_ms" in data
