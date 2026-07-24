@@ -19,6 +19,7 @@ export type OpenCallback = () => void;
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private reconnectTimer: number | null = null;
+  private _disposed = false;
   private readonly url: string;
   private callback: EventCallback;
   private onDisconnect?: DisconnectCallback;
@@ -40,9 +41,28 @@ export class WebSocketClient {
   }
 
   /**
+   * disposed 状態を返す
+   */
+  get isDisposed(): boolean {
+    return this._disposed;
+  }
+
+  /**
+   * WebSocket を破棄する（disconnect + 再接続抑止）
+   */
+  dispose(): void {
+    this._disposed = true;
+    this.disconnect();
+  }
+
+  /**
    * WebSocketに接続
    */
   connect(): void {
+    if (this._disposed) {
+      return;
+    }
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       console.log('[WebSocketClient] Already connected');
       return;
@@ -97,6 +117,10 @@ export class WebSocketClient {
    * 再接続をスケジュール
    */
   private scheduleReconnect(): void {
+    if (this._disposed) {
+      return;
+    }
+
     if (this.reconnectTimer) {
       return;
     }
@@ -118,6 +142,9 @@ export class WebSocketClient {
     }
 
     if (this.ws) {
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
       this.ws.close();
       this.ws = null;
     }
