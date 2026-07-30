@@ -45,6 +45,9 @@
     "typescript": "^5.3.0",
     "vitest": "^4.1.10"
   },
+  "overrides": {
+    "brace-expansion": "5.0.8"
+  },
   "sideEffects": [
     "style/*.css"
   ],

@@ -6,20 +6,22 @@ import pytest
 
 from src.catalog_loader import CatalogStore
 
+from .conftest import _create_data_dir
+
 # --- Table index loading tests ---
 
 
 def test_load_tables_from_index(sample_data_dir: Path) -> None:
     store = CatalogStore()
     count = store.load_tables(sample_data_dir)
-    assert count == 1
+    assert count["loaded"] == 1
     assert store.table_count == 1
 
 
 def test_load_multiple_tables_from_index(full_data_dir: Path) -> None:
     store = CatalogStore()
     count = store.load_tables(full_data_dir)
-    assert count == 2
+    assert count["loaded"] == 2
     assert store.table_count == 2
 
 
@@ -166,14 +168,14 @@ def test_empty_tables_directory(tmp_path: Path) -> None:
 
     store = CatalogStore()
     count = store.load_tables(tmp_path)
-    assert count == 0
+    assert count["loaded"] == 0
     assert store.table_count == 0
 
 
 def test_missing_catalog_directory(tmp_path: Path) -> None:
     store = CatalogStore()
     count = store.load_tables(tmp_path)
-    assert count == 0
+    assert count["loaded"] == 0
 
 
 def test_skip_file_without_table_name(tmp_path: Path) -> None:
@@ -184,8 +186,63 @@ def test_skip_file_without_table_name(tmp_path: Path) -> None:
     (tables_dir / "no_name.yaml").write_text("display_name: test\nsummary: test\n", encoding="utf-8")
 
     store = CatalogStore()
-    count = store.load_tables(tmp_path)
-    assert count == 0
+    result = store.load_tables(tmp_path)
+    assert result["loaded"] == 0
+    assert result["skipped"] == 1
+
+
+def test_skip_counts_tracked_in_store(tmp_path: Path) -> None:
+    """id_field 欠損ファイルを含むデータでロード後、store.skipped_files が正しいカウントを返すこと。"""
+    # Arrange: tables に id_field 欠損ファイルを含める
+    data_dir = _create_data_dir(
+        tmp_path,
+        index_yaml="tables_index: []\n",
+        table_yamls={},
+        term_index_yaml="terms_index: []\n",
+        term_yamls={},
+    )
+    # tables に id_field (table_name) 欠損ファイルを手動追加
+    tables_dir = data_dir / "catalog" / "tables"
+    (tables_dir / "no_table_name.yaml").write_text("display_name: test\nsummary: test\n", encoding="utf-8")
+    # terms に id_field (name) 欠損ファイルを手動追加
+    terms_dir = data_dir / "glossary" / "terms"
+    (terms_dir / "no_name.yaml").write_text("other_key: value\n", encoding="utf-8")
+
+    # Act
+    store = CatalogStore()
+    store.load_tables(data_dir)
+    store.load_terms(data_dir)
+    store.load_logic(data_dir)
+
+    # Assert
+    skipped = store.skipped_files
+    assert skipped["tables"] == 1
+    assert skipped["terms"] == 1
+    assert skipped["logic"] == 0
+
+
+def test_skip_counts_include_external_tables(tmp_path: Path) -> None:
+    """catalog/external/ 配下の id_field 欠損ファイルも skipped_files["tables"] に合算されること。"""
+    # Arrange: catalog/tables に 1 件スキップ、catalog/external に 1 件スキップ
+    data_dir = _create_data_dir(
+        tmp_path,
+        index_yaml="tables_index: []\n",
+        table_yamls={},
+        term_index_yaml="terms_index: []\n",
+        term_yamls={},
+    )
+    tables_dir = data_dir / "catalog" / "tables"
+    (tables_dir / "no_table_name.yaml").write_text("display_name: test\nsummary: test\n", encoding="utf-8")
+    external_dir = data_dir / "catalog" / "external"
+    external_dir.mkdir(parents=True)
+    (external_dir / "no_table_name_ext.yaml").write_text("display_name: ext\nsummary: ext\n", encoding="utf-8")
+
+    # Act
+    store = CatalogStore()
+    store.load_tables(data_dir)
+
+    # Assert: tables + external のスキップ数が合算
+    assert store.skipped_files["tables"] == 2
 
 
 # --- Reload tests ---
@@ -224,7 +281,7 @@ def test_reload_reloads_index(sample_data_dir: Path) -> None:
 def test_load_terms(sample_data_dir: Path) -> None:
     store = CatalogStore()
     count = store.load_terms(sample_data_dir)
-    assert count == 3
+    assert count["loaded"] == 3
     assert store.term_count == 3
 
 
@@ -272,14 +329,14 @@ def test_load_terms_empty_directory(tmp_path: Path) -> None:
 
     store = CatalogStore()
     count = store.load_terms(tmp_path)
-    assert count == 0
+    assert count["loaded"] == 0
     assert store.term_count == 0
 
 
 def test_load_terms_missing_directory(tmp_path: Path) -> None:
     store = CatalogStore()
     count = store.load_terms(tmp_path)
-    assert count == 0
+    assert count["loaded"] == 0
 
 
 def test_load_terms_yaml_syntax_error(tmp_path: Path) -> None:
@@ -302,8 +359,9 @@ def test_load_terms_skip_file_without_name_key(tmp_path: Path) -> None:
     (terms_dir / "no_name.yaml").write_text("other_key: value\n", encoding="utf-8")
 
     store = CatalogStore()
-    count = store.load_terms(tmp_path)
-    assert count == 0
+    result = store.load_terms(tmp_path)
+    assert result["loaded"] == 0
+    assert result["skipped"] == 1
 
 
 # --- Batch get_term_details tests ---
@@ -415,7 +473,7 @@ def test_search_index_rebuilt_on_reload(sample_data_dir: Path) -> None:
 def test_load_logic_indexes(sample_data_dir: Path) -> None:
     store = CatalogStore()
     count = store.load_logic(sample_data_dir)
-    assert count == 2
+    assert count["loaded"] == 2
     assert store.logic_count == 2
 
 
@@ -503,7 +561,7 @@ def test_get_logic_code_not_found(sample_data_dir: Path) -> None:
 def test_load_logic_missing_dir(tmp_path: Path) -> None:
     store = CatalogStore()
     count = store.load_logic(tmp_path)
-    assert count == 0
+    assert count["loaded"] == 0
 
 
 def test_logic_count(sample_data_dir: Path) -> None:

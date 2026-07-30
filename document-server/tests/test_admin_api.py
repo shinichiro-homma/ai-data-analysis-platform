@@ -31,6 +31,11 @@ def test_reload_catalog(client: TestClient) -> None:
     assert isinstance(data["terms_loaded"], int)
     assert data["logic_loaded"] == 2
     assert "reload_time_ms" in data
+    # skipped_files フィールドが含まれること
+    assert "skipped_files" in data
+    assert data["skipped_files"]["tables"] == 0
+    assert data["skipped_files"]["terms"] == 0
+    assert data["skipped_files"]["logic"] == 0
 
 
 def test_reload_includes_terms(client: TestClient) -> None:
@@ -186,3 +191,63 @@ def test_reload_swaps_store_instance(
     # Assert: ストアが別インスタンスになっている（copy-on-write の直接検証）
     new_store = app.state.catalog_store
     assert new_store is not old_store
+
+
+def test_reload_reports_skipped_files(
+    client: TestClient,
+    tmp_path: Path,
+    patch_data_dir: Callable[[Path], None],
+) -> None:
+    """スキップファイルを含むデータで reload し、レスポンスに skipped_files が含まれること。"""
+    # Arrange: id_field 欠損ファイルを含むデータディレクトリを作成
+    data_dir = tmp_path / "with_skips"
+    data_dir.mkdir()
+
+    # catalog: 有効なテーブル 1 件 + id_field 欠損 1 件
+    catalog_dir = data_dir / "catalog"
+    tables_dir = catalog_dir / "tables"
+    tables_dir.mkdir(parents=True)
+    (catalog_dir / "index.yaml").write_text(
+        "tables_index:\n"
+        "  - table_name: valid_table\n"
+        "    display_name: Valid\n"
+        '    summary: "valid"\n'
+        "    category: test\n",
+        encoding="utf-8",
+    )
+    (tables_dir / "valid_table.yaml").write_text(
+        "table_name: valid_table\n"
+        "display_name: Valid\n"
+        'summary: "valid"\n'
+        "category: test\n"
+        "description: valid table\n"
+        "data_source:\n"
+        "  type: postgresql\n"
+        "  table: valid_table\n"
+        "columns:\n"
+        "  - name: id\n"
+        "    type: integer\n"
+        '    description: "PK"\n'
+        "    nullable: false\n",
+        encoding="utf-8",
+    )
+    (tables_dir / "no_table_name.yaml").write_text("display_name: bad\nsummary: bad\n", encoding="utf-8")
+
+    # glossary: 空（スキップ 0）
+    glossary_dir = data_dir / "glossary"
+    terms_dir = glossary_dir / "terms"
+    terms_dir.mkdir(parents=True)
+    (glossary_dir / "index.yaml").write_text("terms_index: []\n", encoding="utf-8")
+
+    patch_data_dir(data_dir)
+
+    # Act
+    resp = client.post("/admin/reload")
+
+    # Assert
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert "skipped_files" in data
+    assert data["skipped_files"]["tables"] == 1
+    assert data["skipped_files"]["terms"] == 0
+    assert data["skipped_files"]["logic"] == 0

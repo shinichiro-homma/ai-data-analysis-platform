@@ -33,11 +33,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise RuntimeError(f"Catalog load failed: {exc}") from exc
     app.state.catalog_store = store
     app.state.last_reload = datetime.now(UTC).isoformat()
+    skipped = store.skipped_files
     logger.info(
-        "Catalog loaded: %d tables, %d terms, %d logic",
+        "Catalog loaded: %d tables, %d terms, %d logic (skipped: tables=%d, terms=%d, logic=%d)",
         store.table_count,
         store.term_count,
         store.logic_count,
+        skipped["tables"],
+        skipped["terms"],
+        skipped["logic"],
     )
     yield
 
@@ -64,6 +68,7 @@ def health() -> dict:
             "terms": store.term_count,
             "logic": store.logic_count,
             "last_reload": app.state.last_reload,
+            "skipped_files": store.skipped_files,
         },
     }
 

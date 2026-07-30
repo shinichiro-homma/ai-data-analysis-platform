@@ -30,6 +30,13 @@ _DetailT = TypeVar("_DetailT")
 logger = logging.getLogger(__name__)
 
 
+class LoadResult(dict[str, int]):
+    """ロード結果。loaded と skipped を持つ dict サブクラス。"""
+
+    def __init__(self, *, loaded: int, skipped: int) -> None:
+        super().__init__(loaded=loaded, skipped=skipped)
+
+
 class LogicCodeNotFoundError(Exception):
     """ロジックは存在するがコードファイルが見つからない場合の例外。"""
 
@@ -243,6 +250,15 @@ class CatalogStore:
         self._logic_indexes: dict[str, LogicIndex] = {}
         self._logic_metas: dict[str, LogicMeta] = {}
         self._data_dir: Path | None = None
+        self._skipped_files: dict[str, int] = {"tables": 0, "terms": 0, "logic": 0}
+
+    def _finalize_load(self, key: str, loaded: int, skipped: int) -> LoadResult:
+        self._skipped_files[key] = skipped
+        return LoadResult(loaded=loaded, skipped=skipped)
+
+    @property
+    def skipped_files(self) -> dict[str, int]:
+        return dict(self._skipped_files)
 
     @property
     def table_count(self) -> int:
@@ -305,11 +321,11 @@ class CatalogStore:
         parse_index: Callable[[dict[str, Any]], _IndexT],
         parse_detail: Callable[[dict[str, Any]], _DetailT],
         resource_label: str,
-    ) -> tuple[dict[str, _IndexT], dict[str, _DetailT]]:
+    ) -> tuple[dict[str, _IndexT], dict[str, _DetailT], int]:
         """インデックスと詳細を読み込む共通処理。
 
         Returns:
-            (インデックス辞書, 詳細辞書)
+            (インデックス辞書, 詳細辞書, スキップ数)
         """
         base_dir = data_dir / sub_dir
         index_path = base_dir / "index.yaml"
@@ -330,10 +346,12 @@ class CatalogStore:
 
         # 詳細読み込み
         details: dict[str, _DetailT] = {}
+        skipped = 0
         if details_path.is_dir():
             for yaml_path in sorted(details_path.glob("*.yaml")):
                 validated = _load_and_validate_yaml(yaml_path, id_field)
                 if validated is None:
+                    skipped += 1
                     continue
                 name = validated[id_field]
                 details[name] = parse_detail(validated)
@@ -352,9 +370,9 @@ class CatalogStore:
             len(indexes),
             len(details),
         )
-        return indexes, details
+        return indexes, details, skipped
 
-    def load_all(self, data_dir: Path) -> dict[str, int]:
+    def load_all(self, data_dir: Path) -> dict[str, LoadResult]:
         """全リソース（テーブル、用語、ロジック）を読み込む。"""
         return {
             "tables": self.load_tables(data_dir),
@@ -365,26 +383,28 @@ class CatalogStore:
     @staticmethod
     def _load_external_tables(
         data_dir: Path,
-    ) -> tuple[dict[str, TableIndex], dict[str, TableDetail]]:
+    ) -> tuple[dict[str, TableIndex], dict[str, TableDetail], int]:
         """catalog/external/ から外部テーブル定義を読み込む。"""
         indexes: dict[str, TableIndex] = {}
         details: dict[str, TableDetail] = {}
+        skipped = 0
         external_dir = data_dir / "catalog" / "external"
         if not external_dir.is_dir():
-            return indexes, details
+            return indexes, details, skipped
         for yaml_file in sorted(external_dir.glob("*.yaml")):
             validated = _load_and_validate_yaml(yaml_file, "table_name")
             if validated is None:
+                skipped += 1
                 continue
             name = validated["table_name"]
             indexes[name] = _parse_table_index(validated)
             details[name] = _parse_table_detail(validated)
             logger.info("Loaded external table: %s (%s)", name, yaml_file.name)
-        return indexes, details
+        return indexes, details, skipped
 
-    def load_tables(self, data_dir: Path) -> int:
+    def load_tables(self, data_dir: Path) -> LoadResult:
         """data_dir/catalog/ からインデックスと詳細を読み込む。"""
-        indexes, details = self._load_resource(
+        indexes, details, skipped = self._load_resource(
             data_dir=data_dir,
             sub_dir="catalog",
             detail_dir="tables",
@@ -396,17 +416,18 @@ class CatalogStore:
         )
 
         # catalog/external/ からも読み込み
-        ext_indexes, ext_details = self._load_external_tables(data_dir)
+        ext_indexes, ext_details, ext_skipped = self._load_external_tables(data_dir)
         indexes.update(ext_indexes)
         details.update(ext_details)
 
         self._indexes = indexes
         self._details = details
-        return len(indexes)
+        total_skipped = skipped + ext_skipped
+        return self._finalize_load("tables", len(indexes), total_skipped)
 
-    def load_terms(self, data_dir: Path) -> int:
+    def load_terms(self, data_dir: Path) -> LoadResult:
         """data_dir/glossary/ からインデックスと詳細を読み込む。"""
-        indexes, details = self._load_resource(
+        indexes, details, skipped = self._load_resource(
             data_dir=data_dir,
             sub_dir="glossary",
             detail_dir="terms",
@@ -419,7 +440,7 @@ class CatalogStore:
         self._term_indexes = indexes
         self._term_details = details
         self._build_term_search_index()
-        return len(indexes)
+        return self._finalize_load("terms", len(indexes), skipped)
 
     def _build_term_search_index(self) -> None:
         """全用語詳細から aliases と related_terms を読み込み、検索インデックスを構築する。"""
@@ -432,10 +453,10 @@ class CatalogStore:
         self._term_search_index = index
         logger.info("Term search index built: %d entries", len(index))
 
-    def load_logic(self, data_dir: Path) -> int:
+    def load_logic(self, data_dir: Path) -> LoadResult:
         """data_dir/logic/ からインデックスとメタ情報を読み込む。"""
         self._data_dir = data_dir
-        indexes, metas = self._load_resource(
+        indexes, metas, skipped = self._load_resource(
             data_dir=data_dir,
             sub_dir="logic",
             detail_dir="meta",
@@ -447,7 +468,7 @@ class CatalogStore:
         )
         self._logic_indexes = indexes
         self._logic_metas = metas
-        return len(indexes)
+        return self._finalize_load("logic", len(indexes), skipped)
 
     def get_all_logic_indexes(self) -> list[LogicIndex]:
         return list(self._logic_indexes.values())
