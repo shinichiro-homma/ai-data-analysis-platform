@@ -40,9 +40,10 @@ def reload_catalog(
     return {
         "data": {
             "status": "reloaded",
-            "tables_loaded": loaded["tables"],
-            "terms_loaded": loaded["terms"],
-            "logic_loaded": loaded["logic"],
+            "tables_loaded": loaded["tables"]["loaded"],
+            "terms_loaded": loaded["terms"]["loaded"],
+            "logic_loaded": loaded["logic"]["loaded"],
             "reload_time_ms": elapsed_ms,
+            "skipped_files": new_store.skipped_files,
         }
     }

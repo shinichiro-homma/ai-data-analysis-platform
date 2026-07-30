@@ -14,3 +14,8 @@ def test_health(client: TestClient) -> None:
     assert data["catalog"]["terms"] == 3
     assert data["catalog"]["logic"] == 2
     assert "last_reload" in data["catalog"]
+    # skipped_files: 正常データでは全て 0
+    assert "skipped_files" in data["catalog"]
+    assert data["catalog"]["skipped_files"]["tables"] == 0
+    assert data["catalog"]["skipped_files"]["terms"] == 0
+    assert data["catalog"]["skipped_files"]["logic"] == 0
