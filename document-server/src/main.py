@@ -5,13 +5,18 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI
+import pydantic
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from .auth import verify_token
 from .catalog_loader import CatalogStore
 from .config import CORS_ORIGINS, DATA_DIR, DATA_ENV
+from .exceptions import AppError
+from .responses import error_response
 from .routers import admin, logic, tables, terms
 
 logging.basicConfig(
@@ -81,3 +86,27 @@ protected_router.include_router(logic.router)
 protected_router.include_router(admin.router)
 
 app.include_router(protected_router)
+
+
+# --- Exception handlers ---
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+    return error_response(exc.status_code, exc.code, exc.message)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    return error_response(422, "VALIDATION_ERROR", str(exc))
+
+
+@app.exception_handler(pydantic.ValidationError)
+async def pydantic_validation_error_handler(_request: Request, exc: pydantic.ValidationError) -> JSONResponse:
+    return error_response(422, "VALIDATION_ERROR", str(exc))
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled exception: %s", exc)
+    return error_response(500, "INTERNAL_ERROR", "Internal server error")

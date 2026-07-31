@@ -201,3 +201,37 @@ class LogicMeta(BaseModel):
     _strip_notes = field_validator("notes", mode="before")(_strip_string)
     _strip_output_description = field_validator("output_description", mode="before")(_strip_string)
     _strip_usage_context = field_validator("usage_context", mode="before")(_strip_string)
+
+
+# --- Error / wrapper response models ---
+
+
+class ReloadData(BaseModel):
+    """カタログリロード結果のデータ。"""
+
+    status: str
+    tables_loaded: int
+    terms_loaded: int
+    logic_loaded: int
+    reload_time_ms: int
+    skipped_files: dict[str, int]
+
+
+class ReloadResponse(BaseModel):
+    """カタログリロードレスポンス。"""
+
+    data: ReloadData
+
+
+class LogicCodeData(BaseModel):
+    """ロジックコード取得結果のデータ。"""
+
+    logic_name: str
+    language: str
+    code: str
+
+
+class LogicCodeResponse(BaseModel):
+    """ロジックコード取得レスポンス。"""
+
+    data: LogicCodeData

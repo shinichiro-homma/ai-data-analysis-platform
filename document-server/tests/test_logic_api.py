@@ -92,6 +92,11 @@ def test_get_logic_meta_all_not_found(client: TestClient) -> None:
 def test_get_logic_meta_empty_names(client: TestClient) -> None:
     resp = client.post("/logic/meta", json={"logic_names": []})
     assert resp.status_code == 422
+    body = resp.json()
+    assert "error" in body, f"Expected 'error' key in response, got: {body}"
+    error = body["error"]
+    assert error["code"] == "VALIDATION_ERROR"
+    assert "message" in error
 
 
 # --- GET /logic/code/{logic_name} ---

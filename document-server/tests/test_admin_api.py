@@ -84,9 +84,11 @@ def test_reload_failure_keeps_old_catalog(
     # Act: reload を実行（失敗を期待）
     resp_reload = client.post("/admin/reload")
 
-    # Assert: 400 + CATALOG_LOAD_ERROR
+    # Assert: 400 + CATALOG_LOAD_ERROR + message 存在
     assert resp_reload.status_code == 400
-    assert resp_reload.json()["error"]["code"] == "CATALOG_LOAD_ERROR"
+    error = resp_reload.json()["error"]
+    assert error["code"] == "CATALOG_LOAD_ERROR"
+    assert "message" in error
 
     # 旧データが維持されていること
     monkeypatch.undo()
