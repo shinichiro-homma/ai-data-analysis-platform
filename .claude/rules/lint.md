@@ -14,6 +14,13 @@ paths:
 
 - 反復中のスコープ実行（`.claude/rules/tdd.md` の「テスト実行コマンドの規律」参照）。保存時の自動整形は format-on-save hook が担い、フェーズ締めのフルゲート（lint 込みの `scripts/test.sh --quiet {コンポーネント名}`）を必ず通すこと
 
+## ruff ASYNC ルールの方針（Python 3 コンポーネント）
+
+`docs/design/invariants.md` の I3（async コンテキストでブロッキング I/O をしない）を機械検知するため、ruff の `ASYNC` を `select` に入れている。選択状況・抑制対象の具体は各コンポーネントの `pyproject.toml` が正。
+
+- **ASYNC240 は部分的な網であり、I3 の保証ではない。** ruff は `Path(p).resolve()` のように `Path(...)` から直接メソッドを呼ぶ形は検知するが、`d = Path(root) / name` のように join を挟むと型推論が切れて以降のメソッド呼び出しを検知しない。pandas の `df.to_csv()` のようなライブラリ経由の I/O も原理的に検知できない。**ゲートがグリーンでも async 関数内のブロッキング I/O は残りうる**ため、レビュー時は目視でも確認する。オフロードが必要な場合は `_{名前}_sync()` を定義して `loop.run_in_executor(None, ...)` から呼ぶ既存イディオムに揃える
+- **ASYNC109（async 関数の `timeout` 引数）はコンポーネント全体の `ignore` にせず、`[tool.ruff.lint.per-file-ignores]` で既存の該当ファイルに限定する。** `timeout` は REST API が公開するパラメータの契約であり、ロック取得後の deadline 計算や二段構えのタイムアウトなど呼び出し側の `asyncio.timeout` では代替できない実装になっているため抑制自体は妥当だが、全体 `ignore` にすると将来の新規 async 関数まで恒久的に検知外になる。新規ファイルで ASYNC109 が出た場合は、抑制対象を増やす前に `asyncio.timeout` で代替できないかを検討する
+
 ## lint 失敗時の対応
 
 1. `lint.sh` のエラー出力から問題箇所と原因を読み取る

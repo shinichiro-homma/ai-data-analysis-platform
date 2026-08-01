@@ -19,8 +19,16 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC"]
 ignore = ["E501"]
+
+# ASYNC109: REST API が timeout パラメータを公開する契約のため、async 関数が
+# timeout 引数を取るのは意図的。内部でロック取得後の deadline 計算や
+# asyncio.wait_for(..., timeout + 5) の二段構えを行っており、呼び出し側の
+# asyncio.timeout では代替できない。新規ファイルでは検知させたいため全体 ignore にはしない
+[tool.ruff.lint.per-file-ignores]
+"extensions/custom_api/kernel_executor.py" = ["ASYNC109"]
+"extensions/custom_api/sql_handlers.py" = ["ASYNC109"]
 
 [tool.ruff.format]
 quote-style = "double"
