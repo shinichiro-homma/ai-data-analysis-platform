@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy as _copy
 import logging
 import re
@@ -34,6 +35,17 @@ log = logging.getLogger(__name__)
 # =============================================================================
 # ヘルパー関数
 # =============================================================================
+
+
+def _resolve_workspace_id_from_cwd_sync(cwd: str) -> str | None:
+    """カーネルの cwd からワークスペース ID を推定する（同期のパス解決を含む）。
+
+    cwd がワークスペースルート配下にない場合、relative_to が ValueError を送出する。
+    呼び出し側の except で捕捉される想定。
+    """
+    workspace_root = Path(WORKSPACE_ROOT_DIR).resolve()
+    rel = Path(cwd).resolve().relative_to(workspace_root)
+    return str(rel.parts[0]) if rel.parts else None
 
 
 async def resolve_workspace_for_kernel(handler: BaseCustomHandler, kernel_id: str) -> tuple[Path | None, str | None]:
@@ -84,10 +96,8 @@ async def resolve_workspace_for_kernel(handler: BaseCustomHandler, kernel_id: st
                 if provisioner:
                     cwd = getattr(provisioner, "cwd", None)
             if cwd:
-                workspace_root = Path(WORKSPACE_ROOT_DIR).resolve()
-                rel = Path(cwd).resolve().relative_to(workspace_root)
-                if rel.parts:
-                    workspace_id = str(rel.parts[0])
+                loop = asyncio.get_running_loop()
+                workspace_id = await loop.run_in_executor(None, _resolve_workspace_id_from_cwd_sync, cwd)
         except Exception as exc:
             if isinstance(exc, ValueError):
                 log.info("Failed to resolve workspace from kernel cwd", exc_info=True)

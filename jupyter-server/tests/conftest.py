@@ -4,9 +4,16 @@ pytest conftest.py — テストセッション全体の共有フィクスチャ
 custom_api.__init__ を tests/test_kernel_crash_recovery.py から
 `from custom_api import __init__ as init_module` でアクセスできるよう、
 セッション開始時に custom_api パッケージの __init__ 属性を設定する。
+
+あわせて、sandbox コードが書き換えるグローバル属性をテストごとに復元する
+（下記 restore_sandbox_patched_globals を参照）。
 """
 
+import asyncio
+import builtins
 import importlib.util
+import os
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -14,6 +21,39 @@ from pathlib import Path
 import pytest
 
 _ext_dir = Path(__file__).resolve().parent.parent / "extensions"
+
+# workspace_sandbox.generate_sandbox_code() が返すコードは、多層防御として
+# プロセス全体の builtins / os / subprocess / asyncio / pathlib.Path の属性を差し替える
+# （builtins.open・os.chdir・os.system・subprocess.run・Path.open 等。
+# 対象は workspace_sandbox.py が正）。
+# このコードを exec() するテスト（test_ipython_magic_disable.py /
+# test_kernel_crash_recovery.py / test_workspace_sandbox.py）は差し替えを元に戻さないため、
+# 復元しないと以降の全テストが sandbox の効いた状態で走る。
+# builtins を外すと、パッチ済み open が他 WS パスを PermissionError で拒否する状態が
+# ファイルを跨いで残る（さらに次の exec が _sandbox_open を多重にラップする）。
+_SANDBOX_PATCHED_MODULES = (asyncio, builtins, os, subprocess)
+
+
+@pytest.fixture(autouse=True)
+def restore_sandbox_patched_globals():
+    """sandbox コードによるグローバル属性の書き換えをテストごとに巻き戻す。
+
+    autouse かつ conftest 定義のため、テストモジュール側の autouse フィクスチャより
+    先に入って後に出る。これによりテスト境界を越えて汚染が漏れない。
+    """
+    saved_modules = [(module, dict(vars(module))) for module in _SANDBOX_PATCHED_MODULES]
+    saved_path = {name: value for name, value in vars(Path).items() if not name.startswith("__")}
+
+    yield
+
+    for module, saved in saved_modules:
+        for name, original in saved.items():
+            if getattr(module, name, None) is not original:
+                setattr(module, name, original)
+
+    for name, original in saved_path.items():
+        if getattr(Path, name, None) is not original:
+            setattr(Path, name, original)
 
 
 def _load_init_module():

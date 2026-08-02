@@ -26,3 +26,13 @@ Phase 22（jupyter-mcp 構造改善）で主要部分は解消したが、境界
 |---|--------|-----------|-----------|------|
 | 25.1 | session-resolver: 接続断とリソース未発見の区別 | [ ] | jupyter-server 停止中に session 系ツールを呼ぶと「接続不可」と分かるエラーが返り、存在しない session_id の場合と区別できる | `utils/session-resolver.ts:55-61` が listSessions 失敗時に stale キャッシュへフォールバックし、再起動後に誤誘導する |
 | 25.2 | jupyter-client の未検証レスポンスへの zod 適用 | [ ] | 契約違反のレスポンスを返すモックに対し、「形式不正」と分かるエラーが返る（`Cannot read properties of undefined` にならない） | `jupyter-client/client.ts` の `getVariable` / `getFileContent` が `validateResponse` を経由していない。不変条件 I4 |
+
+---
+
+## Phase 26: ruff で検知できない I3 違反の解消
+
+タスク 11.2（ruff ASYNC ルールの有効化）のスコープ外として残した、ライブラリ経由のブロッキング I/O。ruff の ASYNC240 は pandas 等のライブラリ呼び出しを原理的に検知できないため（`.claude/rules/lint.md` の「ruff ASYNC ルールの方針」参照）、ゲートがグリーンでも残存する。
+
+| # | タスク | ステータス | E2Eテスト | 備考 |
+|---|--------|-----------|-----------|------|
+| 26.1 | SQL エクスポートの CSV 書き出しをオフロード | [ ] | 大量行の SQL エクスポート実行中に別リクエスト（セッション一覧取得等）を投げても待たされずに応答が返る。書き出し中にディスクエラーが起きた場合はエラーレスポンスが返り、握りつぶされない | `sql_handlers.py:697` の `df.to_csv()` が最大 100 万行を event loop 上で書き出す。不変条件 I3 違反だが ruff では検知できない。既存の `_export_sql_sync` / `run_in_executor` イディオムに揃える |

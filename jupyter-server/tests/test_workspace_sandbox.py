@@ -11,7 +11,9 @@ monkey patch が正しく設定されることを検証する。
 - 回帰テスト: ワークスペース外ファイルアクセス制限が引き続き動作する
 """
 
+import builtins
 import importlib.util
+import io
 import os
 import sys
 import tempfile
@@ -310,3 +312,57 @@ class TestFileRenameBlocked:
         os.replace(src, dst)
         assert os.path.exists(dst)
         assert not os.path.exists(src)
+
+
+class TestBuiltinsRestoredBetweenTests:
+    """conftest の restore_sandbox_patched_globals が builtins も巻き戻すことの検証
+
+    sandbox コードは `import builtins as _b` → `_b.open = _sandbox_open` で
+    プロセス全体の builtins.open を差し替える（workspace_sandbox.py:49,119）。
+    conftest の autouse フィクスチャがこれを復元しないと、以降の全テスト
+    （ファイルを跨ぐ）がパッチされた open を掴んだまま走る。
+
+    pytest はファイル内のテストを定義順に実行するため、
+    「1 つ目で exec → 2 つ目で復元済みを assert」という順序で汚染を検知する。
+    io.open は sandbox が触らない、パッチ前の組み込み open と同一のオブジェクト。
+    """
+
+    # 1 つ目のテストが作った他ワークスペースのファイル。3 つ目のテストが参照する
+    leaked_other_ws_file: str | None = None
+
+    def test_sandbox_patches_builtins_open(self, tmp_path):
+        """前提の確認: sandbox コードの exec は builtins.open を差し替える"""
+        ws_root = tmp_path / "workspaces"
+        ws_dir = ws_root / "ws-001"
+        other_ws = ws_root / "ws-002"
+        ws_dir.mkdir(parents=True)
+        other_ws.mkdir(parents=True)
+        other_file = other_ws / "secret.txt"
+        other_file.write_text("secret data")
+        # 後続テストが「漏れた制限」を検知できるよう、exec 前にパスを共有する
+        type(self).leaked_other_ws_file = str(other_file)
+
+        assert builtins.open is io.open, "テスト開始時点で builtins.open が汚染されている"
+
+        _exec_sandbox(str(ws_dir), "ws-001")
+
+        assert builtins.open is not io.open
+        assert builtins.open.__name__ == "_sandbox_open"
+
+    def test_builtins_open_restored_after_sandbox_test(self):
+        """前テストの sandbox パッチがテスト境界を越えて漏れていない"""
+        assert builtins.open is io.open, (
+            f"builtins.open が組み込みに復元されていない: {builtins.open!r}。"
+            "conftest の _SANDBOX_PATCHED_MODULES に builtins が含まれているか確認する"
+        )
+
+    def test_other_workspace_of_previous_test_readable(self):
+        """機能面の確認: 前テストの sandbox が課した制限が本テストに残っていない
+
+        復元されていなければ、漏れた _sandbox_open が前テストの
+        ワークスペースルート配下の他 WS パスを PermissionError で拒否する。
+        """
+        assert self.leaked_other_ws_file is not None, "先行テストが実行されていない"
+
+        with open(self.leaked_other_ws_file) as f:
+            assert f.read() == "secret data"
