@@ -23,6 +23,7 @@ paths:
 | `scripts/smoke-test.sh` | Docker 環境のスモークテスト | — |
 | `scripts/check-freshness.sh` | Docker 環境の鮮度チェック | `--strict`（古いと exit 1）/ `--rebuild`（古ければ自動リビルド） |
 | `scripts/check-docs-consistency.py` | ドキュメント整合性の機械検証（MCPツール名・エンドポイント・リンク切れ。CI でも常時実行） | `uv run python scripts/check-docs-consistency.py` で実行 |
+| `scripts/check-file-size.py` | ファイルサイズ予算のラチェット検査（CI でも常時実行） | `--update`（縮小・陳腐エントリ削除を反映）/ `--init`（初期ベースライン生成・初回限定）/ `--print-baseline`（現状を stdout に出力） |
 | `scripts/rebuild-mcp.sh [SERVER]` | MCP サーバーのビルド | — |
 | `scripts/rebuild.sh [SERVICE]` | Docker コンテナのリビルド・起動（postgres データ自動更新付き、MCP は含まない） | `postgres`（DB のみ再初期化）/ `--clean`（常に再初期化）/ `--verify`（完了後にスモークテスト） |
 | `scripts/switch-env.sh [ENV]` | データ環境の切り替え（既存データありならスキップ確認） | `--force-reload`（強制再ロード） |

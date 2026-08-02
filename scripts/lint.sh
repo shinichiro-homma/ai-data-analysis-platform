@@ -53,7 +53,7 @@ ruff_targets() {
   case "$component" in
     document-server) echo "document-server/src/ document-server/tests/" ;;
     jupyter-server)  echo "jupyter-server/extensions/ jupyter-server/tests/" ;;
-    scripts)         echo "scripts/*.py scripts/lib/*.py" ;;
+    scripts)         echo "scripts/*.py scripts/lib/*.py scripts/tests/*.py" ;;
   esac
 }
 
