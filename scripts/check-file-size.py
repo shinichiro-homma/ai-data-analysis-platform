@@ -179,18 +179,37 @@ def _collect_counts(root: Path) -> dict[str, int]:
     return counts
 
 
-def _load_baseline(path: Path) -> dict[str, int]:
-    """ベースライン JSON を読み込む。"""
+def _load_baseline(path: Path) -> tuple[dict[str, int] | None, str | None]:
+    """ベースライン JSON を読み込む（純粋関数）。
+
+    Returns:
+        (parsed_baseline, error) のタプル。error が None なら parsed_baseline が有効。
+    """
     if not path.exists():
-        return {}
+        return {}, None
     text = path.read_text(encoding="utf-8").strip()
     if not text:
-        return {}
+        return {}, None
     try:
-        return json.loads(text)
+        data = json.loads(text)
     except json.JSONDecodeError as exc:
-        print(f"NG: {path} の JSON が不正です: {exc}", file=sys.stderr)
-        sys.exit(1)
+        return None, f"{path} の JSON が不正です: {exc}"
+
+    if not isinstance(data, dict):
+        return None, f"{path} の形式が不正です: トップレベルはオブジェクトである必要があります"
+    for key, value in data.items():
+        if not isinstance(key, str) or not isinstance(value, int) or isinstance(value, bool):
+            return None, (f"{path} の形式が不正です: {key!r} の値は整数である必要があります（実際: {value!r}）")
+    return data, None
+
+
+def _report_ng(header: str, items: list[str], *, epilog: str | None = None) -> None:
+    """NG 出力を統一フォーマットで stderr に書く。"""
+    print(header, file=sys.stderr)
+    for item in items:
+        print(f"  - {item}", file=sys.stderr)
+    if epilog is not None:
+        print(epilog, file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -221,24 +240,24 @@ def main(argv: list[str] | None = None) -> int:
             existing_text = BASELINE_PATH.read_text(encoding="utf-8")
         result, reasons = plan_init(existing_text, counts)
         if result is None:
-            for r in reasons:
-                print(f"NG: {r}", file=sys.stderr)
+            _report_ng("NG: 初期ベースラインの生成に失敗しました", reasons)
             return 1
         write_baseline(BASELINE_PATH, result)
         print(f"OK: ベースラインを生成しました（{len(result)} 件）")
         return 0
 
-    baseline = _load_baseline(BASELINE_PATH)
+    baseline, load_error = _load_baseline(BASELINE_PATH)
+    if baseline is None:
+        _report_ng("NG: ベースラインの読み込みに失敗しました", [load_error] if load_error else [])
+        return 1
 
     if args.update:
         updated, errors = plan_update(counts, baseline)
         if errors:
-            print(
-                f"NG: 拡大が必要なエントリがあるためベースラインを更新できません（{len(errors)} 件）\n",
-                file=sys.stderr,
+            _report_ng(
+                f"NG: 拡大が必要なエントリがあるためベースラインを更新できません（{len(errors)} 件）",
+                errors,
             )
-            for e in errors:
-                print(f"  - {e}", file=sys.stderr)
             return 1
         write_baseline(BASELINE_PATH, updated)
         removed = len(baseline) - len(updated)
@@ -248,9 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_baseline:
         result, reasons = plan_print_baseline(counts, baseline)
         if result is None:
-            print("NG: ゲートが赤の状態ではベースラインを出力できません\n", file=sys.stderr)
-            for r in reasons:
-                print(f"  - {r}", file=sys.stderr)
+            _report_ng("NG: ゲートが赤の状態ではベースラインを出力できません", reasons)
             return 1
         sys.stdout.write(serialize_baseline(result))
         return 0
@@ -258,14 +275,14 @@ def main(argv: list[str] | None = None) -> int:
     # デフォルト: 検査モード
     errors, hints = evaluate(counts, baseline)
     if errors:
-        print(f"NG: ファイルサイズ予算エラー {len(errors)} 件\n", file=sys.stderr)
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
-        print(
-            "\n対処: ファイルを分割して予算内に収めるか、やむを得ない場合は"
-            " scripts/file-size-baseline.json の該当エントリを手編集し、"
-            "理由を PR に書くこと。陳腐エントリは --update で削除できます。",
-            file=sys.stderr,
+        _report_ng(
+            f"NG: ファイルサイズ予算エラー {len(errors)} 件",
+            errors,
+            epilog=(
+                "対処: ファイルを分割して予算内に収めるか、やむを得ない場合は"
+                " scripts/file-size-baseline.json の該当エントリを手編集し、"
+                "理由を PR に書くこと。陳腐エントリは --update で削除できます。"
+            ),
         )
         return 1
 

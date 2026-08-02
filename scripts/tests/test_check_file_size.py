@@ -1,7 +1,8 @@
-"""scripts/check-file-size.py の判定ロジックのテスト（全 14 ケース）
+"""scripts/check-file-size.py の判定ロジックのテスト（全 20 ケース）
 
 ケース 1-11: 純粋関数テスト（辞書リテラルで直接呼ぶ。ファイル I/O なし）
-ケース 12-14: 実リポジトリに対するテスト
+ケース 12-17: _load_baseline() テスト（tmp_path で一時ファイル I/O）
+ケース 18-20: 実リポジトリに対するテスト
 
 依存: pytest のみ（scripts/check-file-size.py は標準ライブラリのみ）
 """
@@ -209,6 +210,62 @@ class TestPlanBaseline:
         result, reasons = _mod.plan_init(None, counts)
         assert result == {"src/big.py": 501, "src/huge.py": 890}
         assert reasons == []
+
+
+class TestLoadBaseline:
+    """_load_baseline() の純粋関数テスト（一時ファイルで I/O）"""
+
+    def test_missing_file_returns_empty_dict(self, tmp_path: Path) -> None:
+        """ファイル不存在は空 dict・エラーなし"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        result, error = _mod._load_baseline(tmp_path / "no-such-file.json")
+        assert result == {}
+        assert error is None
+
+    def test_empty_file_returns_empty_dict(self, tmp_path: Path) -> None:
+        """空ファイル（空白のみ含む）は空 dict・エラーなし"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        path = tmp_path / "empty.json"
+        path.write_text("  \n", encoding="utf-8")
+        result, error = _mod._load_baseline(path)
+        assert result == {}
+        assert error is None
+
+    def test_valid_json_returns_dict(self, tmp_path: Path) -> None:
+        """正常な JSON はパース結果の dict・エラーなし"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        path = tmp_path / "baseline.json"
+        path.write_text('{"src/a.py": 600}', encoding="utf-8")
+        result, error = _mod._load_baseline(path)
+        assert result == {"src/a.py": 600}
+        assert error is None
+
+    def test_invalid_json_returns_error(self, tmp_path: Path) -> None:
+        """JSON パースエラーは None・エラーメッセージ"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        path = tmp_path / "broken.json"
+        path.write_text("{not valid json", encoding="utf-8")
+        result, error = _mod._load_baseline(path)
+        assert result is None
+        assert error is not None
+
+    def test_non_dict_json_returns_error(self, tmp_path: Path) -> None:
+        """トップレベルが dict でない場合は None・エラーメッセージ"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        path = tmp_path / "list.json"
+        path.write_text("[1, 2, 3]", encoding="utf-8")
+        result, error = _mod._load_baseline(path)
+        assert result is None
+        assert error is not None
+
+    def test_non_int_value_returns_error(self, tmp_path: Path) -> None:
+        """値が int でない場合は None・エラーメッセージ"""
+        assert _mod is not None, _NOT_IMPLEMENTED
+        path = tmp_path / "bad-value.json"
+        path.write_text('{"src/a.py": "not-an-int"}', encoding="utf-8")
+        result, error = _mod._load_baseline(path)
+        assert result is None
+        assert error is not None
 
 
 class TestIterSourceFiles:
