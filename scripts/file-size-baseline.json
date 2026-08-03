@@ -1,0 +1,19 @@
+{
+  "document-mcp/tests/integration/catalog-integration.test.ts": 601,
+  "document-server/src/catalog_loader.py": 521,
+  "document-server/tests/test_catalog_loader.py": 571,
+  "jupyter-mcp/src/jupyter-client/client.ts": 739,
+  "jupyter-mcp/src/jupyter-client/types.ts": 515,
+  "jupyter-mcp/tests/integration/notebook-operations.test.ts": 837,
+  "jupyter-mcp/tests/integration/phase17-tools.test.ts": 605,
+  "jupyter-mcp/tests/unit/jupyter-client/schemas.test.ts": 688,
+  "jupyter-mcp/tests/unit/tools/execute-code.test.ts": 837,
+  "jupyter-mcp/tests/unit/tools/execute-sql.test.ts": 663,
+  "jupyter-server/extensions/custom_api/cell_handlers.py": 842,
+  "jupyter-server/extensions/custom_api/sql_handlers.py": 890,
+  "jupyter-server/tests/test_ai_events.py": 585,
+  "jupyter-server/tests/test_code_validator.py": 534,
+  "jupyter-server/tests/test_kernel_executor_serialization.py": 512,
+  "jupyter-server/tests/test_notebook_locks.py": 720,
+  "jupyterlab-ai-sync/src/notebook-updater.ts": 580
+}

@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 REPO_ROOT="$(pwd)"
 source scripts/lib/common.sh
 
-COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync hooks)
+COMPONENTS=(jupyter-mcp document-mcp document-server jupyter-server jupyterlab-ai-sync scripts hooks)
 
 usage() {
   cat <<EOF
@@ -19,6 +19,7 @@ COMPONENT:
   document-server       Document サーバー
   jupyter-server        Jupyter サーバー
   jupyterlab-ai-sync    JupyterLab AI 同期拡張
+  scripts               運用スクリプト（scripts/tests/）
   hooks                 Claude Code hooks（.claude/hooks/tests/*.test.sh）
   (省略時は全コンポーネント)
 
@@ -170,9 +171,9 @@ if $LINT; then
     [[ "$_t" == "hooks" ]] && continue
     LINT_TARGETS+=("$_t")
   done
-  # Always include mcp-shared and scripts when running all components
+  # Always include mcp-shared when running all components
   if [[ ${#TARGETS[@]} -eq ${#COMPONENTS[@]} ]]; then
-    LINT_TARGETS+=("mcp-shared" "scripts")
+    LINT_TARGETS+=("mcp-shared")
   fi
   if [[ ${#LINT_TARGETS[@]} -eq 0 ]]; then
     echo "  SKIP: no lint targets (hooks only)"
