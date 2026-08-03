@@ -371,6 +371,24 @@ jobs:
         run: npm --prefix jupyterlab-ai-sync audit --audit-level=high
 
   # ──────────────────────────────────────────────
+  # jscpd コピペ検出（参考 — 重複率を可視化する。テストコード等の構造的な重複を含むため
+  # 誤検知の切り分け期間として CI はブロックしない → informational）
+  # ──────────────────────────────────────────────
+  jscpd:
+    name: jscpd (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run jscpd
+        run: npx jscpd@4.0.5
+
+  # ──────────────────────────────────────────────
   # パフォーマンステスト（参考 — 失敗しても CI をブロックしない）
   # ──────────────────────────────────────────────
   performance-test:
